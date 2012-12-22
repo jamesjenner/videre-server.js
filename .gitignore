@@ -1,0 +1,3 @@
+# ignore node.js files #
+########################
+node_modules
