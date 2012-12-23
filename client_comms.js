@@ -1,6 +1,18 @@
+/*
+var vehicle       = require('./videre-common/js/vehicle.js');
+var videre_comms  = require('./videre-common/js/videre_comms.js');
+*/
+
+var fs = require('fs');
+
+// load common js files shared with the videre client
+eval(fs.readFileSync('./videre-common/js/vehicle.js').toString());
+eval(fs.readFileSync('./videre-common/js/videre_comms.js').toString());
 
 var ws = require('websocket').server;
 var http = require('http');
+
+var vehicles = new Array();
 
 var server = http.createServer(function(request, response) {
     console.log((new Date()) + ' Received request for ' + request.url);
@@ -78,6 +90,110 @@ wsServer.on('request', function(request) {
     });
 });
 
+var MSG_ADD_VEHICLE = 'addVehicle';
 function processMessage(id, body) {
+    var msg = JSON.parse(body);
+
+    switch(id) {
+	case MSG_ADD_VEHICLE:
+	    addVehicle(msg);
+	    break;
+
+	case MSG_DELETE_VEHICLE:
+	    deleteVehicle(msg);
+	    break;
+
+	case MSG_UPDATE_VEHICLE:
+	    updateVehicle(msg);
+	    break;
+
+	case MSG_GET_VEHICLES:
+	    getVehicle();
+	    break;
+
+	case MSG_CMD_EMERGENCY_STOP:
+	    break;
+	case MSG_CMD_LEFT:
+	    break;
+	case MSG_CMD_RIGHT:
+	    break;
+	case MSG_CMD_FORWARD:
+	    break;
+	case MSG_CMD_REVERSE:
+	    break;
+	case MSG_CMD_UP:
+	    break;
+	case MSG_CMD_DOWN:
+	    break;
+	default:
+            console.log((new Date()) + ' Unknown message received for id : ' + id);
+	    break;
+    }
 }
-    
+
+function addVehicle(msg) {
+    var i = vehicles.length;
+    vehicles[i] = new Vehicle(msg);
+    console.log((new Date()) + ' Adding vehicle ' + msg.name);
+}
+
+function deleteVehicle(msg) {
+    // if the message isn't set and the name isn't set then do nothing
+    if(!msg && !msg.name) {
+        console.log((new Date()) + ' Delete vehicle failed, msg.name is not specififed.');
+	return;
+    }
+
+    // find the vehicle
+    var position = findVehicle(msg.name);
+
+    // remove from the array if found
+    if(position >= 0) {
+        vehicles.splice(position, 1);
+    } else {
+        console.log((new Date()) + ' Delete vehicle failed, vehicle not found for: ' + msg.name);
+    }
+}
+
+function updateVehicle(msg) {
+    // if the message isn't set and the name isn't set then do nothing
+    if(!msg && !msg.name) {
+        console.log((new Date()) + ' Update vehicle failed, msg.name is not specififed.');
+	return;
+    }
+
+    // find the vehicle
+    var position = findVehicle(msg.name);
+
+    if(position >= 0) {
+        vehicles[position] = new Vehicle(msg);
+    } else {
+        console.log((new Date()) + ' Update vehicle failed, vehicle not found for: ' + msg.name);
+    }
+}
+
+/** 
+ * find Vehicle - finds the vehicle based on it's name
+ * 
+ * returns -1 if not found, otherwise the position in the vehicles array
+ */
+function findVehicle(name) {
+    var position = -1;
+
+    // if name isn't set then return
+    if(!name) {
+	return position;
+    }
+
+    for(var i = 0, l = vehicles.length; i < l; i++) {
+	if(vehicles[i].name === name) {
+	    position = i;
+	    break;
+	}
+    }
+
+    return position;
+}
+
+function getVehicles() {
+}
