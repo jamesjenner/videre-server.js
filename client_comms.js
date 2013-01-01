@@ -1,4 +1,22 @@
 /*
+ * client_comms.js v0.1 alpha
+ *
+ * Copyright (c) 2012 James G Jenner
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see http://www.gnu.org/licenses/
+ */
+
+/*
 var vehicle       = require('./videre-common/js/vehicle.js');
 var videre_comms  = require('./videre-common/js/videre_comms.js');
 */
@@ -108,7 +126,15 @@ function processMessage(id, body) {
 	    break;
 
 	case MSG_GET_VEHICLES:
-	    getVehicle();
+	    sendVehicles();
+	    break;
+
+	case MSG_GET_TELEMETERY:
+	    sendTelemetery();
+	    break;
+
+	case MSG_GET_PAYLOAD:
+	    sendPayload();
 	    break;
 
 	case MSG_CMD_EMERGENCY_STOP:
@@ -195,5 +221,24 @@ function findVehicle(name) {
     return position;
 }
 
-function getVehicles() {
+/** 
+ * send Vehicles - send all the vehicles 
+ */
+function sendVehicles() {
+}
+
+/** 
+ * send Telemetery - send the telemetery 
+ * 
+ * vehicleNbr   the vehicle to send telemetery for, if specified
+ */
+function sendTelemetery(vehicleNbr) {
+}
+
+/** 
+ * send Payload - send the most recent payload information
+ * 
+ * vehicleNbr   the vehicle to send payload for, if specified
+ */
+function sendPayload(vehicleNbr {
 }
