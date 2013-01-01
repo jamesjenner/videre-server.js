@@ -240,5 +240,5 @@ function sendTelemetery(vehicleNbr) {
  * 
  * vehicleNbr   the vehicle to send payload for, if specified
  */
-function sendPayload(vehicleNbr {
+function sendPayload(vehicleNbr) {
 }
