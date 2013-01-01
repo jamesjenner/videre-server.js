@@ -53,13 +53,18 @@ function originIsAllowed(origin) {
 }
 
 wsServer.on('request', function(request) {
+    console.log((new Date()) + ' Connection attempt from origin ' + request.origin +
+	      ', websocket ver: ' + request.webSocketVersion + 
+	      ', protocols : ' + request.requestedProtocols.length + 
+	      ' : ' + request.requestedProtocols);
 
     if(!originIsAllowed(request.origin)) {
 	// make sure we only accept requests from an allowed origin
 	request.reject();
-	console.log((new Date()) + ' Connection from origin ' + request.origin + ' rejected, invalid origin');
+	console.log((new Date()) + ' Connection rejected, invalid origin: ' + request.origin);
 	return;
     }
+
 
     var connection = null;
 
@@ -67,24 +72,18 @@ wsServer.on('request', function(request) {
     for(var i=0, l=request.requestedProtocols.length; i < l; i++) {
 	if(request.requestedProtocols[i] === 'videre_1.1') {
             connection = request.accept(request.requestedProtocols[i], request.origin);
-	    console.log(
-              (new Date()) + 
-	      ' Connection from origin ' + request.origin + 
-	      ' accepted, websocket ver: ' + connection.websocketVersion + 
-//               ' extensions: ' + request.requestedExtensions + 
-              ' protocol: ' + request.requestedProtocols[i]);
 	    break;
 	}
     }
-    //
+
     // test if no connection was created, due to no protocol match
     if(!connection) {
-	console.log((new Date()) + ' Connection from origin ' + request.origin + ' rejected, invalid protocol(s).');
+	console.log((new Date()) + ' Connection rejected, invalid protocol(s): ' + request.requestedProtocols);
         connection = request.reject();
 	return;
     }
 
-    console.log((new Date()) + ' Connection accepted.');
+    console.log((new Date()) + ' Connection accepted, protocol: ' + connection.protocol);
     connection.on('message', function(message) {
 	if (message.type === 'utf8') {
 	    console.log((new Date()) + ' Received message: ' + message.utf8Data);
