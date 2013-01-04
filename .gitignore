@@ -1,3 +1,5 @@
 # ignore node.js files #
 ########################
 node_modules
+vehicles.json
+test
