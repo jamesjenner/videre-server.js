@@ -19,4 +19,37 @@
 var videre_comms  = require('./videre-common/js/videre_comms.js');
 var vehicle       = require('./videre-common/js/vehicle.js');
 var client_comms  = require('./client_comms.js');
-var vehicle_comms = require('./vehicle_comms.js');
+// var vehicle_comms = require('./vehicle_comms.js');
+
+// var RemoteVehicle = require('./vehicle_comms.js').RemoteVehicle;
+// var parrot = require('./parrotArDrone.js').ParrotARDrone;
+
+// var test = exports;
+// exports.Parrot = require('./parrotArDrone.js');
+var Parrot = require('./vehicle/parrotArDroneV1.js');
+
+// var remoteVehicle = parrotARDrone.createVehicle();
+// var remoteVehicle = new test.Parrot({address: "192.168.1.3"});
+var remoteVehicle = new Parrot({address: "192.168.1.3"});
+
+remoteVehicle.on('telemetry', function(d) {processTelemetry(d);});
+
+remoteVehicle.testRun();
+
+function processTelemetry(d) {
+    console.log('videre-server: telemetry...');
+    console.log(d);
+}
+
+// add a watchdog to check if vehicles get added
+
+
+// if a vehicle is added then check to see if it should be configured
+
+
+// capture telemetry and pass to the clients
+
+
+// capture payload and pass to the clients
+
+// note: some devices may pass payload and telemetry together
