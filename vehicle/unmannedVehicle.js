@@ -17,15 +17,7 @@
  */
 
 var EventEmitter = require('events').EventEmitter;
-// var events = require('events');
 var util = require('util');
-//
-// var fs = require('fs');
-
-// load common js files shared with the videre client
-// eval(fs.readFileSync('./videre-common/js/telemetry.js').toString());
-// eval(fs.readFileSync('./videre-common/js/vehicle.js').toString());
-
 
 module.exports = UnmannedVehicle;
 
