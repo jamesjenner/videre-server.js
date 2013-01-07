@@ -250,7 +250,6 @@ function processMessage(self, connection, id, body) {
 
     switch(id) {
 	case MSG_ADD_VEHICLE:
-	    // addVehicle(msg);
             rcvdAddVehicle(self, msg);
 	    break;
 
