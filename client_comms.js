@@ -27,6 +27,7 @@ var http         = require('http');
 var https        = require('https');
 var fs           = require('fs');
 var ws           = require('websocket').server;
+var uuid         = require('node-uuid');
 
 // load common js files shared with the videre client
 eval(fs.readFileSync('./videre-common/js/vehicle.js').toString());
@@ -49,39 +50,36 @@ function ClientComms(options) {
     this.allowAddVehicle = options.allowAddVehicle || true;
     this.allowDeleteVehicle = options.allowDeleteVehicle || true;
     this.allowUpdateVehicle = options.allowUpdateVehicle || true;
-    this.enableHttpsServer = options.enableHttpsServer || true;
     this.port = options.port || 9007; // 80?
     this.securePort = options.securePort || 9008; // 443?
+    this.uuidV1 = options.uuidV1 || false;
+    this.allCommsSecure = options.allCommsSecure || false;
 
     users = User.load(USERS_FILE);
 }
 
 
 ClientComms.prototype.startClientServer = function() {
-    var httpServer = http.createServer(function(request, response) {
-        console.log((new Date()) + ' Received request for ' + request.url);
-        reponse.writeHead(404);
-        reponse.end();
-    });
+    var options = {
+	key: fs.readFileSync('keys/privatekey.pem'),
+	cert: fs.readFileSync('keys/certificate.pem')
+    };
 
-    var httpsServer = https.createServer(function(request, response) {
-        console.log((new Date()) + ' Received request for ' + request.url);
+    /*
+    options = {
+	pfx: fs.readFileSync('server.pfx');
+    };
+    */
+
+    var httpsServer = https.createServer(options, function(request, response) {
+        console.log((new Date()) + ' Https server received request for ' + request.url);
         reponse.writeHead(404);
         reponse.end();
     });
     var self = this;
 
-    httpServer.listen(this.port, function() {
-        console.log((new Date()) + ' Server is listening on port ' + this.port);
-    });
-
-    httpsServer.listen(this.securePort, function() {
-        console.log((new Date()) + ' Secure server is listening on port ' + this.securePort);
-    });
-
-    this.server = new ws({
-        httpServer: httpServer,
-        autoAcceptConnections: false
+    httpsServer.listen(self.securePort, function() {
+        console.log((new Date()) + ' Https server is listening on port ' + self.securePort);
     });
 
     this.secureServer = new ws({
@@ -89,8 +87,33 @@ ClientComms.prototype.startClientServer = function() {
         autoAcceptConnections: false
     });
 
-    this.server.on('request', function(request) {processConnectionAttempt(self, request, false);});
-    this.secureServer.on('request', function(request) {processConnectionAttempt(self, request, true);});
+    self.secureServer.on('request', function(request) {
+	console.log((new Date()) + ' secure server request');
+	processConnectionAttempt(self, request, true);
+    });
+
+    // only start up the unsecure comms if not all comms are to be secure
+    if(!self.allCommsSecure) {
+	var httpServer = http.createServer(function(request, response) {
+	    console.log((new Date()) + ' Http server received request for ' + request.url);
+	    reponse.writeHead(404);
+	    reponse.end();
+	});
+
+	httpServer.listen(self.port, function() {
+	    console.log((new Date()) + ' http server is listening on port ' + self.port);
+	});
+
+	self.server = new ws({
+	    httpServer: httpServer,
+	    autoAcceptConnections: false
+	});
+
+	self.server.on('request', function(request) {
+	    console.log((new Date()) + ' server request');
+	    processConnectionAttempt(self, request, false);
+        });
+    }
 }
 
 ClientComms.prototype.sendVehicles = function(connection, vehicles) {
@@ -235,7 +258,7 @@ function processConnectionAttempt(self, request, secure) {
     connection.valid = false;
 
     // add the message listener
-    connection.on('message', function(message) {processRawMessage(self, connection, secure, message);});
+    connection.on('message', function(message) {processRawMessage(self, connection, message);});
 
     // add the connection close listener
     connection.on('close', processConnectionClosed);
@@ -248,7 +271,7 @@ function processConnectionClosed(reasonCode, description) {
     console.log((new Date()) + ' Peer ' + connection.remoteAddress + ' disconnected.');
 }
 
-function processRawMessage(self, connection, secure, message) {
+function processRawMessage(self, connection, message) {
     if (message.type === 'utf8') {
 	console.log((new Date()) + ' Received message: ' + message.utf8Data);
 
@@ -261,7 +284,7 @@ function processRawMessage(self, connection, secure, message) {
 	console.log((new Date()) + '          id:  ' + msg.id);
 	console.log((new Date()) + '          msg: ' + msg.msg);
 
-	processMessage(self, connection, secure, msg.id, msg.msg);
+	processMessage(self, connection, msg.id, msg.msg);
 
 	// the following is purely for testing 
 	// connection.sendUTF(JSON.stringify({id: 'ack'}));
@@ -273,7 +296,18 @@ function processRawMessage(self, connection, secure, message) {
     }
 }
 
-function authenticateSession(self, connection, body) {
+/*
+    if(self.allCommsSecure) {
+    }
+
+    if(connection.secure) {
+    }
+
+    if(!connection.valid) {
+    }
+*/
+
+function authenticateConnection(self, connection, body) {
     var validUser = false;
 
     var user = new User(body);
@@ -295,32 +329,39 @@ function authenticateSession(self, connection, body) {
 	}
     }
 
-
     if(validUser) {
 	// validation successful
 
-	// create a session key
-	var sessionId = generateSessionId(connection);
+	// only create a session if all comms are not secure (ie comms are shared between ws and wss)
+	if(!self.allCommsSecure) {
+	    // create a session key
+	    var session = generateSession(self, connection);
 
-	// send the session key back
-	connection.send(Message.constructMessageJSON(MSG_AUTHENTICATION_ACCEPTED, sessionId));
+	    // send the session key back
+	    connection.send(Message.constructMessageJSON(MSG_AUTHENTICATION_ACCEPTED, session.sessionId));
+	}
     } else {
 	// validation failed, reject the connection
 	connection.send(Message.constructMessageJSON(MSG_AUTHENTICATION_REJECTED, ""));
+	connection.drop(connection.CLOSE_REASON_NORMAL, "authentication failed");
     }
 }
 
-var sessionIds = new Array();
+var sessions = new Array();
 
-function generateSessionId(connection) {
+function generateSession(self, connection) {
     currentTime = Date.now();
 
     var session = new Object();
     session.time = currentTime;
     session.address = connection.remoteAddress;
-    session.sessionId = "foobar";
+    if(self.uuidV1) {
+	session.sessionId = uuid.v1();
+    } else {
+	session.sessionId = uuid.v4({rng: uuid.nodeRNG});
+    }
 
-    sessionIds.push(session);
+    sessions.push(session);
 
     return session.sessionId;
 }
@@ -340,19 +381,19 @@ function validateSession(self, connection, msg) {
 
     // iterate through the sessions, remove expired ones
     // note: comparing length everytime, as the length may change
-    for(i = 0; i < sessionIds.length(); i++) {
-	if(sessionIds[i].time < validTimeCompare) {
+    for(i = 0; i < sessions.length(); i++) {
+	if(sessions[i].time < validTimeCompare) {
 	    // remove as has expired
-	    sessionIds.splice(i, 1);
+	    sessions.splice(i, 1);
 	}
     }
 
     var entryFound = false;
     var idx = -1;
     // find the session id for the remote address of the connection
-    for(i = 0, l = sessionIds.length(); i < l; i++) {
+    for(i = 0, l = sessions.length(); i < l; i++) {
 	
-	if(sessionIds[i].address === connection.remoteAddress) {
+	if(sessions[i].address === connection.remoteAddress) {
 	    // found the address
 	    entryFound = true;
 	    idx = l;
@@ -362,12 +403,12 @@ function validateSession(self, connection, msg) {
 
     if(entryFound) {
 	// check session id is valid
-	if(sessionIds[i].sessionId === msg.sessionId) {
+	if(sessions[i].sessionId === msg.sessionId) {
 	    // the session is valid
 	    connection.valid = true;
 	} else {
 	    // remove the entry as it is invalid
-	    sessionIds.splice(idx, 1);
+	    sessions.splice(idx, 1);
 	}
     }
 
@@ -377,76 +418,85 @@ function validateSession(self, connection, msg) {
     }
 }
 
-function processMessage(self, connection, secure, id, body) {
+function processMessage(self, connection, id, body) {
     // TODO: this presumes that the body is always json stringified, should this be so?
     var msg = JSON.parse(body);
 
-    if(secure) {
+    var messageProcessed = false;
+
+    if(!connection.valid) {
 	switch(id) {
 	    case MSG_AUTHENTICATE:
 		authenticateConnection(self, connection, msg);
+		messageProcessed = true;
 		break;
 
-	    case MSG_CHANGE_PWD:
+	    case MSG_SESSION:
+		if(connection.secure && self.allCommsSecure) {
+		    console.log((new Date()) + 
+			' Invalid message, received session request, secure connection: ' + connection.secure + 
+			' allCommsSecure: ' + self.allCommsSecure + 
+			' connection valid: ' + connection.valid);
+		} else {
+		    validateSession(self, connection, msg);
+		}
+		messageProcessed = true;
 		break;
 	}
     } else {
-	if(!connection.valid) {
-	    switch(id) {
-		case MSG_SESSION:
-		    validateSession(self, connection, msg);
-		    break;
-	    }
-	} else {
-	    switch(id) {
-		case MSG_AUTHENTICATE:
-		    break;
-		case MSG_CHANGE_PWD:
-		    break;
-		case MSG_ADD_VEHICLE:
-		    rcvdAddVehicle(self, msg);
-		    break;
+	switch(id) {
+	    case MSG_CHANGE_PWD:
+		break;
 
-		case MSG_DELETE_VEHICLE:
-		    rcvdDeleteVehicle(self, msg);
-		    break;
+	    case MSG_ADD_VEHICLE:
+		rcvdAddVehicle(self, msg);
+		break;
 
-		case MSG_UPDATE_VEHICLE:
-		    rcvdUpdateVehicle(self, msg);
-		    break;
+	    case MSG_DELETE_VEHICLE:
+		rcvdDeleteVehicle(self, msg);
+		break;
 
-		case MSG_GET_VEHICLES:
-		    rcvdSendVehicles(self, connection);
-		    break;
+	    case MSG_UPDATE_VEHICLE:
+		rcvdUpdateVehicle(self, msg);
+		break;
 
-		case MSG_GET_TELEMETERY:
-		    break;
+	    case MSG_GET_VEHICLES:
+		rcvdSendVehicles(self, connection);
+	    break;
 
-		case MSG_GET_PAYLOAD:
-		    break;
+	    case MSG_GET_TELEMETERY:
+		break;
 
-		case MSG_CMD_EMERGENCY_STOP:
-		    break;
-		case MSG_CMD_LEFT:
-		    break;
-		case MSG_CMD_RIGHT:
-		    break;
-		case MSG_CMD_FORWARD:
-		    break;
-		case MSG_CMD_REVERSE:
-		    break;
-		case MSG_CMD_UP:
-		    break;
-		case MSG_CMD_DOWN:
-		    break;
-		default:
-		    console.log((new Date()) + ' Unknown message received for id : ' + id);
-		    break;
-	    }
+	    case MSG_GET_PAYLOAD:
+		break;
+
+	    case MSG_CMD_EMERGENCY_STOP:
+		break;
+
+	    case MSG_CMD_LEFT:
+		break;
+
+	    case MSG_CMD_RIGHT:
+		break;
+
+	    case MSG_CMD_FORWARD:
+		break;
+
+	    case MSG_CMD_REVERSE:
+		break;
+
+	    case MSG_CMD_UP:
+		break;
+
+	    case MSG_CMD_DOWN:
+		break;
+
+	    default:
+		console.log((new Date()) + ' Unknown message received for id : ' + id);
+		break;
 	}
     }
 }
-
 
 User = function (options) {
     options = options || {};
