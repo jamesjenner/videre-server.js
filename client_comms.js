@@ -28,6 +28,7 @@ var https        = require('https');
 var fs           = require('fs');
 var ws           = require('websocket').server;
 var uuid         = require('node-uuid');
+var crypto       = require('crypto');
 
 // load common js files shared with the videre client
 eval(fs.readFileSync('./videre-common/js/vehicle.js').toString());
@@ -307,20 +308,24 @@ function processRawMessage(self, connection, message) {
     }
 */
 
-function authenticateConnection(self, connection, body) {
+function authenticateConnection(self, connection, msgBody) {
     var validUser = false;
 
-    var user = new User(body);
+    var user = new User(msgBody);
 
-    if(!users) {
+    if(!users || users.length == 0) {
+	console.log((new Date()) + ' No users so creating user for : ' + user.userId);
 	// We have the first user, so add it and accept
 	validUser = true;
 
+	user.salt = User.generateSalt();
+	user.password = User.hashPassword(user.password);
 	users.push(user);
-	Users.save();
+    
+	User.save(USERS_FILE, users);
     } else {
 	// validate that the user exists
-	for(i = 0, l = users.length(); i < l; i++) {
+	for(i = 0, l = users.length; i < l; i++) {
 	    if(users[i].id === user.id) {
 		// found the user
 		validUser = true;
@@ -381,7 +386,7 @@ function validateSession(self, connection, msg) {
 
     // iterate through the sessions, remove expired ones
     // note: comparing length everytime, as the length may change
-    for(i = 0; i < sessions.length(); i++) {
+    for(i = 0; i < sessions.length; i++) {
 	if(sessions[i].time < validTimeCompare) {
 	    // remove as has expired
 	    sessions.splice(i, 1);
@@ -391,7 +396,7 @@ function validateSession(self, connection, msg) {
     var entryFound = false;
     var idx = -1;
     // find the session id for the remote address of the connection
-    for(i = 0, l = sessions.length(); i < l; i++) {
+    for(i = 0, l = sessions.length; i < l; i++) {
 	
 	if(sessions[i].address === connection.remoteAddress) {
 	    // found the address
@@ -531,4 +536,12 @@ User.load = function (filename) {
  */
 User.save = function (filename, list) {
     fs.writeFileSync(filename, JSON.stringify(list, null, '\t'));
+}
+
+User.generateSalt = function() {
+    return crypto.randomBytes(16).toString('base64');
+}
+
+User.hashPassword = function(password) {
+    return password;
 }
