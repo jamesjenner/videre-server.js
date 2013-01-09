@@ -310,6 +310,9 @@ function processRawMessage(self, connection, message) {
 
 function authenticateConnection(self, connection, msgBody) {
     var validUser = false;
+    var foundUser = false;
+    var salt = null;
+    var password = null;
 
     var user = new User(msgBody);
 
@@ -319,7 +322,7 @@ function authenticateConnection(self, connection, msgBody) {
 	validUser = true;
 
 	user.salt = User.generateSalt();
-	user.password = User.hashPassword(user.password);
+	user.password = User.hashPassword(user);
 	users.push(user);
     
 	User.save(USERS_FILE, users);
@@ -328,9 +331,17 @@ function authenticateConnection(self, connection, msgBody) {
 	for(i = 0, l = users.length; i < l; i++) {
 	    if(users[i].id === user.id) {
 		// found the user
-		validUser = true;
+		foundUser = true;
+		salt = users[i].salt;
+		password = users[i].password;
 		break;
 	    }
+	}
+
+	if(foundUser) {
+	    // validate if the salt and hash of the password is valid
+	    hashed = User.hashPassword(user);
+	    validUser = (password === hashed);
 	}
     }
 
@@ -542,6 +553,7 @@ User.generateSalt = function() {
     return crypto.randomBytes(16).toString('base64');
 }
 
-User.hashPassword = function(password) {
-    return password;
+User.hashPassword = function(user) {
+
+    return user.password;
 }
