@@ -119,31 +119,45 @@ ClientComms.prototype.startClientServer = function() {
 }
 
 ClientComms.prototype.sendVehicles = function(connection, vehicles) {
-    connection.send(Message.constructMessageJSON(MSG_VEHICLES, vehicles));
+    console.log((new Date()) + ' Sending id: ' + MSG_VEHICLES + ' body: ' + JSON.stringify(vehicles));
+    connection.send(Message.constructMessage(MSG_VEHICLES, vehicles));
 }
 
 ClientComms.prototype.sendAddVehicle = function(vehicle) {
-    this.server.broadcast(Message.constructMessageJSON(MSG_ADD_VEHICLE, vehicle));
+    console.log((new Date()) + ' Sending id: ' + MSG_ADD_VEHICLE + ' body: ' + JSON.stringify(vehicle));
+    this.server.broadcast(Message.constructMessage(MSG_ADD_VEHICLE, vehicle));
 }
 
 ClientComms.prototype.sendDeleteVehicle = function(vehicle) {
-    this.server.broadcast(Message.constructMessageJSON(MSG_DELETE_VEHICLE, vehicle));
+    console.log((new Date()) + ' Sending id: ' + MSG_DELETE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
+    this.server.broadcast(Message.constructMessage(MSG_DELETE_VEHICLE, vehicle));
 }
 
 ClientComms.prototype.sendUpdateVehicle = function(vehicle) {
-    this.server.broadcast(Message.constructMessageJSON(MSG_UPDATE_VEHICLE, vehicle));
+    console.log((new Date()) + ' Sending id: ' + MSG_UPDATE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
+    this.server.broadcast(Message.constructMessage(MSG_UPDATE_VEHICLE, vehicle));
 }
 
 ClientComms.prototype.sendTelemetry = function(telemetry) {
-    this.server.broadcast(Message.constructMessageJSON(MSG_VEHICLE_TELEMETERY, vehicle));
+    console.log((new Date()) + ' Sending id: ' + MSG_VEHICLE_TELEMETRY + ' body: ' + JSON.stringify(telemetry));
+    this.server.broadcast(Message.constructMessage(MSG_VEHICLE_TELEMETRY, telemetery));
 }
 
 ClientComms.prototype.sendPayload = function(payload) {
-    this.server.broadcast(Message.constructMessageJSON(MSG_VEHICLE_PAYLOAD, vehicle));
+    console.log((new Date()) + ' Sending id: ' + MSG_VEHICLE_PAYLOAD + ' body: ' + JSON.stringify(payload));
+    this.server.broadcast(Message.constructMessage(MSG_VEHICLE_PAYLOAD, payload));
 }
 
 fireNewConnection = function(self, connection) {
     self.emit('newConnection', connection);
+}
+
+fireNewConnectionAuthenticated = function(self, connection) {
+    self.emit('newConnectionAuthenticated', connection);
+}
+
+fireNewConnectionAccepted = function(self, connection) {
+    self.emit('newConnectionAccepted', connection);
 }
 
 rcvdAddVehicle = function(self, data) {
@@ -260,7 +274,7 @@ function processConnectionAttempt(self, request, secure) {
     connection.valid = false;
 
     // add the message listener
-    connection.on('message', function(message) {processRawMessage(self, connection, message);});
+    connection.on('message', function(message) { processRawMessage(self, connection, message); });
 
     // add the connection close listener
     connection.on('close', function(reasonCode, description) {processConnectionClosed(connection, reasonCode, description);});
@@ -277,37 +291,19 @@ function processRawMessage(self, connection, message) {
     if (message.type === 'utf8') {
 	console.log((new Date()) + ' Received message: ' + message.utf8Data);
 
-	// msg = JSON.parse(message.utf8Data);
-
 	// deconstruct the message
 	msg = Message.deconstructMessage(message.utf8Data);
 
-	console.log((new Date()) + '          msg:  ' + msg);
-	console.log((new Date()) + '          id:  ' + msg.id);
-	console.log((new Date()) + '          msg: ' + msg.msg);
-
-	processMessage(self, connection, msg.id, msg.msg);
-
-	// the following is purely for testing 
-	// connection.sendUTF(JSON.stringify({id: 'ack'}));
-
+	processMessage(self, connection, msg.id, msg.body);
     }
     else if (message.type === 'binary') {
 	console.log((new Date()) + ' Received binary message of ' + message.binaryData.length + ' bytes');
 	// connection.sendBytes(message.binaryData);
     }
+    else {
+	console.log((new Date()) + ' Received unknown message type ' + message.type);
+    }
 }
-
-/*
-    if(self.allCommsSecure) {
-    }
-
-    if(connection.secure) {
-    }
-
-    if(!connection.valid) {
-    }
-*/
 
 function authenticateConnection(self, connection, msgBody) {
     var validUser = false;
@@ -321,9 +317,6 @@ function authenticateConnection(self, connection, msgBody) {
 	console.log((new Date()) + ' No users so creating user for : ' + user.userId);
 	// We have the first user, so add it and accept
 	validUser = true;
-
-	// user.salt = User.generateSalt();
-	// user.password = User.hashPassword(user);
 
 	user.salt = bcrypt.genSaltSync(10);
 	user.password = bcrypt.hashSync(user.password, user.salt);
@@ -344,7 +337,6 @@ function authenticateConnection(self, connection, msgBody) {
 
 	if(foundUser) {
 	    // validate if the salt and hash of the password is valid
-	    // hashed = User.hashPassword(user);
 	    hashed = bcrypt.hashSync(user.password, salt);
 	    validUser = (password === hashed);
 	}
@@ -354,20 +346,26 @@ function authenticateConnection(self, connection, msgBody) {
 	// validation successful
 	console.log((new Date()) + ' authentication for user ' + user.userId + ' successful');
 
+	// fire the connection event
+	fireNewConnectionAuthenticated(self, connection);
+
 	// only create a session if all comms are not secure (ie comms are shared between ws and wss)
-	if(!self.allCommsSecure) {
+	if(self.allCommsSecure) {
+	    // fire the connection accepted event
+	    fireNewConnectionAccepted(self, connection);
+	} else {
 	    // create a session key
 	    var sessionId = generateSession(self, connection);
 
 	    // send the session key back
 	    console.log((new Date()) + ' sending session ' + sessionId);
-	    connection.send(Message.constructMessageJSON(MSG_AUTHENTICATION_ACCEPTED, sessionId));
+	    connection.send(Message.constructMessage(MSG_AUTHENTICATION_ACCEPTED, sessionId));
 	}
     } else {
 	console.log((new Date()) + ' authentication for user ' + user.userId + ' unsuccessful');
 
 	// validation failed, reject the connection
-	connection.send(Message.constructMessageJSON(MSG_AUTHENTICATION_REJECTED, ""));
+	connection.send(Message.constructMessage(MSG_AUTHENTICATION_REJECTED));
 	connection.drop(connection.CLOSE_REASON_NORMAL, "authentication failed");
     }
 }
@@ -408,8 +406,10 @@ function validateSession(self, connection, msg) {
 
     // iterate through the sessions, remove expired ones
     // note: comparing length everytime, as the length may change
+    console.log((new Date()) + " Checking for old sessions");
     for(i = 0; i < sessions.length; i++) {
 	if(sessions[i].time < validTimeCompare) {
+            console.log((new Date()) + " \tremoving session: " + sessions[i].sessionId + " : " + sessions[i].time);
 	    // remove as has expired
 	    sessions.splice(i, 1);
 	}
@@ -419,11 +419,10 @@ function validateSession(self, connection, msg) {
     var idx = -1;
     // find the session id for the remote address of the connection
     for(i = 0, l = sessions.length; i < l; i++) {
-	
 	if(sessions[i].address === connection.remoteAddress) {
 	    // found the address
 	    entryFound = true;
-	    idx = l;
+	    idx = i;
 	    break;
 	}
     }
@@ -433,22 +432,25 @@ function validateSession(self, connection, msg) {
 	if(sessions[i].sessionId === msg.sessionId) {
 	    // the session is valid
 	    connection.valid = true;
-	} else {
-	    // remove the entry as it is invalid
-	    sessions.splice(idx, 1);
 	}
+	// remove the entry, either it's invalid or it's valid and being used
+	sessions.splice(idx, 1);
     }
 
-    if(!connection.valid) {
+    if(connection.valid) {
+	console.log((new Date()) + " session confirmed");
+	connection.send(Message.constructMessage(MSG_SESSION_CONFIRMED));
+	// fire the connection accepted event
+	fireNewConnectionAccepted(self, connection);
+    } else {
 	// disconnect as the session id is invalid
-	self.connection.drop(connection.CLOSE_REASON_NORMAL, "Session id not valid");
+	// TODO: if this is unsecure, then must also drop the corresponding secure session
+	console.log((new Date()) + " dropping connection as session was invalid");
+	connection.drop(connection.CLOSE_REASON_NORMAL, "Session id not valid");
     }
 }
 
-function processMessage(self, connection, id, body) {
-    // TODO: this presumes that the body is always json stringified, should this be so?
-    var msg = JSON.parse(body);
-
+function processMessage(self, connection, id, msg) {
     var messageProcessed = false;
 
     if(!connection.valid) {
@@ -558,13 +560,4 @@ User.load = function (filename) {
  */
 User.save = function (filename, list) {
     fs.writeFileSync(filename, JSON.stringify(list, null, '\t'));
-}
-
-User.generateSalt = function() {
-    return crypto.randomBytes(16).toString('base64');
-}
-
-User.hashPassword = function(user) {
-
-    return user.password;
 }
