@@ -37,7 +37,7 @@ clientComms.on('addVehicle', function(d) {addVehicle(d);});
 clientComms.on('deleteVehicle', function(d) {deleteVehicle(d);});
 clientComms.on('updateVehicle', function(d) {updateVehicle(d);});
 clientComms.on('sendVehicles', function(c) {sendVehicles(c);});
-clientComms.on('newConnection', function(c) {newConnection(c);});
+clientComms.on('newConnectionAccepted', function(c) {newConnection(c);});
 /*
 clientComms.on('vehicleTest', function(d) {x(d);});
 clientComms.on('vehicleLand', function(d) {x(d);});
