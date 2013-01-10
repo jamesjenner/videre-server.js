@@ -75,8 +75,8 @@ ClientComms.prototype.startClientServer = function() {
 
     var httpsServer = https.createServer(options, function(request, response) {
         console.log((new Date()) + ' Https server received request for ' + request.url);
-        reponse.writeHead(404);
-        reponse.end();
+        response.writeHead(404);
+        response.end();
     });
     var self = this;
 
@@ -98,8 +98,8 @@ ClientComms.prototype.startClientServer = function() {
     if(!self.allCommsSecure) {
 	var httpServer = http.createServer(function(request, response) {
 	    console.log((new Date()) + ' Http server received request for ' + request.url);
-	    reponse.writeHead(404);
-	    reponse.end();
+	    response.writeHead(404);
+	    response.end();
 	});
 
 	httpServer.listen(self.port, function() {
