@@ -1,6 +1,6 @@
 # ignore node.js files #
 ########################
 node_modules
-vehicles.json
+*.json
 test
 keys
