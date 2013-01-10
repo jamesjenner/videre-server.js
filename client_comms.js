@@ -29,6 +29,7 @@ var fs           = require('fs');
 var ws           = require('websocket').server;
 var uuid         = require('node-uuid');
 var crypto       = require('crypto');
+var bcrypt       = require('bcrypt');
 
 // load common js files shared with the videre client
 eval(fs.readFileSync('./videre-common/js/vehicle.js').toString());
@@ -262,14 +263,14 @@ function processConnectionAttempt(self, request, secure) {
     connection.on('message', function(message) {processRawMessage(self, connection, message);});
 
     // add the connection close listener
-    connection.on('close', processConnectionClosed);
+    connection.on('close', function(reasonCode, description) {processConnectionClosed(connection, reasonCode, description);});
 
     // fire the connection event
     fireNewConnection(self, connection);
 }
 
-function processConnectionClosed(reasonCode, description) {
-    console.log((new Date()) + ' Peer ' + connection.remoteAddress + ' disconnected.');
+function processConnectionClosed(connection, reasonCode, description) {
+    console.log((new Date()) + ' Peer ' + connection.remoteAddress + ' disconnected: ' + reasonCode + ", " + description);
 }
 
 function processRawMessage(self, connection, message) {
@@ -321,8 +322,11 @@ function authenticateConnection(self, connection, msgBody) {
 	// We have the first user, so add it and accept
 	validUser = true;
 
-	user.salt = User.generateSalt();
-	user.password = User.hashPassword(user);
+	// user.salt = User.generateSalt();
+	// user.password = User.hashPassword(user);
+
+	user.salt = bcrypt.genSaltSync(10);
+	user.password = bcrypt.hashSync(user.password, user.salt);
 	users.push(user);
     
 	User.save(USERS_FILE, users);
@@ -340,23 +344,28 @@ function authenticateConnection(self, connection, msgBody) {
 
 	if(foundUser) {
 	    // validate if the salt and hash of the password is valid
-	    hashed = User.hashPassword(user);
+	    // hashed = User.hashPassword(user);
+	    hashed = bcrypt.hashSync(user.password, salt);
 	    validUser = (password === hashed);
 	}
     }
 
     if(validUser) {
 	// validation successful
+	console.log((new Date()) + ' authentication for user ' + user.userId + ' successful');
 
 	// only create a session if all comms are not secure (ie comms are shared between ws and wss)
 	if(!self.allCommsSecure) {
 	    // create a session key
-	    var session = generateSession(self, connection);
+	    var sessionId = generateSession(self, connection);
 
 	    // send the session key back
-	    connection.send(Message.constructMessageJSON(MSG_AUTHENTICATION_ACCEPTED, session.sessionId));
+	    console.log((new Date()) + ' sending session ' + sessionId);
+	    connection.send(Message.constructMessageJSON(MSG_AUTHENTICATION_ACCEPTED, sessionId));
 	}
     } else {
+	console.log((new Date()) + ' authentication for user ' + user.userId + ' unsuccessful');
+
 	// validation failed, reject the connection
 	connection.send(Message.constructMessageJSON(MSG_AUTHENTICATION_REJECTED, ""));
 	connection.drop(connection.CLOSE_REASON_NORMAL, "authentication failed");
@@ -367,6 +376,8 @@ var sessions = new Array();
 
 function generateSession(self, connection) {
     currentTime = Date.now();
+
+    console.log((new Date()) + ' generating session id for ' + (self.uudiV1 ? 'UUID V1' : 'UUID V4 RNG') + ' @ ' + currentTime);
 
     var session = new Object();
     session.time = currentTime;
