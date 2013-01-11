@@ -8,6 +8,7 @@ all module dependancies are hidden from git via .gitignore. Install manually fro
 Module Dependancies are:
  - websocket - https://npmjs.org/package/websocket (use npm install websocket to install)
  - node-uuid - https://npmjs.org/package/node-uuid (use npm install node-uuid to install)
+ - node-bcrypt - https://npmjs.org/package/bcrypt (use npm install bcrypt to install)
 
 Submodules
 -------------
