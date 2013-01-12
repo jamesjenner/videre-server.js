@@ -52,8 +52,8 @@ function ClientComms(options) {
     this.allowUpdateVehicle = options.allowUpdateVehicle || true;
     this.port = options.port || 9007; // 80?
     this.securePort = options.securePort || 9008; // 443?
+    this.communicationType = options.communicationType || COMMS_TYPE_MIXED;
     this.uuidV1 = options.uuidV1 || false;
-    this.allCommsSecure = options.allCommsSecure || false;
     this.sslKey = options.sslKey || 'keys/privatekey.pem';
     this.sslCert = options.sslCert || 'keys/certificate.pem';
 
@@ -62,40 +62,45 @@ function ClientComms(options) {
 
 
 ClientComms.prototype.startClientServer = function() {
-    var options = {
-	key: fs.readFileSync(this.sslKey),
-	cert: fs.readFileSync(this.sslCert)
-    };
-
-    /*
-    options = {
-	pfx: fs.readFileSync('server.pfx');
-    };
-    */
-
-    var httpsServer = https.createServer(options, function(request, response) {
-        console.log((new Date()) + ' Https server received request for ' + request.url);
-        response.writeHead(404);
-        response.end();
-    });
     var self = this;
 
-    httpsServer.listen(self.securePort, function() {
-        console.log((new Date()) + ' Https server is listening on port ' + self.securePort);
-    });
+    self.secureOnly = self.communicationType === COMMS_TYPE_SECURE_ONLY;
+    self.unsecureOnly = self.communicationType === COMMS_TYPE_UNSECURE_ONLY;
+    self.secureAndUnsecure = self.communicationType === COMMS_TYPE_MIXED;
 
-    this.secureServer = new ws({
-        httpServer: httpsServer,
-        autoAcceptConnections: false
-    });
+    // only start up the secure server if it is required
+    if(self.secureOnly || self.secureAndUnsecure) {
+        var sslOptions = {};
 
-    self.secureServer.on('request', function(request) {
-	console.log((new Date()) + ' secure server request');
-	processConnectionAttempt(self, request, true);
-    });
+	sslOptions = {
+	    key: fs.readFileSync(self.sslKey),
+	    cert: fs.readFileSync(self.sslCert)
+	};
+
+	// setup a https server
+	var httpsServer = https.createServer(sslOptions, function(request, response) {
+	    console.log((new Date()) + ' Https server received request for ' + request.url);
+	    response.writeHead(404);
+	    response.end();
+	});
+
+	httpsServer.listen(self.securePort, function() {
+	    console.log((new Date()) + ' Https server is listening on port ' + self.securePort);
+	});
+
+	// setup the secure server for websockets
+	self.secureServer = new ws({
+	    httpServer: httpsServer,
+	    autoAcceptConnections: false
+	});
+
+	// add the listener for connection attempts
+	self.secureServer.on('request', function(request) { processConnectionAttempt(self, request, true); });
+    }
 
     // only start up the unsecure comms if not all comms are to be secure
-    if(!self.allCommsSecure) {
+    if(self.secureAndUnsecure || self.unsecureOnly) {
+	// setup a http server
 	var httpServer = http.createServer(function(request, response) {
 	    console.log((new Date()) + ' Http server received request for ' + request.url);
 	    response.writeHead(404);
@@ -106,15 +111,14 @@ ClientComms.prototype.startClientServer = function() {
 	    console.log((new Date()) + ' http server is listening on port ' + self.port);
 	});
 
-	self.server = new ws({
+	// setup the unsecure server for websockets
+	self.unsecureServer = new ws({
 	    httpServer: httpServer,
 	    autoAcceptConnections: false
 	});
 
-	self.server.on('request', function(request) {
-	    console.log((new Date()) + ' server request');
-	    processConnectionAttempt(self, request, false);
-        });
+	// add the listener for connection attempts
+	self.unsecureServer.on('request', function(request) { processConnectionAttempt(self, request, false); });
     }
 }
 
@@ -124,28 +128,51 @@ ClientComms.prototype.sendVehicles = function(connection, vehicles) {
 }
 
 ClientComms.prototype.sendAddVehicle = function(vehicle) {
-    console.log((new Date()) + ' Sending id: ' + MSG_ADD_VEHICLE + ' body: ' + JSON.stringify(vehicle));
-    this.server.broadcast(Message.constructMessage(MSG_ADD_VEHICLE, vehicle));
+    if(self.secureAndUnsecure || self.unsecureOnly) {
+	console.log((new Date()) + ' Sending unsecure id: ' + MSG_ADD_VEHICLE + ' body: ' + JSON.stringify(vehicle));
+	this.unsecureServer.broadcast(Message.constructMessage(MSG_ADD_VEHICLE, vehicle));
+    } else {
+	console.log((new Date()) + ' Sending secure id: ' + MSG_ADD_VEHICLE + ' body: ' + JSON.stringify(vehicle));
+	this.unsecureServer.broadcast(Message.constructMessage(MSG_ADD_VEHICLE, vehicle));
+    }
 }
 
 ClientComms.prototype.sendDeleteVehicle = function(vehicle) {
-    console.log((new Date()) + ' Sending id: ' + MSG_DELETE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
-    this.server.broadcast(Message.constructMessage(MSG_DELETE_VEHICLE, vehicle));
+    if(self.secureAndUnsecure || self.unsecureOnly) {
+	console.log((new Date()) + ' Sending id: ' + MSG_DELETE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
+	this.unsecureServer.broadcast(Message.constructMessage(MSG_DELETE_VEHICLE, vehicle));
+    } else {
+    }
 }
 
 ClientComms.prototype.sendUpdateVehicle = function(vehicle) {
-    console.log((new Date()) + ' Sending id: ' + MSG_UPDATE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
-    this.server.broadcast(Message.constructMessage(MSG_UPDATE_VEHICLE, vehicle));
+    if(self.secureAndUnsecure || self.unsecureOnly) {
+	console.log((new Date()) + ' Sending unsecure id: ' + MSG_UPDATE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
+	this.unsecureServer.broadcast(Message.constructMessage(MSG_UPDATE_VEHICLE, vehicle));
+    } else {
+	console.log((new Date()) + ' Sending secure id: ' + MSG_UPDATE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
+	this.secureServer.broadcast(Message.constructMessage(MSG_UPDATE_VEHICLE, vehicle));
+    }
 }
 
 ClientComms.prototype.sendTelemetry = function(telemetry) {
-    console.log((new Date()) + ' Sending id: ' + MSG_VEHICLE_TELEMETRY + ' body: ' + JSON.stringify(telemetry));
-    this.server.broadcast(Message.constructMessage(MSG_VEHICLE_TELEMETRY, telemetery));
+    if(self.secureAndUnsecure || self.unsecureOnly) {
+	console.log((new Date()) + ' Sending unsecure id: ' + MSG_VEHICLE_TELEMETRY + ' body: ' + JSON.stringify(telemetry));
+	this.unsecureServer.broadcast(Message.constructMessage(MSG_VEHICLE_TELEMETRY, telemetery));
+    } else {
+	console.log((new Date()) + ' Sending secure id: ' + MSG_VEHICLE_TELEMETRY + ' body: ' + JSON.stringify(telemetry));
+	this.secureServer.broadcast(Message.constructMessage(MSG_VEHICLE_TELEMETRY, telemetery));
+    }
 }
 
 ClientComms.prototype.sendPayload = function(payload) {
-    console.log((new Date()) + ' Sending id: ' + MSG_VEHICLE_PAYLOAD + ' body: ' + JSON.stringify(payload));
-    this.server.broadcast(Message.constructMessage(MSG_VEHICLE_PAYLOAD, payload));
+    if(self.secureAndUnsecure || self.unsecureOnly) {
+	console.log((new Date()) + ' Sending unsecure id: ' + MSG_VEHICLE_PAYLOAD + ' body: ' + JSON.stringify(payload));
+	this.unsecureServer.broadcast(Message.constructMessage(MSG_VEHICLE_PAYLOAD, payload));
+    } else {
+	console.log((new Date()) + ' Sending secure id: ' + MSG_VEHICLE_PAYLOAD + ' body: ' + JSON.stringify(payload));
+	this.secureServer.broadcast(Message.constructMessage(MSG_VEHICLE_PAYLOAD, payload));
+    }
 }
 
 fireNewConnection = function(self, connection) {
@@ -236,10 +263,9 @@ function originIsAllowed(origin) {
     return true;
 }
 
-
-function processConnectionAttempt(self, request, secure) {
+function processConnectionAttempt(self, request, isSecure) {
     console.log((new Date()) + ' Connection attempt from origin ' + request.origin +
-	      ', secure: ' + secure + 
+	      ', secure: ' + isSecure + 
 	      ', websocket ver: ' + request.webSocketVersion + 
 	      ', protocols : ' + request.requestedProtocols.length + 
 	      ' : ' + request.requestedProtocols);
@@ -270,7 +296,7 @@ function processConnectionAttempt(self, request, secure) {
 
     console.log((new Date()) + ' Connection accepted, protocol: ' + connection.protocol);
 
-    connection.secure = secure;
+    connection.isSecure = isSecure;
     connection.valid = false;
 
     // add the message listener
@@ -311,7 +337,41 @@ function authenticateConnection(self, connection, msgBody) {
     var salt = null;
     var password = null;
 
-    var user = new User(msgBody);
+    var clientConnectionType = msgBody.connectionType;
+
+    var user = new User({userId: msgBody.userId, password: msgBody.password});
+
+    if(!clientConnectionType) {
+	connection.send(Message.constructMessage(MSG_AUTHENTICATION_REJECTED, "athentication message malformed"));
+	connection.drop(connection.CLOSE_REASON_NORMAL, "authentication message malformed");
+	return;
+    }
+
+    switch(clientConnectionType) {
+	case COMMS_TYPE_SECURE_ONLY:
+	    if(self.unsecureOnly) {
+		connection.send(Message.constructMessage(MSG_AUTHENTICATION_REJECTED, "Server only allows unsecure connections"));
+		connection.drop(connection.CLOSE_REASON_NORMAL, "Server only allows unsecure connections");
+		return;
+	    }
+	    break;
+
+	case COMMS_TYPE_UNSECURE_ONLY:
+	    if(self.secureOnly) {
+		connection.send(Message.constructMessage(MSG_AUTHENTICATION_REJECTED, "Server only allows secure connections"));
+		connection.drop(connection.CLOSE_REASON_NORMAL, "Server only allows secure connections");
+		return;
+	    }
+	    break;
+
+	case COMMS_TYPE_MIXED:
+	    if(!connection.isSecure) {
+		connection.send(Message.constructMessage(MSG_AUTHENTICATION_REJECTED, "Requested mixed comms while authentication is via unsecure connection"));
+		connection.drop(connection.CLOSE_REASON_NORMAL, "Requested mixed comms while authentication is via unsecure connection");
+		return;
+	    }
+	    break;
+    }
 
     if(!users || users.length == 0) {
 	console.log((new Date()) + ' No users so creating user for : ' + user.userId);
@@ -349,17 +409,22 @@ function authenticateConnection(self, connection, msgBody) {
 	// fire the connection event
 	fireNewConnectionAuthenticated(self, connection);
 
-	// only create a session if all comms are not secure (ie comms are shared between ws and wss)
-	if(self.allCommsSecure) {
+	// only create a session if all comms are mixed (ie comms are shared between ws and wss)
+	if(self.secureOnly || 
+	    self.unsecureOnly || 
+	    (clientConnectionType === COMMS_TYPE_UNSECURE_ONLY && !connection.isSecure) || 
+	    (clientConnectionType === COMMS_TYPE_SECURE_ONLY && connection.isSecure)) {
 	    // fire the connection accepted event
 	    fireNewConnectionAccepted(self, connection);
+	    connection.valid = true;
 	} else {
 	    // create a session key
 	    var sessionId = generateSession(self, connection);
 
 	    // send the session key back
 	    console.log((new Date()) + ' sending session ' + sessionId);
-	    connection.send(Message.constructMessage(MSG_AUTHENTICATION_ACCEPTED, sessionId));
+	    var body = {sessionId: sessionId, connectionType: self.communicationType};
+	    connection.send(Message.constructMessage(MSG_AUTHENTICATION_ACCEPTED, body));
 	}
     } else {
 	console.log((new Date()) + ' authentication for user ' + user.userId + ' unsuccessful');
@@ -461,9 +526,9 @@ function processMessage(self, connection, id, msg) {
 		break;
 
 	    case MSG_SESSION:
-		if(connection.secure && self.allCommsSecure) {
+		if(connection.isSecure && self.secureOnly) {
 		    console.log((new Date()) + 
-			' Invalid message, received session request, secure connection: ' + connection.secure + 
+			' Invalid message, received session request, secure connection: ' + connection.isSecure + 
 			' allCommsSecure: ' + self.allCommsSecure + 
 			' connection valid: ' + connection.valid);
 		} else {
@@ -491,7 +556,7 @@ function processMessage(self, connection, id, msg) {
 
 	    case MSG_GET_VEHICLES:
 		rcvdSendVehicles(self, connection);
-	    break;
+		break;
 
 	    case MSG_GET_TELEMETERY:
 		break;
