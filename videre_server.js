@@ -163,15 +163,15 @@ opt.optionHelp("USAGE node " + path.basename(process.argv[1]),
 
 // setup the client communications
 clientComms = new ClientComms({
-    allowAddVehicle: addVehicleEnabled,
-    allowDeleteVehicle: deleteVehicleEnabled,
-    allowUpdateVehicle: updateVehicleEnabled,
-    port: port,
-    securePort: securePort,
-    uuidV1: uuidV1,
-    allCommsSecure: communicationsType,
-    sslKey: sslKey,
-    sslCert: sslCert
+    allowAddVehicle: config.addVehicleEnabled,
+    allowDeleteVehicle: config.deleteVehicleEnabled,
+    allowUpdateVehicle: config.updateVehicleEnabled,
+    port: config.port,
+    securePort: config.securePort,
+    uuidV1: config.uuidV1,
+    communicationType: config.communicationType,
+    sslKey: config.sslKey,
+    sslCert: config.sslCert
 });
 
 // listen for the events from clients
