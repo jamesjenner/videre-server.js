@@ -14,3 +14,7 @@ test
 # ignore keys #
 ###############
 keys
+
+# ignore configurations #
+########################
+*.conf
