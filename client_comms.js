@@ -47,8 +47,6 @@ function ClientComms(options) {
 
     options = options || {};
 
-    this.vehiclesStoredOnServer = options.vehiclesStoredOnServer || true;
-    this.allowMultipleClients = options.allowMultipleClients || true;
     this.allowAddVehicle = options.allowAddVehicle || true;
     this.allowDeleteVehicle = options.allowDeleteVehicle || true;
     this.allowUpdateVehicle = options.allowUpdateVehicle || true;
@@ -56,6 +54,8 @@ function ClientComms(options) {
     this.securePort = options.securePort || 9008; // 443?
     this.uuidV1 = options.uuidV1 || false;
     this.allCommsSecure = options.allCommsSecure || false;
+    this.sslKey = options.sslKey || 'keys/privatekey.pem';
+    this.sslCert = options.sslCert || 'keys/certificate.pem';
 
     users = User.load(USERS_FILE);
 }
@@ -63,8 +63,8 @@ function ClientComms(options) {
 
 ClientComms.prototype.startClientServer = function() {
     var options = {
-	key: fs.readFileSync('keys/privatekey.pem'),
-	cert: fs.readFileSync('keys/certificate.pem')
+	key: fs.readFileSync(this.sslKey),
+	cert: fs.readFileSync(this.sslCert)
     };
 
     /*

@@ -3,14 +3,21 @@ videre-server.js
 
 Node.js based server for Videre. This server will act as the gateway between drones and clients.
 
+The videre suite of software is designed to allow multi client access to drones via multiple servers. Refer to the videre project for the client.
+
+Usage
+-----
+TBD
+
 Dependancies
 ------------
 All module dependancies are hidden from git via .gitignore. Install manually from the project root directory.
 
 Module Dependancies are:
- - websocket - https://npmjs.org/package/websocket (use npm install websocket to install)
- - node-uuid - https://npmjs.org/package/node-uuid (use npm install node-uuid to install)
- - node-bcrypt - https://npmjs.org/package/bcrypt (use npm install bcrypt to install)
+ - websocket - https://npmjs.org/package/websocket
+ - node-uuid - https://npmjs.org/package/node-uuid
+ - node-bcrypt - https://npmjs.org/package/bcrypt
+ - opt - https://npmjs.org/package/opt or https://github.com/rsdoiel/opt
 
 To install the modules use the following commands:
 
@@ -18,6 +25,7 @@ To install the modules use the following commands:
 npm install websocket
 npm install node-uuid
 npm install bcrypt
+npm install opt
 ```
 
 Submodules
