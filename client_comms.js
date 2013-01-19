@@ -128,7 +128,7 @@ ClientComms.prototype.sendVehicles = function(connection, vehicles) {
 }
 
 ClientComms.prototype.sendAddVehicle = function(vehicle) {
-    if(self.secureAndUnsecure || self.unsecureOnly) {
+    if(this.secureAndUnsecure || this.unsecureOnly) {
 	console.log((new Date()) + ' Sending unsecure id: ' + MSG_ADD_VEHICLE + ' body: ' + JSON.stringify(vehicle));
 	this.unsecureServer.broadcast(Message.constructMessage(MSG_ADD_VEHICLE, vehicle));
     } else {
@@ -138,7 +138,7 @@ ClientComms.prototype.sendAddVehicle = function(vehicle) {
 }
 
 ClientComms.prototype.sendDeleteVehicle = function(vehicle) {
-    if(self.secureAndUnsecure || self.unsecureOnly) {
+    if(this.secureAndUnsecure || this.unsecureOnly) {
 	console.log((new Date()) + ' Sending id: ' + MSG_DELETE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
 	this.unsecureServer.broadcast(Message.constructMessage(MSG_DELETE_VEHICLE, vehicle));
     } else {
@@ -146,7 +146,7 @@ ClientComms.prototype.sendDeleteVehicle = function(vehicle) {
 }
 
 ClientComms.prototype.sendUpdateVehicle = function(vehicle) {
-    if(self.secureAndUnsecure || self.unsecureOnly) {
+    if(this.secureAndUnsecure || this.unsecureOnly) {
 	console.log((new Date()) + ' Sending unsecure id: ' + MSG_UPDATE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
 	this.unsecureServer.broadcast(Message.constructMessage(MSG_UPDATE_VEHICLE, vehicle));
     } else {
@@ -156,7 +156,7 @@ ClientComms.prototype.sendUpdateVehicle = function(vehicle) {
 }
 
 ClientComms.prototype.sendTelemetry = function(telemetry) {
-    if(self.secureAndUnsecure || self.unsecureOnly) {
+    if(this.secureAndUnsecure || this.unsecureOnly) {
 	console.log((new Date()) + ' Sending unsecure id: ' + MSG_VEHICLE_TELEMETRY + ' body: ' + JSON.stringify(telemetry));
 	this.unsecureServer.broadcast(Message.constructMessage(MSG_VEHICLE_TELEMETRY, telemetery));
     } else {
@@ -166,7 +166,7 @@ ClientComms.prototype.sendTelemetry = function(telemetry) {
 }
 
 ClientComms.prototype.sendPayload = function(payload) {
-    if(self.secureAndUnsecure || self.unsecureOnly) {
+    if(this.secureAndUnsecure || this.unsecureOnly) {
 	console.log((new Date()) + ' Sending unsecure id: ' + MSG_VEHICLE_PAYLOAD + ' body: ' + JSON.stringify(payload));
 	this.unsecureServer.broadcast(Message.constructMessage(MSG_VEHICLE_PAYLOAD, payload));
     } else {
@@ -283,6 +283,8 @@ function processConnectionAttempt(self, request, isSecure) {
     for(var i=0, l=request.requestedProtocols.length; i < l; i++) {
 	if(request.requestedProtocols[i] === 'videre_1.1') {
             connection = request.accept(request.requestedProtocols[i], request.origin);
+	    connection.verified = false;
+	    connection.isSecure = isSecure;
 	    break;
 	}
     }
@@ -296,11 +298,9 @@ function processConnectionAttempt(self, request, isSecure) {
 
     console.log((new Date()) + ' Connection accepted, protocol: ' + connection.protocol);
 
-    connection.isSecure = isSecure;
-    connection.valid = false;
 
     // add the message listener
-    connection.on('message', function(message) { processRawMessage(self, connection, message); });
+    connection.on('message', function(message) { connectionIsValid = processRawMessage(self, connection, message); } );
 
     // add the connection close listener
     connection.on('close', function(reasonCode, description) {processConnectionClosed(connection, reasonCode, description);});
@@ -313,18 +313,18 @@ function processConnectionClosed(connection, reasonCode, description) {
     console.log((new Date()) + ' Peer ' + connection.remoteAddress + ' disconnected: ' + reasonCode + ", " + description);
 }
 
-function processRawMessage(self, connection, message) {
+function processRawMessage(self, con, message) {
     if (message.type === 'utf8') {
 	console.log((new Date()) + ' Received message: ' + message.utf8Data);
 
 	// deconstruct the message
 	msg = Message.deconstructMessage(message.utf8Data);
 
-	processMessage(self, connection, msg.id, msg.body);
+	processMessage(self, con, msg.id, msg.body);
     }
     else if (message.type === 'binary') {
 	console.log((new Date()) + ' Received binary message of ' + message.binaryData.length + ' bytes');
-	// connection.sendBytes(message.binaryData);
+	// con.sendBytes(message.binaryData);
     }
     else {
 	console.log((new Date()) + ' Received unknown message type ' + message.type);
@@ -416,7 +416,7 @@ function authenticateConnection(self, connection, msgBody) {
 	    (clientConnectionType === COMMS_TYPE_SECURE_ONLY && connection.isSecure)) {
 	    // fire the connection accepted event
 	    fireNewConnectionAccepted(self, connection);
-	    connection.valid = true;
+	    connection.verified = true;
 	} else {
 	    // create a session key
 	    var sessionId = generateSession(self, connection);
@@ -445,6 +445,8 @@ function generateSession(self, connection) {
     var session = new Object();
     session.time = currentTime;
     session.address = connection.remoteAddress;
+    session.secureConnection = connection;
+
     if(self.uuidV1) {
 	session.sessionId = uuid.v1();
     } else {
@@ -465,7 +467,6 @@ function generateSession(self, connection) {
  * This also trims the session id pool of any expired sessions. currently only occurs here.
  */
 function validateSession(self, connection, msg) {
-
     // set a time to compare the date the session was created
     var validTimeCompare = Date.now() - (2 * 60 * 1000);
 
@@ -496,14 +497,15 @@ function validateSession(self, connection, msg) {
 	// check session id is valid
 	if(sessions[i].sessionId === msg.sessionId) {
 	    // the session is valid
-	    connection.valid = true;
+	    connection.verified = true;
+	    // the secure connection must be updated and set to verified, otherwise it will think it isn't
+	    sessions[i].secureConnection.verified = true;
 	}
 	// remove the entry, either it's invalid or it's valid and being used
 	sessions.splice(idx, 1);
     }
 
-    if(connection.valid) {
-	console.log((new Date()) + " session confirmed");
+    if(connection.verified) {
 	connection.send(Message.constructMessage(MSG_SESSION_CONFIRMED));
 	// fire the connection accepted event
 	fireNewConnectionAccepted(self, connection);
@@ -516,25 +518,24 @@ function validateSession(self, connection, msg) {
 }
 
 function processMessage(self, connection, id, msg) {
-    var messageProcessed = false;
-
-    if(!connection.valid) {
+    if(!connection.verified) {
 	switch(id) {
 	    case MSG_AUTHENTICATE:
 		authenticateConnection(self, connection, msg);
-		messageProcessed = true;
 		break;
 
 	    case MSG_SESSION:
 		if(connection.isSecure && self.secureOnly) {
 		    console.log((new Date()) + 
-			' Invalid message, received session request, secure connection: ' + connection.isSecure + 
-			' allCommsSecure: ' + self.allCommsSecure + 
-			' connection valid: ' + connection.valid);
+			' Invalid message, received session request, secure connection: ' + connection.isSecure);
 		} else {
 		    validateSession(self, connection, msg);
 		}
-		messageProcessed = true;
+		break;
+
+	    default:
+		console.log((new Date()) + 
+		    ' Unknown message received ' + id + ', secure connection: ' + connection.isSecure);
 		break;
 	}
     } else {
@@ -586,7 +587,8 @@ function processMessage(self, connection, id, msg) {
 		break;
 
 	    default:
-		console.log((new Date()) + ' Unknown message received for id : ' + id);
+		console.log((new Date()) + 
+		    ' Unknown message received ' + id + ', secure connection: ' + connection.isSecure);
 		break;
 	}
     }
