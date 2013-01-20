@@ -31,6 +31,7 @@ function UnmannedVehicle(options) {
     // TODO: do we add in a uuid/guid as an id or use a singleton to create an incrementing number?
     // this.id = options.id || -1;
     this.name = options.name || "Thunderbird 1";
+    this.id = options.id || "unknown";
 
     this.connected = false;
 }
