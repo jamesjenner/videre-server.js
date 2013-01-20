@@ -181,11 +181,12 @@ clientComms.on('deleteVehicle', function(d) {deleteVehicle(d);});
 clientComms.on('updateVehicle', function(d) {updateVehicle(d);});
 clientComms.on('sendVehicles', function(c) {sendVehicles(c);});
 clientComms.on('newConnectionAccepted', function(c) {newConnection(c);});
+
+clientComms.on('vehicleLaunch', function(d) {vehicleLaunch(d);});
+clientComms.on('vehicleLand', function(d) {vehicleLand(d);});
+clientComms.on('vehicleAbort', function(d) {vehicleAbort(d);});
 /*
 clientComms.on('vehicleTest', function(d) {x(d);});
-clientComms.on('vehicleLand', function(d) {x(d);});
-clientComms.on('vehicleAbort', function(d) {x(d);});
-clientComms.on('vehicleLaunch', function(d) {x(d);});
 clientComms.on('vehicleUp', function(d) {x(d);});
 clientComms.on('vehicleDown', function(d) {x(d);});
 clientComms.on('vehicleLeft', function(d) {x(d);});
@@ -207,6 +208,45 @@ for(i = 0, l = remoteVehicles.length; i < l; i++) {
     remoteVehicles[i].testRun();
 }
 
+function vehicleAbort(data) {
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.abort();
+    }
+}
+
+function vehicleLaunch(data) {
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.takeoff();
+    }
+}
+
+function vehicleLand(data) {
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.land();
+    }
+}
+
+function getVehicleComms(vehicle) {
+}
+
+function getRemoteVehicle(id) {
+    var remoteVehicle = null;
+
+    for(i = 0, l = remoteVehicles.length; i < l; i++) {
+	if(remoteVehicles[i].id === id) {
+	    return remoteVehicles[i];
+	}
+    }
+
+    return remoteVehicle;
+}
+
 function startVehicleComms(vehicles) {
     var vehicleComms = new Array();
     var remoteVehicle = null;
@@ -221,6 +261,7 @@ function startVehicleComms(vehicles) {
 		// create the remote vehicle comms handler and map values from the common vehicle data
 		remoteVehicle = new Parrot({
 		    name: vehicles[i].name, 
+		    id: vehicles[i].id, 
 		    address: "192.168.1.3"
 	        });
 		break;
