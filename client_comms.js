@@ -566,6 +566,15 @@ function processMessage(self, connection, id, msg) {
 		break;
 
 	    case MSG_CMD_EMERGENCY_STOP:
+		rcvdAbort(self, msg);
+		break;
+
+	    case MSG_CMD_TAKEOFF:
+		rcvdLaunch(self, msg);
+		break;
+
+	    case MSG_CMD_LAND:
+		rcvdLand(self, msg);
 		break;
 
 	    case MSG_CMD_LEFT:
