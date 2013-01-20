@@ -88,6 +88,18 @@ ParrotARDroneV1.prototype._processData = function(navData) {
     s = null;
 };
 
+QuadCopter.prototype.takeoff = function() {
+    client.takeoff();
+};
+
+QuadCopter.prototype.land = function() {
+    client.land();
+};
+
+QuadCopter.prototype.abort = function() {
+    client.abort();
+};
+
 ParrotARDroneV1.prototype.testRun = function() {
     var arDrone = require('ar-drone');
     var self = this;
