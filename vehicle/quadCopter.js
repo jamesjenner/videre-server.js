@@ -33,4 +33,10 @@ function QuadCopter(options) {
     options = options || {};
 }
 
+QuadCopter.prototype.takeoff = function() {};
+
+QuadCopter.prototype.land = function() {};
+
+QuadCopter.prototype.abort = function() {};
+
 util.inherits(QuadCopter, UAV);
