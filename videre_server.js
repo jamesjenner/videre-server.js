@@ -22,6 +22,7 @@ var ClientComms   = require('./client_comms.js');
 var fs            = require('fs');
 var path          = require('path');
 var opt           = require('opt').create();
+var uuid         = require('node-uuid');
 
 var Parrot = require('./vehicle/parrotArDroneV1.js');
 
@@ -247,21 +248,42 @@ function startVehicleComms(vehicles) {
 
 /* 
  * load vehicles
+ *
+ * note that the returned array contains an array of objects, not an array of Vehicles.
+ * we can do this because the Vehicle contains only attributes.
  */
 function loadVehicles(filename) {
-    var data = fs.readFileSync(filename);
+    var vehicles = null;
+    
+    try {
+	vehicles = JSON.parse(fs.readFileSync(filename));
+    } catch(e) {
+	if(e.code === 'ENOENT') {
+	    // ENOENT is file not found, that is okay, just means no records
+	} else {
+	    // unknown error, lets throw
+	    throw e;
+	}
+    }
 
-    var dataJSON = JSON.parse(data);
-
-    // the received JSON data will be object, not vehicle instances, so convert
-    // may not need to do this as there is no prototype on Vehicles, so could be treated just as an object...
-    var vehicles = new Array();
-
-    for(i = 0, l = dataJSON.length; i < l; i++) {
-        vehicles.push(new Vehicle(dataJSON[i]));
+    if(vehicles) {
+	vehicles.sort(compareName);
+    } else {
+        vehicles = new Array();
     }
 
     return vehicles;
+}
+
+function compareName(a, b) {
+    if(a.name < b.name) {
+	return -1;
+    }
+    if(a.name > b.name) {
+	return 1;
+    }
+
+    return 0;
 }
 
 /* 
@@ -274,11 +296,16 @@ function saveVehicles(filename) {
 // add a watchdog to check if vehicles get add
 function addVehicle(msg) {
     console.log((new Date()) + ' Adding vehicle ' + msg.name);
-    vehicles.push(new Vehicle(msg));
+
+    // setup the position, relative to this server
+    var vehicle = new Vehicle(msg);
+    vehicle.position = vehicles.length;
+    vehicle.id = uuid.v4({rng: uuid.nodeRNG});
+    vehicles.push(vehicle);
 
     saveVehicles(VEHICLES_FILE);
 
-    clientComms.sendAddVehicle(msg);
+    clientComms.sendAddVehicle(vehicle);
 }
 
 function deleteVehicle(msg) {
@@ -294,11 +321,15 @@ function deleteVehicle(msg) {
     // remove from the array if found
     if(position >= 0) {
         vehicles.splice(position, 1);
+
+	// redo the positions for each vehicle
+	// TODO: this is not very good, maybe position should be replaced with a uuid
+	resetVehiclePositions();
+        
+	saveVehicles(VEHICLES_FILE);
     } else {
         console.log((new Date()) + ' Delete vehicle failed, vehicle not found for: ' + msg.name);
     }
-
-    saveVehicles(VEHICLES_FILE);
 }
 
 function updateVehicle(msg) {
@@ -374,4 +405,16 @@ function findVehicle(name) {
     }
 
     return position;
+}
+
+/** 
+ * reset vehicle positions - updates the positions for all vehicles
+ * 
+ * note: this does not save the vehicles, it just updates the vehicles array
+ */
+function resetVehiclePositions() {
+    // TODO: this is not very good, maybe position should be replaced with a uuid
+    for(var i = 0, l = vehicles.length; i < l; i++) {
+	vehicles[i].position = i;
+    }
 }
