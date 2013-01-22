@@ -203,15 +203,13 @@ clientComms.startClientServer();
 // startup the comms with the remote vehicles
 var remoteVehicles = startVehicleComms(vehicles);
 
-for(i = 0, l = remoteVehicles.length; i < l; i++) {
-    remoteVehicles[i].on('telemetry', function(d) {processTelemetry(d);});
-    remoteVehicles[i].testRun();
-}
-
 function vehicleAbort(data) {
+    console.log((new Date()) + " videre-server.js: vehicleAbort(" + data + ");");
     var remoteVehicle = getRemoteVehicle(data.id);
 
+    console.log((new Date()) + " videre-server.js: vehicleAbort() - " + remoteVehicle);
     if(remoteVehicle) {
+        console.log((new Date()) + " videre-server.js: vehicleAbort() - calling remoteVehicle.abort()");
 	remoteVehicle.abort();
     }
 }
@@ -252,7 +250,7 @@ function startVehicleComms(vehicles) {
     var remoteVehicle = null;
 
     for(i = 0, l = vehicles.length; i < l; i++) {
-        console.log("startVehicleComms: loading " + vehicles[i].name);
+        console.log((new Date()) + " videre-server.js: startVehicleComms: loading " + vehicles[i].name);
 
 	remoteVehicle = null;
 
@@ -262,7 +260,8 @@ function startVehicleComms(vehicles) {
 		remoteVehicle = new Parrot({
 		    name: vehicles[i].name, 
 		    id: vehicles[i].id, 
-		    address: "192.168.1.3"
+		    address: "192.168.1.3",
+		    debug: true
 	        });
 		break;
 
@@ -272,7 +271,7 @@ function startVehicleComms(vehicles) {
 
 	    // unknown device type
 	    default:
-		console.log('videre-server: vehicle device ' + vehicles[i].deviceType + ' not supported for vehicle ' + vehicles[i].name);
+		console.log((new Date()) + ' videre-server.js: vehicle device ' + vehicles[i].deviceType + ' not supported for vehicle ' + vehicles[i].name);
 		break;
 	}
 
@@ -281,6 +280,11 @@ function startVehicleComms(vehicles) {
 
 	    remoteVehicle.on('telemetry', function(d) {processTelemetry(d);});
 	    remoteVehicle.on('payload', function(d) {processPayload(d);});
+
+	    // TODO: what happens if we lose coms? what performs the auto re-connect?
+	    remoteVehicle.connect();
+
+            // remoteVehicles[i].testRun();
 	}
     }
 
@@ -409,7 +413,7 @@ function newConnection(connection) {
  * note: some devices may pass payload and telemetry together
  */
 function processTelemetry(d) {
-    console.log('videre-server: telemetry...');
+    console.log((new Date()) + ' videre-server: telemetry...');
     console.log(d);
 }
 
@@ -421,7 +425,7 @@ function processTelemetry(d) {
  * note: some devices may pass payload and telemetry together
  */
 function processPayload(d) {
-    console.log('videre-server: payload...');
+    console.log((new Date()) + ' videre-server: payload...');
     console.log(d);
 }
 
