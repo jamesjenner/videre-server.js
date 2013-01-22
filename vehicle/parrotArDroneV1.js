@@ -20,6 +20,8 @@ var QuadCopter = require('./quadCopter.js');
 var Telemetry = require('./telemetry.js');
 var Attitude = require('./attitude.js');
 
+var arDrone = require('ar-drone');
+
 var util = require('util');
 
 // TODO: not happy with reading in telemetry.js, need a better solution
@@ -39,6 +41,8 @@ function ParrotARDroneV1(options) {
     options = options || {};
 
     this.address = options.address || "192.168.1.1";
+    this.client = null;
+    this.debug = ((options.debug != null) ? options.debug : false);
 }
 
 util.inherits(ParrotARDroneV1, QuadCopter);
@@ -50,14 +54,16 @@ ParrotARDroneV1.prototype._processData = function(navData) {
     if(d && !s) {
 	if(this.debug) {
 	    console.log(
-		'state: ' + 
+		(new Date()) + ' ' + this.name + 
+                ' state: ' + 
 		' flying: ' + s.flying);
 	}
     }
     if(d && s) {
 	if(this.debug) {
 	    console.log(
-		'state: ' + 
+		(new Date()) + ' ' + this.name + 
+		' state: ' + 
 		' flying: ' + s.flying +
 		'  | nav: ' + 
 		' ctrlState: ' + d.controlState + 
@@ -88,71 +94,106 @@ ParrotARDroneV1.prototype._processData = function(navData) {
     s = null;
 };
 
-QuadCopter.prototype.takeoff = function() {
-    client.takeoff();
-};
+// TODO: add connection/disconnection and abort to the higher levels
 
-QuadCopter.prototype.land = function() {
-    client.land();
-};
+QuadCopter.prototype.connect = function() {
+    this.client = arDrone.createClient(this.address);
 
-QuadCopter.prototype.abort = function() {
-    client.abort();
-};
-
-ParrotARDroneV1.prototype.testRun = function() {
-    var arDrone = require('ar-drone');
-    var self = this;
-
-    var client = arDrone.createClient(this.address);
     if(this.debug) {
-	console.log('creating client for ' + this.address);
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' creating client for ' + this.address);
     }
 
     // capture nav data
-    client.on('navdata', function(d) {
+    this.client.on('navdata', function(d) {
 	self._processData(d);
     });
 
     // send all nav data, not just the demo version (which doesn't include velocity, pitch, roll, etc)
     if(this.debug) {
-	console.log('setting navdata demo to false');
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' setting navdata demo to false');
     }
-    client.config('general:navdata_demo', 'FALSE');
+    this.client.config('general:navdata_demo', 'FALSE');
+};
+
+QuadCopter.prototype.disconnect = function() {
+    // TODO: work out how to disconnect
+    this.client = null;
+};
+
+QuadCopter.prototype.takeoff = function() {
+    if(this.debug) {
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' takeoff');
+    }
+    this.client.takeoff();
+};
+
+QuadCopter.prototype.land = function() {
+    if(this.debug) {
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' land');
+    }
+    if(this.client) {
+	this.client.land();
+    }
+};
+
+QuadCopter.prototype.abort = function() {
+    if(this.debug) {
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' abort');
+    }
+    // the api for the parrot doesn't appear to support an emergency stop/abort, so just stop and land
+    // TODO: turn the power off
+    this.stop();
+    this.land();
+};
+
+QuadCopter.prototype.stop = function() {
+    if(this.debug) {
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' stop');
+    }
+    if(this.client) {
+	this.client.stop();
+    }
+};
+
+QuadCopter.prototype.reset = function() {
+    if(this.debug) {
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' reset');
+    }
+    if(this.client) {
+	this.client.disableEmergency();
+    }
+};
+
+ParrotARDroneV1.prototype.testRun = function() {
+    var self = this;
 
     // blink lites to show connection
     if(this.debug) {
-	console.log('Animating leds to show connection');
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' Animating leds to show connection');
     }
-    client.animateLeds('blinkGreenRed', 5, 1)
+    this.client.animateLeds('blinkGreenRed', 5, 1)
 
-    if(this.debug) {
-	console.log('takeoff');
-    }
-    client.takeoff();
+    this.takeoff();
 
-    client
+    this.client
 	.after(3500, function() {
-	    if(self.debug) {
-		console.log('land');
-	    }
-	    this.land();
+	    self.land();
         });
         /*
     client
         .after(2000, function() {
 	    if(self.debug) {
-	      console.log('clockwise');
+	      console.log((new Date()) + ' clockwise');
             }
 	    this.clockwise(0.5);
         })
         .after(2000, function() {
 	    if(self.debug) {
-	      console.log('stop');
+	      console.log((new Date()) + ' stop');
             }
 	    this.stop();
 	    if(self.debug) {
-	      console.log('land');
+	      console.log((new Date()) + ' land');
             }
 	    this.land();
         });
