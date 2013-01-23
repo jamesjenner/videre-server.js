@@ -26,6 +26,10 @@ var uuid         = require('node-uuid');
 
 var Parrot = require('./vehicle/parrotArDroneV1.js');
 
+var TransformParrot = require('./transform/transformParrotArDroneV1.js');
+
+var transformParrot = new TransformParrot();
+
 eval(fs.readFileSync('./videre-common/js/vehicle.js').toString());
 eval(fs.readFileSync('./videre-common/js/videre_comms.js').toString());
 
@@ -278,10 +282,11 @@ function startVehicleComms(vehicles) {
 	if (remoteVehicle) {
             vehicleComms.push(remoteVehicle);
 
-	    remoteVehicle.on('telemetry', function(d) {processTelemetry(d);});
-	    remoteVehicle.on('payload', function(d) {processPayload(d);});
+	    remoteVehicle.on('telemetry', function(d) {processTelemetry(remoteVehicle, d);});
+	    remoteVehicle.on('payload', function(d) {processPayload(remoteVehicle, d);});
 
 	    // TODO: what happens if we lose coms? what performs the auto re-connect?
+	    console.log((new Date()) + " videre-server.js: startVehicleComms: connecting " + vehicles[i].name);
 	    remoteVehicle.connect();
 
             // remoteVehicles[i].testRun();
@@ -412,9 +417,17 @@ function newConnection(connection) {
  *
  * note: some devices may pass payload and telemetry together
  */
-function processTelemetry(d) {
+function processTelemetry(remoteVehicle, d) {
     console.log((new Date()) + ' videre-server: telemetry...');
     console.log(d);
+
+    // convert telemetry from drone to client format
+    var telemetry = transformParrot.transform(d);
+
+    telemetry.name = remoteVehicle.name;
+    telemetry.id = remoteVehicle.id;
+
+    clientComms.sendTelemetry(telemetry);
 }
 
 /*
@@ -424,7 +437,7 @@ function processTelemetry(d) {
  *
  * note: some devices may pass payload and telemetry together
  */
-function processPayload(d) {
+function processPayload(remoteVehicle, d) {
     console.log((new Date()) + ' videre-server: payload...');
     console.log(d);
 }
