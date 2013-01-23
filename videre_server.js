@@ -43,6 +43,8 @@ var vehicles = loadVehicles(VEHICLES_FILE);
 // TODO: look at replacing or extending opt, would like error on invalid arg, exclusivity of args, better formatting of help, etc
 
 var config = {
+    debug: false,
+    debugLevel: 0,
     addVehicleEnabled: true,
     deleteVehicleEnabled: true,
     updateVehicleEnabled: true,
@@ -73,6 +75,16 @@ opt.optionHelp("USAGE node " + path.basename(process.argv[1]),
     " See: http://www.gnu.org/licenses/\n");
 
 // opt.on("ready", function (config) {
+    opt.option(["-d", "--debug"], function (param) {
+	config.debug = true;
+	if (Number(param).toFixed(0) > 0) {
+	    config.debugLevel = Number(param).toFixed(0);
+	    opt.consume(param);
+	} else {
+	    config.debugLevel = 0;
+	}
+    }, "Generate debugging messages, level is optional. 0 - informational, 1 - detailed");
+
     opt.option(["-va", "--add-vehicles"], function (param) {
 	config.allowAddVehicle = true;
     }, "Allow clients to add vehicles");
@@ -176,7 +188,9 @@ clientComms = new ClientComms({
     uuidV1: config.uuidV1,
     communicationType: config.communicationType,
     sslKey: config.sslKey,
-    sslCert: config.sslCert
+    sslCert: config.sslCert,
+    debug: config.debug,
+    debugLevel: config.debugLevel
 });
 
 // listen for the events from clients
@@ -208,12 +222,18 @@ clientComms.startClientServer();
 var remoteVehicles = startVehicleComms(vehicles);
 
 function vehicleAbort(data) {
-    console.log((new Date()) + " videre-server.js: vehicleAbort(" + data + ");");
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: vehicleAbort(" + data + ");");
+    }
     var remoteVehicle = getRemoteVehicle(data.id);
 
-    console.log((new Date()) + " videre-server.js: vehicleAbort() - " + remoteVehicle);
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: vehicleAbort() - " + remoteVehicle);
+    }
     if(remoteVehicle) {
-        console.log((new Date()) + " videre-server.js: vehicleAbort() - calling remoteVehicle.abort()");
+	if(config.debug) {
+	    console.log((new Date()) + " videre-server.js: vehicleAbort() - calling remoteVehicle.abort()");
+	}
 	remoteVehicle.abort();
     }
 }
@@ -254,7 +274,9 @@ function startVehicleComms(vehicles) {
     var remoteVehicle = null;
 
     for(i = 0, l = vehicles.length; i < l; i++) {
-        console.log((new Date()) + " videre-server.js: startVehicleComms: loading " + vehicles[i].name);
+	if(config.debug) {
+	    console.log((new Date()) + " videre-server.js: startVehicleComms: loading " + vehicles[i].name);
+	}
 
 	remoteVehicle = null;
 
@@ -265,7 +287,8 @@ function startVehicleComms(vehicles) {
 		    name: vehicles[i].name, 
 		    id: vehicles[i].id, 
 		    address: "192.168.1.3",
-		    debug: true
+		    debug: config.debug,
+		    debugLevel: config.debugLevel
 	        });
 		break;
 
@@ -275,7 +298,9 @@ function startVehicleComms(vehicles) {
 
 	    // unknown device type
 	    default:
-		console.log((new Date()) + ' videre-server.js: vehicle device ' + vehicles[i].deviceType + ' not supported for vehicle ' + vehicles[i].name);
+		if(config.debug) {
+		    console.log((new Date()) + ' videre-server.js: vehicle device ' + vehicles[i].deviceType + ' not supported for vehicle ' + vehicles[i].name);
+		}
 		break;
 	}
 
@@ -286,7 +311,9 @@ function startVehicleComms(vehicles) {
 	    remoteVehicle.on('payload', function(d) {processPayload(remoteVehicle, d);});
 
 	    // TODO: what happens if we lose coms? what performs the auto re-connect?
-	    console.log((new Date()) + " videre-server.js: startVehicleComms: connecting " + vehicles[i].name);
+	    if(config.debug) {
+		console.log((new Date()) + " videre-server.js: startVehicleComms: connecting " + vehicles[i].name);
+	    }
 	    remoteVehicle.connect();
 
             // remoteVehicles[i].testRun();
@@ -345,7 +372,9 @@ function saveVehicles(filename) {
 
 // add a watchdog to check if vehicles get add
 function addVehicle(msg) {
-    console.log((new Date()) + ' Adding vehicle ' + msg.name);
+    if(config.debug) {
+	console.log((new Date()) + ' Adding vehicle ' + msg.name);
+    }
 
     // setup the position, relative to this server
     var vehicle = new Vehicle(msg);
@@ -361,7 +390,9 @@ function addVehicle(msg) {
 function deleteVehicle(msg) {
     // if the message isn't set and the name isn't set then do nothing
     if(!msg && !msg.name) {
-        console.log((new Date()) + ' Delete vehicle failed, msg.name is not specififed.');
+	if(config.debug) {
+	    console.log((new Date()) + ' Delete vehicle failed, msg.name is not specififed.');
+	}
 	return;
     }
 
@@ -378,14 +409,18 @@ function deleteVehicle(msg) {
         
 	saveVehicles(VEHICLES_FILE);
     } else {
-        console.log((new Date()) + ' Delete vehicle failed, vehicle not found for: ' + msg.name);
+	if(config.debug) {
+	    console.log((new Date()) + ' Delete vehicle failed, vehicle not found for: ' + msg.name);
+	}
     }
 }
 
 function updateVehicle(msg) {
     // if the message isn't set and the name isn't set then do nothing
     if(!msg && !msg.name) {
-        console.log((new Date()) + ' Update vehicle failed, msg.name is not specififed.');
+	if(config.debug) {
+	    console.log((new Date()) + ' Update vehicle failed, msg.name is not specififed.');
+	}
 	return;
     }
 
@@ -395,7 +430,9 @@ function updateVehicle(msg) {
     if(position >= 0) {
         vehicles[position] = new Vehicle(msg);
     } else {
-        console.log((new Date()) + ' Update vehicle failed, vehicle not found for: ' + msg.name);
+	if(config.debug) {
+	    console.log((new Date()) + ' Update vehicle failed, vehicle not found for: ' + msg.name);
+	}
     }
 
     saveVehicles(VEHICLES_FILE);
@@ -418,8 +455,10 @@ function newConnection(connection) {
  * note: some devices may pass payload and telemetry together
  */
 function processTelemetry(remoteVehicle, d) {
-    console.log((new Date()) + ' videre-server: telemetry...');
-    console.log(d);
+    if(config.debug && config.debugLevel > 0) {
+	console.log((new Date()) + ' videre-server: telemetry...');
+	console.log(d);
+    }
 
     // convert telemetry from drone to client format
     var telemetry = transformParrot.transform(d);
@@ -438,8 +477,10 @@ function processTelemetry(remoteVehicle, d) {
  * note: some devices may pass payload and telemetry together
  */
 function processPayload(remoteVehicle, d) {
-    console.log((new Date()) + ' videre-server: payload...');
-    console.log(d);
+    if(config.debug) {
+	console.log((new Date()) + ' videre-server: payload...');
+	console.log(d);
+    }
 }
 
 /** 

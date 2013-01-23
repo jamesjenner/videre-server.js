@@ -47,15 +47,18 @@ function ClientComms(options) {
 
     options = options || {};
 
-    this.allowAddVehicle = options.allowAddVehicle || true;
-    this.allowDeleteVehicle = options.allowDeleteVehicle || true;
-    this.allowUpdateVehicle = options.allowUpdateVehicle || true;
+    this.allowAddVehicle  = ((options.allowAddVehicle != null) ? options.allowAddVehicle : true);
+    this.allowDeleteVehicle = ((options.allowDeleteVehicle != null) ? options.allowDeleteVehicle : true);
+    this.allowUpdateVehicle = ((options.allowUpdateVehicle != null) ? options.allowUpdateVehicle : true);
+
     this.port = options.port || 9007; // 80?
     this.securePort = options.securePort || 9008; // 443?
     this.communicationType = options.communicationType || COMMS_TYPE_MIXED;
-    this.uuidV1 = options.uuidV1 || false;
+    this.uuidV1 = ((options.uuidV1  != null) ? options.uuidV1 : false);
     this.sslKey = options.sslKey || 'keys/privatekey.pem';
     this.sslCert = options.sslCert || 'keys/certificate.pem';
+    this.debug = ((options.debug != null) ? options.debug : false);
+    this.debugLevel = options.debugLevel || 0;
 
     users = User.load(USERS_FILE);
 }
@@ -79,13 +82,18 @@ ClientComms.prototype.startClientServer = function() {
 
 	// setup a https server
 	var httpsServer = https.createServer(sslOptions, function(request, response) {
-	    console.log((new Date()) + ' Https server received request for ' + request.url);
+	    if(self.debug) {
+		console.log((new Date()) + ' Https server received request for ' + request.url);
+	    }
 	    response.writeHead(404);
 	    response.end();
 	});
 
 	httpsServer.listen(self.securePort, function() {
-	    console.log((new Date()) + ' Https server is listening on port ' + self.securePort);
+	    if(self.debug) {
+		console.log((new Date()) + ' Https server is listening on port ' + self.securePort);
+	    }
+	    // note that we currently do not reply with 404, perhaps we should
 	});
 
 	// setup the secure server for websockets
@@ -102,13 +110,17 @@ ClientComms.prototype.startClientServer = function() {
     if(self.secureAndUnsecure || self.unsecureOnly) {
 	// setup a http server
 	var httpServer = http.createServer(function(request, response) {
-	    console.log((new Date()) + ' Http server received request for ' + request.url);
+	    if(self.debug) {
+		console.log((new Date()) + ' Http server received request for ' + request.url);
+	    }
 	    response.writeHead(404);
 	    response.end();
 	});
 
 	httpServer.listen(self.port, function() {
-	    console.log((new Date()) + ' http server is listening on port ' + self.port);
+	    if(self.debug) {
+		console.log((new Date()) + ' http server is listening on port ' + self.port);
+	    }
 	});
 
 	// setup the unsecure server for websockets
@@ -123,54 +135,78 @@ ClientComms.prototype.startClientServer = function() {
 }
 
 ClientComms.prototype.sendVehicles = function(connection, vehicles) {
-    console.log((new Date()) + ' Sending id: ' + MSG_VEHICLES + ' body: ' + JSON.stringify(vehicles));
+    if(this.debug) {
+	console.log((new Date()) + ' Sending id: ' + MSG_VEHICLES + ' body: ' + JSON.stringify(vehicles));
+    }
     connection.send(Message.constructMessage(MSG_VEHICLES, vehicles));
 }
 
 ClientComms.prototype.sendAddVehicle = function(vehicle) {
     if(this.secureAndUnsecure || this.unsecureOnly) {
-	console.log((new Date()) + ' Sending unsecure id: ' + MSG_ADD_VEHICLE + ' body: ' + JSON.stringify(vehicle));
+	if(this.debug) {
+	    console.log((new Date()) + ' Sending unsecure id: ' + MSG_ADD_VEHICLE + ' body: ' + JSON.stringify(vehicle));
+	}
 	this.unsecureServer.broadcast(Message.constructMessage(MSG_ADD_VEHICLE, vehicle));
     } else {
-	console.log((new Date()) + ' Sending secure id: ' + MSG_ADD_VEHICLE + ' body: ' + JSON.stringify(vehicle));
+	if(this.debug) {
+	    console.log((new Date()) + ' Sending secure id: ' + MSG_ADD_VEHICLE + ' body: ' + JSON.stringify(vehicle));
+	}
 	this.unsecureServer.broadcast(Message.constructMessage(MSG_ADD_VEHICLE, vehicle));
     }
 }
 
 ClientComms.prototype.sendDeleteVehicle = function(vehicle) {
     if(this.secureAndUnsecure || this.unsecureOnly) {
-	console.log((new Date()) + ' Sending id: ' + MSG_DELETE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
+	if(this.debug) {
+	    console.log((new Date()) + ' Sending unsecure id: ' + MSG_DELETE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
+	}
 	this.unsecureServer.broadcast(Message.constructMessage(MSG_DELETE_VEHICLE, vehicle));
     } else {
+	if(this.debug) {
+	    console.log((new Date()) + ' Sending secure id: ' + MSG_DELETE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
+	}
+	this.secureServer.broadcast(Message.constructMessage(MSG_DELETE_VEHICLE, vehicle));
     }
 }
 
 ClientComms.prototype.sendUpdateVehicle = function(vehicle) {
     if(this.secureAndUnsecure || this.unsecureOnly) {
-	console.log((new Date()) + ' Sending unsecure id: ' + MSG_UPDATE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
+	if(this.debug) {
+	    console.log((new Date()) + ' Sending unsecure id: ' + MSG_UPDATE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
+	}
 	this.unsecureServer.broadcast(Message.constructMessage(MSG_UPDATE_VEHICLE, vehicle));
     } else {
-	console.log((new Date()) + ' Sending secure id: ' + MSG_UPDATE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
+	if(this.debug) {
+	    console.log((new Date()) + ' Sending secure id: ' + MSG_UPDATE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
+	}
 	this.secureServer.broadcast(Message.constructMessage(MSG_UPDATE_VEHICLE, vehicle));
     }
 }
 
 ClientComms.prototype.sendTelemetry = function(telemetry) {
     if(this.secureAndUnsecure || this.unsecureOnly) {
-	console.log((new Date()) + ' Sending unsecure id: ' + MSG_VEHICLE_TELEMETRY + ' body: ' + JSON.stringify(telemetry));
+	if(this.debug && this.debugLevel > 0) {
+	    console.log((new Date()) + ' Sending unsecure id: ' + MSG_VEHICLE_TELEMETRY + ' body: ' + JSON.stringify(telemetry));
+	}
 	this.unsecureServer.broadcast(Message.constructMessage(MSG_VEHICLE_TELEMETRY, telemetry));
     } else {
-	console.log((new Date()) + ' Sending secure id: ' + MSG_VEHICLE_TELEMETRY + ' body: ' + JSON.stringify(telemetry));
+	if(this.debug && this.debugLevel > 0) {
+	    console.log((new Date()) + ' Sending secure id: ' + MSG_VEHICLE_TELEMETRY + ' body: ' + JSON.stringify(telemetry));
+	}
 	this.secureServer.broadcast(Message.constructMessage(MSG_VEHICLE_TELEMETRY, telemetry));
     }
 }
 
 ClientComms.prototype.sendPayload = function(payload) {
     if(this.secureAndUnsecure || this.unsecureOnly) {
-	console.log((new Date()) + ' Sending unsecure id: ' + MSG_VEHICLE_PAYLOAD + ' body: ' + JSON.stringify(payload));
+	if(this.debug) {
+	    console.log((new Date()) + ' Sending unsecure id: ' + MSG_VEHICLE_PAYLOAD + ' body: ' + JSON.stringify(payload));
+	}
 	this.unsecureServer.broadcast(Message.constructMessage(MSG_VEHICLE_PAYLOAD, payload));
     } else {
-	console.log((new Date()) + ' Sending secure id: ' + MSG_VEHICLE_PAYLOAD + ' body: ' + JSON.stringify(payload));
+	if(this.debug) {
+	    console.log((new Date()) + ' Sending secure id: ' + MSG_VEHICLE_PAYLOAD + ' body: ' + JSON.stringify(payload));
+	}
 	this.secureServer.broadcast(Message.constructMessage(MSG_VEHICLE_PAYLOAD, payload));
     }
 }
@@ -264,16 +300,20 @@ function originIsAllowed(origin) {
 }
 
 function processConnectionAttempt(self, request, isSecure) {
-    console.log((new Date()) + ' Connection attempt from origin ' + request.origin +
+    if(self.debug) {
+	console.log((new Date()) + ' Connection attempt from origin ' + request.origin +
 	      ', secure: ' + isSecure + 
 	      ', websocket ver: ' + request.webSocketVersion + 
 	      ', protocols : ' + request.requestedProtocols.length + 
 	      ' : ' + request.requestedProtocols);
+    }
 
     if(!originIsAllowed(request.origin)) {
 	// make sure we only accept requests from an allowed origin
 	request.reject();
-	console.log((new Date()) + ' Connection rejected, invalid origin: ' + request.origin);
+	if(self.debug) {
+	    console.log((new Date()) + ' Connection rejected, invalid origin: ' + request.origin);
+	}
 	return;
     }
 
@@ -291,13 +331,16 @@ function processConnectionAttempt(self, request, isSecure) {
 
     // test if no connection was created, due to no protocol match
     if(!connection) {
-	console.log((new Date()) + ' Connection rejected, invalid protocol(s): ' + request.requestedProtocols);
+	if(self.debug) {
+	    console.log((new Date()) + ' Connection rejected, invalid protocol(s): ' + request.requestedProtocols);
+	}
         connection = request.reject();
 	return;
     }
 
-    console.log((new Date()) + ' Connection accepted, protocol: ' + connection.protocol);
-
+    if(self.debug) {
+	console.log((new Date()) + ' Connection accepted, protocol: ' + connection.protocol);
+    }
 
     // add the message listener
     connection.on('message', function(message) { connectionIsValid = processRawMessage(self, connection, message); } );
@@ -310,12 +353,16 @@ function processConnectionAttempt(self, request, isSecure) {
 }
 
 function processConnectionClosed(connection, reasonCode, description) {
-    console.log((new Date()) + ' Peer ' + connection.remoteAddress + ' disconnected: ' + reasonCode + ", " + description);
+    if(this.debug) {
+	console.log((new Date()) + ' Peer ' + connection.remoteAddress + ' disconnected: ' + reasonCode + ", " + description);
+    }
 }
 
 function processRawMessage(self, con, message) {
     if (message.type === 'utf8') {
-	console.log((new Date()) + ' Received message: ' + message.utf8Data);
+	if(self.debug) {
+	    console.log((new Date()) + ' Received message: ' + message.utf8Data);
+	}
 
 	// deconstruct the message
 	msg = Message.deconstructMessage(message.utf8Data);
@@ -323,11 +370,15 @@ function processRawMessage(self, con, message) {
 	processMessage(self, con, msg.id, msg.body);
     }
     else if (message.type === 'binary') {
-	console.log((new Date()) + ' Received binary message of ' + message.binaryData.length + ' bytes');
+	if(self.debug) {
+	    console.log((new Date()) + ' Received binary message of ' + message.binaryData.length + ' bytes');
+	}
 	// con.sendBytes(message.binaryData);
     }
     else {
-	console.log((new Date()) + ' Received unknown message type ' + message.type);
+	if(self.debug) {
+	    console.log((new Date()) + ' Received unknown message type ' + message.type);
+	}
     }
 }
 
@@ -374,7 +425,9 @@ function authenticateConnection(self, connection, msgBody) {
     }
 
     if(!users || users.length == 0) {
-	console.log((new Date()) + ' No users so creating user for : ' + user.userId);
+	if(self.debug) {
+	    console.log((new Date()) + ' No users so creating user for : ' + user.userId);
+	}
 	// We have the first user, so add it and accept
 	validUser = true;
 
@@ -404,7 +457,9 @@ function authenticateConnection(self, connection, msgBody) {
 
     if(validUser) {
 	// validation successful
-	console.log((new Date()) + ' authentication for user ' + user.userId + ' successful');
+	if(self.debug) {
+	    console.log((new Date()) + ' authentication for user ' + user.userId + ' successful');
+	}
 
 	// fire the connection event
 	fireNewConnectionAuthenticated(self, connection);
@@ -422,12 +477,16 @@ function authenticateConnection(self, connection, msgBody) {
 	    var sessionId = generateSession(self, connection);
 
 	    // send the session key back
-	    console.log((new Date()) + ' sending session ' + sessionId);
+	    if(self.debug) {
+		console.log((new Date()) + ' sending session ' + sessionId);
+	    }
 	    var body = {sessionId: sessionId, connectionType: self.communicationType};
 	    connection.send(Message.constructMessage(MSG_AUTHENTICATION_ACCEPTED, body));
 	}
     } else {
-	console.log((new Date()) + ' authentication for user ' + user.userId + ' unsuccessful');
+	if(self.debug) {
+	    console.log((new Date()) + ' authentication for user ' + user.userId + ' unsuccessful');
+	}
 
 	// validation failed, reject the connection
 	connection.send(Message.constructMessage(MSG_AUTHENTICATION_REJECTED));
@@ -440,7 +499,9 @@ var sessions = new Array();
 function generateSession(self, connection) {
     currentTime = Date.now();
 
-    console.log((new Date()) + ' generating session id for ' + (self.uudiV1 ? 'UUID V1' : 'UUID V4 RNG') + ' @ ' + currentTime);
+    if(self.debug) {
+	console.log((new Date()) + ' generating session id for ' + (self.uudiV1 ? 'UUID V1' : 'UUID V4 RNG') + ' @ ' + currentTime);
+    }
 
     var session = new Object();
     session.time = currentTime;
@@ -472,10 +533,14 @@ function validateSession(self, connection, msg) {
 
     // iterate through the sessions, remove expired ones
     // note: comparing length everytime, as the length may change
-    console.log((new Date()) + " Checking for old sessions");
+    if(self.debug) {
+	console.log((new Date()) + " Checking for old sessions");
+    }
     for(i = 0; i < sessions.length; i++) {
 	if(sessions[i].time < validTimeCompare) {
-            console.log((new Date()) + " \tremoving session: " + sessions[i].sessionId + " : " + sessions[i].time);
+	    if(self.debug) {
+		console.log((new Date()) + " \tremoving session: " + sessions[i].sessionId + " : " + sessions[i].time);
+	    }
 	    // remove as has expired
 	    sessions.splice(i, 1);
 	}
@@ -512,7 +577,9 @@ function validateSession(self, connection, msg) {
     } else {
 	// disconnect as the session id is invalid
 	// TODO: if this is unsecure, then must also drop the corresponding secure session
-	console.log((new Date()) + " dropping connection as session was invalid");
+	if(self.debug) {
+	    console.log((new Date()) + " dropping connection as session was invalid");
+	}
 	connection.drop(connection.CLOSE_REASON_NORMAL, "Session id not valid");
     }
 }
@@ -526,16 +593,20 @@ function processMessage(self, connection, id, msg) {
 
 	    case MSG_SESSION:
 		if(connection.isSecure && self.secureOnly) {
-		    console.log((new Date()) + 
-			' Invalid message, received session request, secure connection: ' + connection.isSecure);
+		    if(self.debug) {
+			console.log((new Date()) + 
+			    ' Invalid message, received session request, secure connection: ' + connection.isSecure);
+		    }
 		} else {
 		    validateSession(self, connection, msg);
 		}
 		break;
 
 	    default:
-		console.log((new Date()) + 
-		    ' Unknown message received ' + id + ', secure connection: ' + connection.isSecure);
+		if(self.debug) {
+		    console.log((new Date()) + 
+			' Unknown message received ' + id + ', secure connection: ' + connection.isSecure);
+		}
 		break;
 	}
     } else {
@@ -596,8 +667,10 @@ function processMessage(self, connection, id, msg) {
 		break;
 
 	    default:
-		console.log((new Date()) + 
-		    ' Unknown message received ' + id + ', secure connection: ' + connection.isSecure);
+		if(self.debug) {
+		    console.log((new Date()) + 
+			' Unknown message received ' + id + ', secure connection: ' + connection.isSecure);
+		}
 		break;
 	}
     }

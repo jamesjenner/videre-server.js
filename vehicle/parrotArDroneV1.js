@@ -43,6 +43,7 @@ function ParrotARDroneV1(options) {
     this.address = options.address || "192.168.1.1";
     this.client = null;
     this.debug = ((options.debug != null) ? options.debug : false);
+    this.debugLevel = options.debugLevel || 0;
 }
 
 util.inherits(ParrotARDroneV1, QuadCopter);
@@ -52,7 +53,7 @@ ParrotARDroneV1.prototype._processData = function(navData) {
     var s = navData.droneState;
 
     if(d && !s) {
-	if(this.debug) {
+	if(this.debug && this.debugLevel > 0) {
 	    console.log(
 		(new Date()) + ' ' + this.name + 
                 ' state: ' + 
@@ -60,7 +61,7 @@ ParrotARDroneV1.prototype._processData = function(navData) {
 	}
     }
     if(d && s) {
-	if(this.debug) {
+	if(this.debug && this.debugLevel > 0) {
 	    console.log(
 		(new Date()) + ' ' + this.name + 
 		' state: ' + 
