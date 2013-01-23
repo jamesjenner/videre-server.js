@@ -158,10 +158,10 @@ ClientComms.prototype.sendUpdateVehicle = function(vehicle) {
 ClientComms.prototype.sendTelemetry = function(telemetry) {
     if(this.secureAndUnsecure || this.unsecureOnly) {
 	console.log((new Date()) + ' Sending unsecure id: ' + MSG_VEHICLE_TELEMETRY + ' body: ' + JSON.stringify(telemetry));
-	this.unsecureServer.broadcast(Message.constructMessage(MSG_VEHICLE_TELEMETRY, telemetery));
+	this.unsecureServer.broadcast(Message.constructMessage(MSG_VEHICLE_TELEMETRY, telemetry));
     } else {
 	console.log((new Date()) + ' Sending secure id: ' + MSG_VEHICLE_TELEMETRY + ' body: ' + JSON.stringify(telemetry));
-	this.secureServer.broadcast(Message.constructMessage(MSG_VEHICLE_TELEMETRY, telemetery));
+	this.secureServer.broadcast(Message.constructMessage(MSG_VEHICLE_TELEMETRY, telemetry));
     }
 }
 
