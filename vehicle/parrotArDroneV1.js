@@ -97,6 +97,7 @@ ParrotARDroneV1.prototype._processData = function(navData) {
 // TODO: add connection/disconnection and abort to the higher levels
 
 QuadCopter.prototype.connect = function() {
+    var self = this;
     this.client = arDrone.createClient(this.address);
 
     if(this.debug) {
@@ -122,7 +123,7 @@ QuadCopter.prototype.disconnect = function() {
 
 QuadCopter.prototype.takeoff = function() {
     if(this.debug) {
-	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' takeoff');
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' takeoff ' + this.client);
     }
     this.client.takeoff();
 };
