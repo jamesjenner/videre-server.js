@@ -101,6 +101,16 @@ QuadCopter.prototype.connect = function() {
     var self = this;
     this.client = arDrone.createClient(this.address);
 
+    // create video stream
+
+    /* this only supports a png stream derived from a codec available with the V2 drone
+     * TODO: implement a mpjeg stream for video based on the V1 API
+     *
+    var pngStream = this.client.createPngStream();
+
+    pngStream.on('data', console.log);
+    */
+
     if(this.debug) {
 	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' creating client for ' + this.address);
     }
