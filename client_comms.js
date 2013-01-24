@@ -33,6 +33,10 @@ var bcrypt       = require('bcrypt');
 
 // load common js files shared with the videre client
 eval(fs.readFileSync('./videre-common/js/vehicle.js').toString());
+// the following two are referenced in vehicle.js, possibly not used
+eval(fs.readFileSync('./videre-common/js/path.js').toString());
+eval(fs.readFileSync('./videre-common/js/telemetry.js').toString());
+
 eval(fs.readFileSync('./videre-common/js/videre_comms.js').toString());
 
 var USERS_FILE = 'users.json';

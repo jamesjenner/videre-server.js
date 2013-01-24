@@ -31,6 +31,10 @@ var TransformParrot = require('./transform/transformParrotArDroneV1.js');
 var transformParrot = new TransformParrot();
 
 eval(fs.readFileSync('./videre-common/js/vehicle.js').toString());
+// the following two are referenced in vehicle.js, possibly not used
+eval(fs.readFileSync('./videre-common/js/path.js').toString());
+eval(fs.readFileSync('./videre-common/js/telemetry.js').toString());
+
 eval(fs.readFileSync('./videre-common/js/videre_comms.js').toString());
 
 
