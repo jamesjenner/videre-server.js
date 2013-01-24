@@ -7,7 +7,41 @@ The videre suite of software is designed to allow multi client access to drones 
 
 Usage
 -----
-TBD
+
+USAGE:    node videre_server
+
+SYNOPSIS: Videre server provides connecitvity between videre clients and drones.
+
+OPTIONS:
+
+-d, --debug             Generate debugging messages, level is optional. 0 - informational, 1 - detailed (includes telemetry)
+
+-va, --add-vehicles     Allow clients to add vehicles
+
+-vd, --delete-vehicles  Allow clients to delete vehicles
+
+-vu, --update-vehicles  Allow clients to update vehicles
+
+-u, --update-vehicles   Allow clients to update vehicles
+
+-so, --secure-only      Set communications to only accept secure connections
+
+-m, --mixed             Set communications to accept secure and unsecure connections
+
+-u1, --uuid-v1          Set uuid generation for session keys to uuid v1, default is v4
+
+-p, --port              Set the port parameter
+
+-s, --ssl-port          Set the ssl port parameter
+
+-sk, --ssl-key          Set the ssl private key file parameter
+
+-sc, --ssl-cert         Set the ssl certificate parameter
+
+-g, --generate          Generate a configuration file
+
+-h, --help              This help document.
+
 
 Dependancies
 ------------
@@ -18,6 +52,7 @@ Module Dependancies are:
  - node-uuid - https://npmjs.org/package/node-uuid
  - node-bcrypt - https://npmjs.org/package/bcrypt
  - opt - https://npmjs.org/package/opt or https://github.com/rsdoiel/opt
+ - ar-drone - https://npmjs.org/package/ar-drone or https://github.com/felixge/node-ar-drone
 
 To install the modules use the following commands:
 
@@ -26,6 +61,7 @@ npm install websocket
 npm install node-uuid
 npm install bcrypt
 npm install opt
+npm install ar-drone
 ```
 
 Submodules
@@ -50,6 +86,8 @@ openssl req -new -key privatekey.pem -out certrequest.csr
 openssl x509 -req -in certrequest.csr -signkey privatekey.pem -out certificate.pem
 openssl pkcs12 -export -in certificate.pem -inkey privatekey.pem -out certificate.p12
 ```
+
+When the certificate is setup, the easiest way to make it available for a client is to browse to the name of the https://host:<secure port>, this will cause the browser to confirm that you wish to use the certificate.
 
 License
 -------
