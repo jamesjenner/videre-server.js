@@ -1,5 +1,5 @@
 /*
- * client_comms.js v0.1 alpha
+ * transformParrotArDroneV1.js
  *
  * Copyright (c) 2012 James G Jenner
  *
@@ -94,32 +94,32 @@ TransformParrotArDroneV1.prototype.transform = function(d) {
 	    break;
     }
 
-    // speed appears to be milimeters per second, so divide by 1000 to get meters
-    telemetry.speed = d.speed;
+    // speed is mm/s, so divide by 1000 to get m/s
+    telemetry.speed = d.speed / 1000;
 
-    // uknown uom
-    telemetry.velocity.x = d.velocity.x;
-    telemetry.velocity.y = d.velocity.y;
-    telemetry.velocity.z = d.velocity.z;
+    // uknown uom, presuming mm/s (same as speed)
+    telemetry.velocity.x = d.velocity.x / 1000;
+    telemetry.velocity.y = d.velocity.y / 1000;
+    telemetry.velocity.z = d.velocity.z / 1000;
 
-    // attitude appears to be milli degrees, multiply by 1000 to get degrees
-    telemetry.attitude.pitch = d.attitude.pitch;
-    telemetry.attitude.roll = d.attitude.roll;
-    telemetry.attitude.yaw = d.attitude.yaw;
-    telemetry.attitude.x = d.attitude.pitch;
-    telemetry.attitude.y = d.attitude.roll;
-    telemetry.attitude.z = d.attitude.yaw;
+    // attitude is milli degrees, multiply by 1000 to get degrees
+    telemetry.attitude.pitch = d.attitude.pitch * 1000;
+    telemetry.attitude.roll = d.attitude.roll * 1000;
+    telemetry.attitude.yaw = d.attitude.yaw * 1000;
+    telemetry.attitude.x = d.attitude.pitch * 1000;
+    telemetry.attitude.y = d.attitude.roll * 1000;
+    telemetry.attitude.z = d.attitude.yaw * 1000;
 
-    // altitude is in cm
+    // altitude is in cm, convert to m
     telemetry.altitude = d.altitude / 100;
 
     // uknown uom
     telemetry.temperature = d.temperature;
 
-    // uknown uom
+    // uknown uom, presuming it is degrees, need to test that it is not millidegrees
     telemetry.heading = d.heading;
 
-    // uknown uom
+    // uknown uom, presuming it is m/s 
     telemetry.vsi = d.vsi;
 
     // uknown uom
@@ -128,6 +128,8 @@ TransformParrotArDroneV1.prototype.transform = function(d) {
 
     // voltage is mV
     telemetry.batteryVoltage = d.batteryVoltage;
+
+    // charge is percentage, 0 to 100
     telemetry.batteryCharge = d.batteryCharge;
 
     return telemetry;
