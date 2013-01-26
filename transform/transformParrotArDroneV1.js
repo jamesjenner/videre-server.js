@@ -103,21 +103,24 @@ TransformParrotArDroneV1.prototype.transform = function(d) {
     telemetry.velocity.z = d.velocity.z / 1000;
 
     // attitude is milli degrees, multiply by 1000 to get degrees
-    telemetry.attitude.pitch = d.attitude.pitch * 1000;
-    telemetry.attitude.roll = d.attitude.roll * 1000;
-    telemetry.attitude.yaw = d.attitude.yaw * 1000;
-    telemetry.attitude.x = d.attitude.pitch * 1000;
-    telemetry.attitude.y = d.attitude.roll * 1000;
-    telemetry.attitude.z = d.attitude.yaw * 1000;
+    // testing has shown that it's in degrees not milli degrees, perhaps they changed it for v2?
+    telemetry.attitude.pitch = d.attitude.pitch;
+    telemetry.attitude.roll = d.attitude.roll;
+    telemetry.attitude.yaw = d.attitude.yaw;
+    telemetry.attitude.x = d.attitude.pitch;
+    telemetry.attitude.y = d.attitude.roll;
+    telemetry.attitude.z = d.attitude.yaw;
 
     // altitude is in cm, convert to m
-    telemetry.altitude = d.altitude / 100;
+    // testing has shown that it's m not cm, perhaps they changed it for v2?
+    telemetry.altitude = d.altitude;
 
     // uknown uom
     telemetry.temperature = d.temperature;
 
-    // uknown uom, presuming it is degrees, need to test that it is not millidegrees
-    telemetry.heading = d.heading;
+    // uknown, presuming it is not available in v1, so lets use yaw.
+    // yaw is from -180 to +180, so convert, if < 0 abs and double, otherwise leave as is
+    telemetry.heading = telemetry.attitude.yaw < 0 ? telemetry.attitude.yaw * -2 : telemetry.attitude.yaw;
 
     // uknown uom, presuming it is m/s 
     telemetry.vsi = d.vsi;
