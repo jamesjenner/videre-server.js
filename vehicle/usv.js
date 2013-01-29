@@ -1,5 +1,5 @@
 /*
- * usv.js v0.1 alpha
+ * usv.js
  * 
  * Unmanned Surface Vehicle (specifically the surface of water, refer to UGV for unmanned land based vehicles)
  *

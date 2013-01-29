@@ -1,5 +1,5 @@
 /*
- * uav.js v0.1 alpha
+ * uav.js
  * 
  * Unmanned Aerial Vehicle
  *

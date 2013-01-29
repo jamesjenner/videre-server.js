@@ -1,5 +1,5 @@
 /*
- * uuv.js v0.1 alpha
+ * uuv.js
  * 
  * Unmanned Undersea Vehicle (sometimes refered to as AUV, Autonomous Underwater Vehicle)
  *

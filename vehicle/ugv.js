@@ -1,5 +1,5 @@
 /*
- * ugv.js v0.1 alpha
+ * ugv.js
  * 
  * Unmanned Ground Vehicle (specifically for land, refer to USV for unmanned surface vehicles for water)
  *

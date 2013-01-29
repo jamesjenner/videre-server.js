@@ -1,5 +1,5 @@
 /*
- * quadCopter.js v0.1 alpha
+ * quadCopter.js
  *
  * A type of UAV that has four seperate rotors for flight
  *
