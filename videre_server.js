@@ -1,5 +1,5 @@
 /*
- * videre_server.js v0.1 alpha
+ * videre_server.js
  *
  * Copyright (c) 2012 James G Jenner
  *
@@ -16,27 +16,21 @@
  * along with this program. If not, see http://www.gnu.org/licenses/
  */
 
-// var videre_comms  = require('./videre-common/js/videre_comms.js');
-// var vehicle       = require('./videre-common/js/vehicle.js');
-var ClientComms   = require('./client_comms.js');
-var fs            = require('fs');
-var path          = require('path');
-var opt           = require('opt').create();
-var uuid         = require('node-uuid');
+var ClientComms       = require('./client_comms.js');
+var fs                = require('fs');
+var path              = require('path');
+var opt               = require('opt').create();
+var uuid              = require('node-uuid');
 
-var Parrot = require('./vehicle/parrotArDroneV1.js');
+var Vehicle           = require('./videre-common/js/vehicle.js');
+var Message           = require('./videre-common/js/message.js');
 
-var TransformParrot = require('./transform/transformParrotArDroneV1.js');
+var Drone             = require('./videre-common/js/drone.js');
+var DroneCapabilities = require('./videre-common/js/droneCapabilities.js');
+var Parrot            = require('./vehicle/parrotArDroneV1.js');
+var TransformParrot   = require('./transform/transformParrotArDroneV1.js');
 
 var transformParrot = new TransformParrot();
-
-eval(fs.readFileSync('./videre-common/js/vehicle.js').toString());
-// the following two are referenced in vehicle.js, possibly not used
-eval(fs.readFileSync('./videre-common/js/path.js').toString());
-eval(fs.readFileSync('./videre-common/js/telemetry.js').toString());
-
-eval(fs.readFileSync('./videre-common/js/videre_comms.js').toString());
-
 
 var VEHICLES_FILE = 'vehicles.json';
 // load the vehicle configs from the file
@@ -55,7 +49,7 @@ var config = {
     port: 9007,
     securePort: 9008,
     uuidV1: false,
-    communicationType:COMMS_TYPE_MIXED,
+    communicationType: Message.COMMS_TYPE_MIXED,
     sslKey: 'keys/privatekey.pem',
     sslCert: 'keys/certificate.pem'
 };
@@ -106,11 +100,11 @@ opt.optionHelp("USAGE node " + path.basename(process.argv[1]),
     }, "Allow clients to update vehicles");
 
     opt.option(["-so", "--secure-only"], function (param) {
-	config.communicationType = COMMS_TYPE_SECURE_ONLY;
+	config.communicationType = Message.COMMS_TYPE_SECURE_ONLY;
     }, "Set communications to only accept secure connections");
 
     opt.option(["-m", "--mixed"], function (param) {
-	config.communicationType = COMMS_TYPE_MIXED;
+	config.communicationType = Message.COMMS_TYPE_MIXED;
     }, "Set communications to accept secure and unsecure connections");
 
     opt.option(["-u1", "--uuid-v1"], function (param) {
@@ -285,7 +279,7 @@ function startVehicleComms(vehicles) {
 	remoteVehicle = null;
 
 	switch(vehicles[i].deviceType) {
-	    case(VEHICLE_DEVICE_PARROT_V1):
+	    case(Vehicle.DEVICE_PARROT_V1):
 		// create the remote vehicle comms handler and map values from the common vehicle data
 		remoteVehicle = new Parrot({
 		    name: vehicles[i].name, 
@@ -297,7 +291,7 @@ function startVehicleComms(vehicles) {
 		break;
 
 	    // not implemented yet 
-	    case(VEHICLE_DEVICE_PARROT_V2):
+	    case(Vehicle.DEVICE_PARROT_V2):
 		break;
 
 	    // unknown device type
