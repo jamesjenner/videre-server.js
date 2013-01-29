@@ -1,0 +1,3 @@
+[submodule "videre-common"]
+	path = videre-common
+	url = git://github.com/jamesjenner/videre-common.git
