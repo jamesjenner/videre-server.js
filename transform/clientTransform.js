@@ -1,5 +1,5 @@
 /*
- * clientTransform.js v0.1 alpha
+ * clientTransform.js
  *
  * Copyright (c) 2012 James G Jenner
  *
