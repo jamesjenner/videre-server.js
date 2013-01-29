@@ -1,5 +1,5 @@
 /*
- * parrotArDroneV1.js v0.1 alpha
+ * parrotArDroneV1.js
  *
  * Copyright (c) 2012 James G Jenner
  *
@@ -16,22 +16,13 @@
  * along with this program. If not, see http://www.gnu.org/licenses/
  */
 
+var util       = require('util');
+var arDrone    = require('ar-drone');
+
 var QuadCopter = require('./quadCopter.js');
-var Telemetry = require('./telemetry.js');
-var Attitude = require('./attitude.js');
 
-var arDrone = require('ar-drone');
-
-var util = require('util');
-
-// TODO: not happy with reading in telemetry.js, need a better solution
-// possibly should be done at a higher level? Maybe as a module to 
-// encapsulate it?
-// var fs = require('fs');
-
-// load common js files shared with the videre client
-// eval(fs.readFileSync('./videre-common/js/telemetry.js').toString());
-// eval(fs.readFileSync('./videre-common/js/vehicle.js').toString());
+var Attitude   = require('../videre-common/js/attitude');
+var Telemetry  = require('../videre-common/js/telemetry');
 
 module.exports = ParrotARDroneV1;
 
@@ -88,7 +79,6 @@ ParrotARDroneV1.prototype._processData = function(navData) {
 	    });
 
 	this._rcvdTelemetry(telemetry);
-	// this._rcvdPayload(new Telemetry());
     }
 
     d = null;
