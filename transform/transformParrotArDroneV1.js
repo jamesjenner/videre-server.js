@@ -16,15 +16,13 @@
  * along with this program. If not, see http://www.gnu.org/licenses/
  */
 
-var fs           = require('fs');
-var util         = require('util');
+var fs              = require('fs');
+var util            = require('util');
 
 var ClientTransform = require('./clientTransform.js');
-//
-// load common js files shared with the videre client
-eval(fs.readFileSync('../videre-common/js/telemetry.js').toString());
-eval(fs.readFileSync('../videre-common/js/attitude.js').toString());
-eval(fs.readFileSync('../videre-common/js/position.js').toString());
+var Telemetry       = require('./clientTransform.js');
+
+var Telemetry       = require('../videre-common/js/telemetry.js');
 
 module.exports = TransformParrotArDroneV1;
 
