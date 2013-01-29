@@ -1,5 +1,5 @@
 /*
- * unmannedVehicle.js v0.1 alpha
+ * unmannedVehicle.js
  *
  * Copyright (c) 2012 James G Jenner
  *
