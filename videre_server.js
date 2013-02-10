@@ -286,7 +286,7 @@ function startVehicleComms(vehicles) {
 		remoteVehicle = new Parrot({
 		    name: vehicles[i].name, 
 		    id: vehicles[i].id, 
-		    address: "192.168.1.3",
+		    address: "192.168.1.2",
 		    debug: config.debug,
 		    debugLevel: config.debugLevel
 	        });
