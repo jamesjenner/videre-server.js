@@ -27,6 +27,7 @@ var Message           = require('./videre-common/js/message.js');
 
 var Drone             = require('./videre-common/js/drone.js');
 var DroneCapabilities = require('./videre-common/js/droneCapabilities.js');
+var Path              = require('./videre-common/js/path.js');
 var Parrot            = require('./vehicle/parrotArDroneV1.js');
 var TransformParrot   = require('./transform/transformParrotArDroneV1.js');
 
@@ -195,6 +196,7 @@ clientComms = new ClientComms({
 clientComms.on('addVehicle', function(d) {addVehicle(d);});
 clientComms.on('deleteVehicle', function(d) {deleteVehicle(d);});
 clientComms.on('updateVehicle', function(d) {updateVehicle(d);});
+clientComms.on('updateNavPath', function(d, c) {updateNavPath(d, c);});
 clientComms.on('sendVehicles', function(c) {sendVehicles(c);});
 clientComms.on('newConnectionAccepted', function(c) {newConnection(c);});
 
@@ -373,6 +375,7 @@ function addVehicle(msg) {
     if(config.debug) {
 	console.log((new Date()) + ' Adding vehicle ' + msg.name);
     }
+    // TODO: add logic to check if the vehicle exists, based on name
 
     // setup the position, relative to this server
     var vehicle = new Vehicle(msg);
@@ -386,16 +389,16 @@ function addVehicle(msg) {
 }
 
 function deleteVehicle(msg) {
-    // if the message isn't set and the name isn't set then do nothing
-    if(!msg && !msg.name) {
+    // if the message isn't set and the id isn't set then do nothing
+    if(!msg && !msg.id) {
 	if(config.debug) {
-	    console.log((new Date()) + ' Delete vehicle failed, msg.name is not specififed.');
+	    console.log((new Date()) + ' Delete vehicle failed, msg.id is not specififed.');
 	}
 	return;
     }
 
     // find the vehicle
-    var position = findVehicle(msg.name);
+    var position = findVehicleById(msg.id);
 
     // remove from the array if found
     if(position >= 0) {
@@ -406,6 +409,8 @@ function deleteVehicle(msg) {
 	resetVehiclePositions();
         
 	saveVehicles(VEHICLES_FILE);
+
+	clientComms.sendDeleteVehicle(vehicle);
     } else {
 	if(config.debug) {
 	    console.log((new Date()) + ' Delete vehicle failed, vehicle not found for: ' + msg.name);
@@ -414,26 +419,58 @@ function deleteVehicle(msg) {
 }
 
 function updateVehicle(msg) {
-    // if the message isn't set and the name isn't set then do nothing
-    if(!msg && !msg.name) {
+    // if the message isn't set and the id isn't set then do nothing
+    if(!msg && !msg.id) {
 	if(config.debug) {
-	    console.log((new Date()) + ' Update vehicle failed, msg.name is not specififed.');
+	    console.log((new Date()) + ' Update vehicle failed, msg.id is not specififed.');
 	}
 	return;
     }
 
     // find the vehicle
-    var position = findVehicle(msg.name);
+    var position = findVehicleById(msg.id);
 
     if(position >= 0) {
         vehicles[position] = new Vehicle(msg);
+
+	saveVehicles(VEHICLES_FILE);
+
+	clientComms.sendUpdateVehicle(vehicle);
     } else {
 	if(config.debug) {
 	    console.log((new Date()) + ' Update vehicle failed, vehicle not found for: ' + msg.name);
 	}
     }
+}
 
-    saveVehicles(VEHICLES_FILE);
+function updateNavPath(msg, connection) {
+    // if the message isn't set and the id isn't set then do nothing
+    if(!msg && !msg.id) {
+	if(config.debug) {
+	    console.log((new Date()) + ' Update nav path failed, msg.id is not specififed.');
+	}
+	return;
+    }
+
+    // find the vehicle
+    var position = findVehicleById(msg.id);
+    
+    var navPath = new Path(msg.navPath);
+
+    if(position >= 0) {
+	// update the path and the onMap flag
+	vehicles[position].navigationPath = new Path(msg.navPath);
+	vehicles[position].onMap = msg.onMap;
+
+	saveVehicles(VEHICLES_FILE);
+
+	clientComms.sendNavPathUpdated(connection, msg.id);
+	clientComms.sendUpdateNavPath(msg);
+    } else {
+	if(config.debug) {
+	    console.log((new Date()) + ' Update nav path of vehicle failed, vehicle not found for: ' + msg.id);
+	}
+    }
 }
 
 function sendVehicles(connection) {
@@ -479,6 +516,29 @@ function processPayload(remoteVehicle, d) {
 	console.log((new Date()) + ' videre-server: payload...');
 	console.log(d);
     }
+}
+
+/** 
+ * find VehicleById - finds the vehicle based on it's id
+ * 
+ * returns -1 if not found, otherwise the position in the vehicles array
+ */
+function findVehicleById(id) {
+    var position = -1;
+
+    // if name isn't set then return
+    if(!id) {
+	return position;
+    }
+
+    for(var i = 0, l = vehicles.length; i < l; i++) {
+	if(vehicles[i].id === id) {
+	    position = i;
+	    break;
+	}
+    }
+
+    return position;
 }
 
 /** 

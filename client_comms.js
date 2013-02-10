@@ -177,6 +177,28 @@ ClientComms.prototype.sendUpdateVehicle = function(vehicle) {
     }
 }
 
+ClientComms.prototype.sendUpdateNavPath = function(msgBody) {
+    if(this.secureAndUnsecure || this.unsecureOnly) {
+	if(this.debug) {
+	    console.log((new Date()) + ' Sending unsecure id: ' + Message.UPDATE_NAV_PATH + ' body: ' + JSON.stringify(msgBody));
+	}
+	this.unsecureServer.broadcast(Message.constructMessage(Message.UPDATE_NAV_PATH, msgBody));
+    } else {
+	if(this.debug) {
+	    console.log((new Date()) + ' Sending secure id: ' + Message.UPDATE_NAV_PATH + ' body: ' + JSON.stringify(msgBody));
+	}
+	this.secureServer.broadcast(Message.constructMessage(Message.UPDATE_NAV_PATH, msgBody));
+    }
+}
+
+ClientComms.prototype.sendNavPathUpdated = function(connection, id) {
+    if(this.debug) {
+	console.log((new Date()) + ' Sending id: ' + Message.NAV_PATH_UPDATED + ' body: ' + JSON.stringify(id));
+    }
+    connection.send(Message.constructMessage(Message.NAV_PATH_UPDATED, id));
+}
+
+
 ClientComms.prototype.sendTelemetry = function(telemetry) {
     if(this.secureAndUnsecure || this.unsecureOnly) {
 	if(this.debug && this.debugLevel > 0) {
@@ -227,6 +249,10 @@ rcvdDeleteVehicle = function(self, data) {
 
 rcvdUpdateVehicle = function(self, data) {
     self.emit('updateVehicle', data);
+}
+
+rcvdUpdateNavPath = function(self, data, connection) {
+    self.emit('updateNavPath', data, connection);
 }
 
 rcvdSendVehicles = function(self, connection) {
@@ -618,6 +644,10 @@ function processMessage(self, connection, id, msg) {
 
 	    case Message.UPDATE_VEHICLE:
 		rcvdUpdateVehicle(self, msg);
+		break;
+
+	    case Message.UPDATE_NAV_PATH:
+		rcvdUpdateNavPath(self, msg, connection);
 		break;
 
 	    case Message.GET_VEHICLES:
