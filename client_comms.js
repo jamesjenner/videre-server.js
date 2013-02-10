@@ -490,8 +490,13 @@ function authenticateConnection(self, connection, msgBody) {
 	    (clientConnectionType === Message.COMMS_TYPE_UNSECURE_ONLY && !connection.isSecure) || 
 	    (clientConnectionType === Message.COMMS_TYPE_SECURE_ONLY && connection.isSecure)) {
 	    // fire the connection accepted event
+	    if(self.debug) {
+		console.log((new Date()) + ' sending accept');
+	    }
 	    fireNewConnectionAccepted(self, connection);
 	    connection.verified = true;
+	    var body = {sessionId: '', connectionType: self.communicationType};
+	    connection.send(Message.constructMessage(Message.AUTHENTICATION_ACCEPTED, body));
 	} else {
 	    // create a session key
 	    var sessionId = generateSession(self, connection);
