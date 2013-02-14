@@ -44,7 +44,7 @@ ParrotARDroneV1.prototype._processData = function(navData) {
     var s = navData.droneState;
 
     if(d && !s) {
-	if(this.debug && this.debugLevel > 0) {
+	if(this.debug && this.debugLevel > 5) {
 	    console.log(
 		(new Date()) + ' ' + this.name + 
                 ' state: ' + 
@@ -52,7 +52,7 @@ ParrotARDroneV1.prototype._processData = function(navData) {
 	}
     }
     if(d && s) {
-	if(this.debug && this.debugLevel > 0) {
+	if(this.debug && this.debugLevel > 5) {
 	    console.log(
 		(new Date()) + ' ' + this.name + 
 		' state: ' + 
