@@ -47,6 +47,7 @@ var config = {
     addVehicleEnabled: true,
     deleteVehicleEnabled: true,
     updateVehicleEnabled: true,
+    telemetryTimer: 1000,
     port: 9007,
     securePort: 9008,
     uuidV1: false,
@@ -73,109 +74,112 @@ opt.optionHelp("USAGE node " + path.basename(process.argv[1]),
     " Released under GNU General Public License, version 3.\n" +
     " See: http://www.gnu.org/licenses/\n");
 
-// opt.on("ready", function (config) {
-    opt.option(["-d", "--debug"], function (param) {
-	config.debug = true;
-	if (Number(param).toFixed(0) > 0) {
-	    config.debugLevel = Number(param).toFixed(0);
-	    opt.consume(param);
-	} else {
-	    config.debugLevel = 0;
-	}
-    }, "Generate debugging messages, level is optional. 0 - informational, 1 - detailed");
-
-    opt.option(["-va", "--add-vehicles"], function (param) {
-	config.allowAddVehicle = true;
-    }, "Allow clients to add vehicles");
-
-    opt.option(["-vd", "--delete-vehicles"], function (param) {
-	config.allowDeleteVehicle = true;
-    }, "Allow clients to delete vehicles");
-
-    opt.option(["-vu", "--update-vehicles"], function (param) {
-	config.allowUpdateVehicle = true;
-    }, "Allow clients to update vehicles");
-
-    opt.option(["-u", "--update-vehicles"], function (param) {
-	config.allowUpdateVehicle = true;
-    }, "Allow clients to update vehicles");
-
-    opt.option(["-so", "--secure-only"], function (param) {
-	config.communicationType = Message.COMMS_TYPE_SECURE_ONLY;
-    }, "Set communications to only accept secure connections");
-
-    opt.option(["-m", "--mixed"], function (param) {
-	config.communicationType = Message.COMMS_TYPE_MIXED;
-    }, "Set communications to accept secure and unsecure connections");
-
-    opt.option(["-u1", "--uuid-v1"], function (param) {
-	config.uuidV1 = true;
-    }, "Set uuid generation for session keys to uuid v1, default is v4");
-
-    opt.option(["-p", "--port"], function (param) {
-	if (Number(param).toFixed(0) > 0) {
-	    config.port = Number(param).toFixed(0);
-	    opt.consume(param);
-	} else {
-	    opt.usage("Port must be a number greater then 0.", 1);
-	}
-    }, "Set the port parameter");
-
-    opt.option(["-s", "--ssl-port"], function (param) {
-	if (Number(param).toFixed(0) > 0) {
-	    config.securePort = Number(param).toFixed(0);
-	    opt.consume(param);
-	} else {
-	    opt.usage("SLL Port must be a number greater then 0.", 1);
-	}
-    }, "Set the ssl port parameter");
-
-    opt.option(["-sk", "--ssl-key"], function (param) {
-	if (param !== undefined && param.trim()) {
-	    config.sslKey = param.trim();
-	    opt.consume(param);
-	}
-    }, "Set the ssl private key file parameter");
-
-    opt.option(["-sc", "--ssl-cert"], function (param) {
-	if (param !== undefined && param.trim()) {
-	    config.sslCert = param.trim();
-	    opt.consume(param);
-	}
-    }, "Set the ssl certificate parameter");
-
-    opt.option(["-g", "--generate"], function (param) {
-	var config_filename = ""; 
-
-	config_only = true;
-
-	if (param !== undefined && param.trim() !== "") {
-	    config_filename = param.trim();
-	}
+opt.option(["-d", "--debug"], function (param) {
+    config.debug = true;
+    if (Number(param).toFixed(0) > 0) {
+	config.debugLevel = Number(param).toFixed(0);
 	opt.consume(param);
+    } else {
+	config.debugLevel = 0;
+    }
+}, "Generate debugging messages, level is optional. 0 - informational, 1 - detailed");
 
-	if (config_filename === "") {
-	    console.log(JSON.stringify(config, null, '\t'));
+opt.option(["-va", "--add-vehicles"], function (param) {
+    config.allowAddVehicle = true;
+}, "Allow clients to add vehicles");
+
+opt.option(["-vd", "--delete-vehicles"], function (param) {
+    config.allowDeleteVehicle = true;
+}, "Allow clients to delete vehicles");
+
+opt.option(["-vu", "--update-vehicles"], function (param) {
+    config.allowUpdateVehicle = true;
+}, "Allow clients to update vehicles");
+
+opt.option(["-so", "--secure-only"], function (param) {
+    config.communicationType = Message.COMMS_TYPE_SECURE_ONLY;
+}, "Set communications to only accept secure connections");
+
+opt.option(["-m", "--mixed"], function (param) {
+    config.communicationType = Message.COMMS_TYPE_MIXED;
+}, "Set communications to accept secure and unsecure connections");
+
+opt.option(["-u1", "--uuid-v1"], function (param) {
+    config.uuidV1 = true;
+}, "Set uuid generation for session keys to uuid v1, default is v4");
+
+opt.option(["-t", "--telemetry-time"], function (param) {
+    if (Number(param).toFixed(0) > 0) {
+	config.telemetryTimer = Number(param).toFixed(0);
+	opt.consume(param);
+    } else {
+	opt.usage("Telemetry timer must be a number greater then 0.", 1);
+    }
+}, "Set the timer for sending telemetry to clients, in milliseconds");
+
+opt.option(["-p", "--port"], function (param) {
+    if (Number(param).toFixed(0) > 0) {
+	config.port = Number(param).toFixed(0);
+	opt.consume(param);
+    } else {
+	opt.usage("Port must be a number greater then 0.", 1);
+    }
+}, "Set the port parameter");
+
+opt.option(["-s", "--ssl-port"], function (param) {
+    if (Number(param).toFixed(0) > 0) {
+	config.securePort = Number(param).toFixed(0);
+	opt.consume(param);
+    } else {
+	opt.usage("SLL Port must be a number greater then 0.", 1);
+    }
+}, "Set the ssl port parameter");
+
+opt.option(["-sk", "--ssl-key"], function (param) {
+    if (param !== undefined && param.trim()) {
+	config.sslKey = param.trim();
+	opt.consume(param);
+    }
+}, "Set the ssl private key file parameter");
+
+opt.option(["-sc", "--ssl-cert"], function (param) {
+    if (param !== undefined && param.trim()) {
+	config.sslCert = param.trim();
+	opt.consume(param);
+    }
+}, "Set the ssl certificate parameter");
+
+opt.option(["-g", "--generate"], function (param) {
+    var config_filename = ""; 
+
+    config_only = true;
+
+    if (param !== undefined && param.trim() !== "") {
+	config_filename = param.trim();
+    }
+    opt.consume(param);
+
+    if (config_filename === "") {
+	console.log(JSON.stringify(config, null, '\t'));
+	process.exit(0);
+    } else {
+	fs.writeFile(config_filename, JSON.stringify(config, null, '\t'), function (err) {
+	    if (err) {
+		console.error("ERROR: can't write", config_filename);
+		process.exit(1);
+	    }
+	    console.log("Wrote configuration to", config_filename);
 	    process.exit(0);
-	} else {
-	    fs.writeFile(config_filename, JSON.stringify(config, null, '\t'), function (err) {
-		if (err) {
-		    console.error("ERROR: can't write", config_filename);
-		    process.exit(1);
-		}
-		console.log("Wrote configuration to", config_filename);
-		process.exit(0);
-	    });
-	}
+	});
+    }
 
-    }, "Generate a configuration file");
+}, "Generate a configuration file");
 
-    opt.option(["-h", "--help"], function () {
-	opt.usage();
-    }, "This help document.");
+opt.option(["-h", "--help"], function () {
+    opt.usage();
+}, "This help document.");
 
-    opt.optionWith(process.argv);
-// });
+opt.optionWith(process.argv);
 
 // setup the client communications
 clientComms = new ClientComms({
@@ -220,6 +224,8 @@ clientComms.startClientServer();
 
 // startup the comms with the remote vehicles
 var remoteVehicles = startVehicleComms(vehicles);
+
+telemetryTimeout();
 
 function vehicleAbort(data) {
     if(config.debug) {
@@ -269,11 +275,29 @@ function getRemoteVehicle(id) {
     return remoteVehicle;
 }
 
+/*
+ * enclosure for call to process telemetry when a telemetry event occurs
+ */
+function makeOnTelemetryFunction(remoteVehicle, vehicle) {
+    return function(d) {
+	processTelemetry(remoteVehicle, vehicle, d);
+    };
+}
+
+/*
+ * enclosure for call to process payload when a telemetry event occurs
+ */
+function makeOnPayloadFunction(remoteVehicle, vehicle) {
+    return function(d) {
+	processPayload(remoteVehicle, vehicle, d);
+    };
+}
+
 function startVehicleComms(vehicles) {
     var vehicleComms = new Array();
     var remoteVehicle = null;
 
-    for(i = 0, l = vehicles.length; i < l; i++) {
+    for(var i = 0, l = vehicles.length; i < l; i++) {
 	if(config.debug) {
 	    console.log((new Date()) + " videre-server.js: startVehicleComms: loading " + vehicles[i].name);
 	}
@@ -286,7 +310,7 @@ function startVehicleComms(vehicles) {
 		remoteVehicle = new Parrot({
 		    name: vehicles[i].name, 
 		    id: vehicles[i].id, 
-		    address: "192.168.1.2",
+		    address: vehicles[i].vehicleAddr,
 		    debug: config.debug,
 		    debugLevel: config.debugLevel
 	        });
@@ -294,7 +318,6 @@ function startVehicleComms(vehicles) {
 
 	    // not implemented yet 
 	    case(Vehicle.DEVICE_PARROT_V2):
-		break;
 
 	    // unknown device type
 	    default:
@@ -307,8 +330,8 @@ function startVehicleComms(vehicles) {
 	if (remoteVehicle) {
             vehicleComms.push(remoteVehicle);
 
-	    remoteVehicle.on('telemetry', function(d) {processTelemetry(remoteVehicle, d);});
-	    remoteVehicle.on('payload', function(d) {processPayload(remoteVehicle, d);});
+	    remoteVehicle.on('telemetry', makeOnTelemetryFunction(remoteVehicle, vehicles[i]));
+	    remoteVehicle.on('payload', makeOnPayloadFunction(remoteVehicle, vehicles[i]));
 
 	    // TODO: what happens if we lose coms? what performs the auto re-connect?
 	    if(config.debug) {
@@ -489,19 +512,46 @@ function newConnection(connection) {
  *
  * note: some devices may pass payload and telemetry together
  */
-function processTelemetry(remoteVehicle, d) {
-    if(config.debug && config.debugLevel > 0) {
-	console.log((new Date()) + ' videre-server: telemetry...');
-	console.log(d);
+function processTelemetry(remoteVehicle, vehicle, d) {
+    if(config.debug && config.debugLevel > 3) {
+	console.log((new Date()) + ' videre-server: process telemetry for vehicle ' + vehicle.name);
     }
 
     // convert telemetry from drone to client format
     var telemetry = transformParrot.transform(d);
+    telemetry.dirty = true;
+    vehicle.telemetry = telemetry;
+}
 
-    telemetry.name = remoteVehicle.name;
-    telemetry.id = remoteVehicle.id;
+function telemetryTimeout() {
+    sendTelemetry();
+    setTimeout(telemetryTimeout, config.telemetryTimer);
+}
 
-    clientComms.sendTelemetry(telemetry);
+/*
+ * send telemetry
+ *
+ * sends telemetry for all vehicles based on it's dirty flag
+ *
+ * note: some devices may pass payload and telemetry together
+ */
+function sendTelemetry() {
+    if(config.debug && config.debugLevel > 2) {
+	console.log((new Date()) + ' videre-server: send telemetry, testing for telemetry to send');
+    }
+
+    // iterate through vehicles, 
+    for(var i = 0, l = vehicles.length; i < l; i++) {
+	// check if telemetry has been updated since last send
+	if(vehicles[i].telemetry && vehicles[i].telemetry.dirty) {
+	    var msg = new Object();
+	    msg.id = vehicles[i].id;
+	    msg.name = vehicles[i].name;
+	    msg.telemetry = vehicles[i].telemetry;
+	    clientComms.sendTelemetry(msg);
+	    vehicles[i].telemetry.dirty = false;
+	}
+    }
 }
 
 /*
@@ -512,8 +562,8 @@ function processTelemetry(remoteVehicle, d) {
  * note: some devices may pass payload and telemetry together
  */
 function processPayload(remoteVehicle, d) {
-    if(config.debug) {
-	console.log((new Date()) + ' videre-server: payload...');
+    if(config.debug && config.debugLevel > 1) {
+	console.log((new Date()) + ' videre-server: process payload');
 	console.log(d);
     }
 }
