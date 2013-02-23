@@ -290,6 +290,13 @@ rcvdLeft = function(self, data) {
 rcvdRight = function(self, data) {
     self.emit('vehicleRight', data);
 }
+rcvdTurnLeft = function(self, data) {
+    self.emit('vehicleTurnLeft', data);
+}
+
+rcvdTurnRight = function(self, data) {
+    self.emit('vehicleTurnRight', data);
+}
 
 rcvdForward = function(self, data) {
     self.emit('vehicleForward', data);
@@ -678,21 +685,35 @@ function processMessage(self, connection, id, msg) {
 		break;
 
 	    case Message.CMD_LEFT:
+		rcvdLeft(self, msg);
 		break;
 
 	    case Message.CMD_RIGHT:
+		rcvdRight(self, msg);
+		break;
+
+	    case Message.CMD_TURN_LEFT:
+		rcvdTurnLeft(self, msg);
+		break;
+
+	    case Message.CMD_TURN_RIGHT:
+		rcvdTurnRight(self, msg);
 		break;
 
 	    case Message.CMD_FORWARD:
+		rcvdForward(self, msg);
 		break;
 
 	    case Message.CMD_REVERSE:
+		rcvdReverse(self, msg);
 		break;
 
 	    case Message.CMD_UP:
+		rcvdUp(self, msg);
 		break;
 
 	    case Message.CMD_DOWN:
+		rcvdDown(self, msg);
 		break;
 
 	    default:
