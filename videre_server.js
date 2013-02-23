@@ -207,17 +207,18 @@ clientComms.on('newConnectionAccepted', function(c) {newConnection(c);});
 clientComms.on('vehicleLaunch', function(d) {vehicleLaunch(d);});
 clientComms.on('vehicleLand', function(d) {vehicleLand(d);});
 clientComms.on('vehicleAbort', function(d) {vehicleAbort(d);});
+
 /*
 clientComms.on('vehicleTest', function(d) {x(d);});
-clientComms.on('vehicleUp', function(d) {x(d);});
-clientComms.on('vehicleDown', function(d) {x(d);});
-clientComms.on('vehicleLeft', function(d) {x(d);});
-clientComms.on('vehicleRight', function(d) {x(d);});
-clientComms.on('vehicleForward', function(d) {x(d);});
-clientComms.on('vehicleReverse', function(d) {x(d);});
-clientComms.on('vehicleTurnLeft', function(d) {x(d);});
-clientComms.on('vehicleTurnRight', function(d) {x(d);});
 */
+clientComms.on('vehicleUp', function(d) {vehicleUp(d);});
+clientComms.on('vehicleDown', function(d) {vehicleDown(d);});
+clientComms.on('vehicleLeft', function(d) {vehicleLeft(d);});
+clientComms.on('vehicleRight', function(d) {vehicleRight(d);});
+clientComms.on('vehicleForward', function(d) {vehicleForward(d);});
+clientComms.on('vehicleReverse', function(d) {vehicleReverse(d);});
+clientComms.on('vehicleTurnLeft', function(d) {vehicleTurnLeft(d);});
+clientComms.on('vehicleTurnRight', function(d) {vehicleTurnRight(d);});
 
 // start up the server for clients
 clientComms.startClientServer();
@@ -259,6 +260,71 @@ function vehicleLand(data) {
 	remoteVehicle.land();
     }
 }
+
+function vehicleUp(data) {
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.up(data.power);
+    }
+}
+
+function vehicleDown(data) {
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.down(data.power);
+    }
+}
+
+function vehicleLeft(data) {
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.left(data.power);
+    }
+}
+
+function vehicleRight(data) {
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.right(data.power);
+    }
+}
+
+function vehicleForward(data) {
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.forward(data.power);
+    }
+}
+
+function vehicleReverse(data) {
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.reverse(data.power);
+    }
+}
+
+function vehicleTurnLeft(data) {
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.turnLeft(data.power);
+    }
+}
+
+function vehicleTurnRight(data) {
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.turnRight(data.power);
+    }
+}
+
 
 function getVehicleComms(vehicle) {
 }
