@@ -37,6 +37,15 @@ QuadCopter.prototype.takeoff = function() {};
 
 QuadCopter.prototype.land = function() {};
 
+QuadCopter.prototype.up = function(power) {};
+QuadCopter.prototype.down = function(power) {};
+QuadCopter.prototype.left = function(power) {};
+QuadCopter.prototype.right = function(power) {};
+QuadCopter.prototype.turnLeft = function(power) {};
+QuadCopter.prototype.turnRight = function(power) {};
+QuadCopter.prototype.forward = function(power) {};
+QuadCopter.prototype.reverse = function(power) {};
+
 QuadCopter.prototype.abort = function() {};
 
 util.inherits(QuadCopter, UAV);

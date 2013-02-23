@@ -138,6 +138,78 @@ QuadCopter.prototype.land = function() {
     }
 };
 
+QuadCopter.prototype.up = function(power) {
+    if(this.debug) {
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' up: ');
+    }
+    if(this.client) {
+	this.client.up(power / 100);
+    }
+};
+
+QuadCopter.prototype.down = function(power) {
+    if(this.debug) {
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' down: ');
+    }
+    if(this.client) {
+	this.client.down(power / 100);
+    }
+};
+
+QuadCopter.prototype.left = function(power) {
+    if(this.debug) {
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' left: ');
+    }
+    if(this.client) {
+	this.client.left(power / 100);
+    }
+};
+
+QuadCopter.prototype.right = function(power) {
+    if(this.debug) {
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' right: ');
+    }
+    if(this.client) {
+	this.client.right(power / 100);
+    }
+};
+
+QuadCopter.prototype.turnLeft = function(power) {
+    if(this.debug) {
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' turnLeft: ');
+    }
+    if(this.client) {
+	this.client.counterClockwise(power / 100);
+    }
+};
+
+QuadCopter.prototype.turnRight = function(power) {
+    if(this.debug) {
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' turnRight: ');
+    }
+    if(this.client) {
+	this.client.clockwise(power / 100);
+    }
+};
+
+QuadCopter.prototype.forward = function(power) {
+    if(this.debug) {
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' forward: ');
+    }
+    if(this.client) {
+	this.client.front(power / 100);
+    }
+};
+
+QuadCopter.prototype.reverse = function(power) {
+    if(this.debug) {
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' reverse: ');
+    }
+    if(this.client) {
+	this.client.back(power / 100);
+    }
+};
+
 QuadCopter.prototype.abort = function() {
     if(this.debug) {
 	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' abort');
