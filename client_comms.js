@@ -227,6 +227,54 @@ ClientComms.prototype.sendPayload = function(payload) {
     }
 }
 
+ClientComms.prototype.sendLaunching = function(vehicle) {
+    var msg = Message.constructMessage(Message.VEHICLE_LAUNCHING, {id: vehicle.id});
+    if(this.debug) {
+	console.log((new Date()) + ' Sending id: ' + Message.VEHICLE_LAUNCHING);
+    }
+    if(this.secureAndUnsecure || this.unsecureOnly) {
+	this.unsecureServer.broadcast(msg);
+    } else {
+	this.secureServer.broadcast(msg);
+    }
+}
+
+ClientComms.prototype.sendLaunched = function(vehicle) {
+    var msg = Message.constructMessage(Message.VEHICLE_LAUNCHED, {id: vehicle.id});
+    if(this.debug) {
+	console.log((new Date()) + ' Sending id: ' + Message.VEHICLE_LAUNCHED);
+    }
+    if(this.secureAndUnsecure || this.unsecureOnly) {
+	this.unsecureServer.broadcast(msg);
+    } else {
+	this.secureServer.broadcast(msg);
+    }
+}
+
+ClientComms.prototype.sendLanding = function(vehicle) {
+    var msg = Message.constructMessage(Message.VEHICLE_LANDING, {id: vehicle.id});
+    if(this.debug) {
+	console.log((new Date()) + ' Sending id: ' + Message.VEHICLE_LANDING);
+    }
+    if(this.secureAndUnsecure || this.unsecureOnly) {
+	this.unsecureServer.broadcast(msg);
+    } else {
+	this.secureServer.broadcast(msg);
+    }
+}
+
+ClientComms.prototype.sendLanded = function(vehicle) {
+    var msg = Message.constructMessage(Message.VEHICLE_LANDED, {id: vehicle.id});
+    if(this.debug) {
+	console.log((new Date()) + ' Sending id: ' + Message.VEHICLE_LANDED);
+    }
+    if(this.secureAndUnsecure || this.unsecureOnly) {
+	this.unsecureServer.broadcast(msg);
+    } else {
+	this.secureServer.broadcast(msg);
+    }
+}
+
 fireNewConnection = function(self, connection) {
     self.emit('newConnection', connection);
 }
@@ -314,6 +362,21 @@ rcvdTurnRight = function(self, data) {
     self.emit('vehicleTurnRight', data);
 }
 
+rcvdReset = function(self, data) {
+    self.emit('vehicleReset', data);
+}
+
+rcvdDisconnect = function(self, data) {
+    self.emit('vehicleDisconnect', data);
+}
+
+rcvdReconnect = function(self, data) {
+    self.emit('vehicleReconnect', data);
+}
+
+rcvdConnect = function(self, data) {
+    self.emit('vehicleConnect', data);
+}
 /*
 rcvd = function(self, data) {
     self.emit('vehicle', data);
@@ -676,7 +739,7 @@ function processMessage(self, connection, id, msg) {
 		rcvdAbort(self, msg);
 		break;
 
-	    case Message.CMD_TAKEOFF:
+	    case Message.CMD_LAUNCH:
 		rcvdLaunch(self, msg);
 		break;
 
@@ -714,6 +777,22 @@ function processMessage(self, connection, id, msg) {
 
 	    case Message.CMD_DOWN:
 		rcvdDown(self, msg);
+		break;
+
+	    case Message.VEHICLE_RESET:
+		rcvdReset(self, msg);
+		break;
+
+	    case Message.VEHICLE_DISCONNECT:
+		rcvdDisconnect(self, msg);
+		break;
+
+	    case Message.VEHICLE_RECONNECT:
+		rcvdReconnect(self, msg);
+		break;
+
+	    case Message.VEHICLE_CONNECT:
+		rcvdConnect(self, msg);
 		break;
 
 	    default:
