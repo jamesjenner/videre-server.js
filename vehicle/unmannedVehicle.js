@@ -23,6 +23,11 @@ module.exports = UnmannedVehicle;
 
 util.inherits(UnmannedVehicle, EventEmitter);
 
+UnmannedVehicle.STATE_LAUNCHING = 0;
+UnmannedVehicle.STATE_LAUNCHED = 1;
+UnmannedVehicle.STATE_LANDING = 2;
+UnmannedVehicle.STATE_LANDED = 3;
+
 function UnmannedVehicle(options) {
     EventEmitter.call(this);
     options = options || {};
@@ -44,11 +49,16 @@ UnmannedVehicle.prototype._rcvdPayload = function(data) {
     this.emit('payload', data);
 };
 
-UnmannedVehicle.prototype._processData = function(navData) {
+UnmannedVehicle.prototype._rcvdActiveState = function(data) {
+    this.emit('activeState', data);
 };
 
-UnmannedVehicle.prototype.testRun = function() {
-};
+UnmannedVehicle.prototype._processData = function(navData) {};
 
-UnmannedVehicle.prototype.demo = function() {
-};
+UnmannedVehicle.prototype.testRun = function() {};
+UnmannedVehicle.prototype.demo = function() {};
+
+UnmannedVehicle.prototype.reset = function() {};
+UnmannedVehicle.prototype.connect = function() {};
+UnmannedVehicle.prototype.disconnect = function() {};
+UnmannedVehicle.prototype.reconnect = function() {};
