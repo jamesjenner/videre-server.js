@@ -29,6 +29,7 @@ var Drone             = require('./videre-common/js/drone.js');
 var DroneCapabilities = require('./videre-common/js/droneCapabilities.js');
 var Path              = require('./videre-common/js/path.js');
 var Parrot            = require('./vehicle/parrotArDroneV1.js');
+var UnmannedVehicle   = require('./vehicle/unmannedVehicle.js');
 var TransformParrot   = require('./transform/transformParrotArDroneV1.js');
 
 var transformParrot = new TransformParrot();
@@ -220,6 +221,11 @@ clientComms.on('vehicleReverse', function(d) {vehicleReverse(d);});
 clientComms.on('vehicleTurnLeft', function(d) {vehicleTurnLeft(d);});
 clientComms.on('vehicleTurnRight', function(d) {vehicleTurnRight(d);});
 
+clientComms.on('vehicleReset', function(d) {vehicleReset(d);});
+clientComms.on('vehicleConnect', function(d) {vehicleConnect(d);});
+clientComms.on('vehicleDisconnect', function(d) {vehicleDisconnect(d);});
+clientComms.on('vehicleReconnect', function(d) {vehicleReconnect(d);});
+
 // start up the server for clients
 clientComms.startClientServer();
 
@@ -246,6 +252,9 @@ function vehicleAbort(data) {
 }
 
 function vehicleLaunch(data) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: vehicleLaunch(" + JSON.stringify(data) + ") - calling remoteVehicle.takeoff()");
+    }
     var remoteVehicle = getRemoteVehicle(data.id);
 
     if(remoteVehicle) {
@@ -325,8 +334,44 @@ function vehicleTurnRight(data) {
     }
 }
 
+function vehicleReset(data) {
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.reset();
+    }
+}
+
+function vehicleConnect(data) {
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.connect();
+    }
+}
+
+function vehicleDisconnect(data) {
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.disconnect();
+    }
+}
+
+function vehicleReconnect(data) {
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.reconnect();
+    }
+}
 
 function getVehicleComms(vehicle) {
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.connect();
+    }
 }
 
 function getRemoteVehicle(id) {
@@ -339,6 +384,15 @@ function getRemoteVehicle(id) {
     }
 
     return remoteVehicle;
+}
+
+/*
+ * enclosure for call to process active state when an active state event occurs
+ */
+function makeOnActiveStateFunction(remoteVehicle, vehicle) {
+    return function(d) {
+	processActiveState(remoteVehicle, vehicle, d);
+    };
 }
 
 /*
@@ -397,6 +451,7 @@ function startVehicleComms(vehicles) {
             vehicleComms.push(remoteVehicle);
 
 	    remoteVehicle.on('telemetry', makeOnTelemetryFunction(remoteVehicle, vehicles[i]));
+	    remoteVehicle.on('activeState', makeOnActiveStateFunction(remoteVehicle, vehicles[i]));
 	    remoteVehicle.on('payload', makeOnPayloadFunction(remoteVehicle, vehicles[i]));
 
 	    // TODO: what happens if we lose coms? what performs the auto re-connect?
@@ -569,6 +624,32 @@ function sendVehicles(connection) {
 function newConnection(connection) {
     // on a new connection send the vehicles to the client
     clientComms.sendVehicles(connection, vehicles);
+}
+
+/*
+ * process active state
+ *
+ * capture active state and pass to the clients
+ */
+function processActiveState(remoteVehicle, vehicle, d) {
+    if(config.debug && config.debugLevel > 0) {
+	console.log((new Date()) + ' videre-server: process active state for vehicle ' + vehicle.name + ' state: ' + d);
+    }
+
+    switch(d) {
+        case UnmannedVehicle.STATE_LAUNCHING:
+	    clientComms.sendLaunching(vehicle);
+	    break;
+        case UnmannedVehicle.STATE_LAUNCHED:
+	    clientComms.sendLaunched(vehicle);
+	    break;
+        case UnmannedVehicle.STATE_LANDING:
+	    clientComms.sendLanding(vehicle);
+	    break;
+        case UnmannedVehicle.STATE_LANDED:
+	    clientComms.sendLanded(vehicle);
+	    break;
+    }
 }
 
 /*
