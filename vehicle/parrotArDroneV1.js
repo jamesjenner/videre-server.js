@@ -20,11 +20,23 @@ var util       = require('util');
 var arDrone    = require('ar-drone');
 
 var QuadCopter = require('./quadCopter.js');
+var UnmannedVehicle = require('./unmannedVehicle.js');
 
 var Attitude   = require('../videre-common/js/attitude');
 var Telemetry  = require('../videre-common/js/telemetry');
 
 module.exports = ParrotARDroneV1;
+
+ParrotARDroneV1.CTRL_DEFAULT = "CTRL_DEFAULT";
+ParrotARDroneV1.CTRL_INIT = "CTRL_INIT";
+ParrotARDroneV1.CTRL_LANDED = "CTRL_LANDED";
+ParrotARDroneV1.CTRL_FLYING = "CTRL_FLYING";
+ParrotARDroneV1.CTRL_HOVERING = "CTRL_HOVERING";
+ParrotARDroneV1.CTRL_TEST = "CTRL_TEST";
+ParrotARDroneV1.CTRL_TRANS_TAKEOFF = "CTRL_TRANS_TAKEOFF";
+ParrotARDroneV1.CTRL_TRANS_GOTOFIX = "CTRL_TRANS_GOTOFIX";
+ParrotARDroneV1.CTRL_TRANS_LANDING = "CTRL_TRANS_LANDING";
+ParrotARDroneV1.CTRL_TRANS_LOOPING = "CTRL_TRANS_LOOPING";
 
 function ParrotARDroneV1(options) {
     ParrotARDroneV1.super_.call(this, options);  // call the super constructr
@@ -35,6 +47,7 @@ function ParrotARDroneV1(options) {
     this.client = null;
     this.debug = ((options.debug != null) ? options.debug : false);
     this.debugLevel = options.debugLevel || 0;
+    this.lastState = -1;
 }
 
 util.inherits(ParrotARDroneV1, QuadCopter);
@@ -68,6 +81,46 @@ ParrotARDroneV1.prototype._processData = function(navData) {
 		' xVel: ' + d.xVelocity + 
 		' yVel: ' + d.yVelocity + 
 		' zVel: ' + d.zVelocity);
+	}
+
+	// check if the state has changed, if so then fire seperate event for active state
+	// note that the state is based on the videre's concept of state, not the AR Drone
+	var newState = 0;
+	switch(d.controlState) {
+	    case ParrotARDroneV1.CTRL_FLYING:
+	    case ParrotARDroneV1.CTRL_HOVERING:
+	    case ParrotARDroneV1.CTRL_TRANS_GOTOFIX:
+	    case ParrotARDroneV1.CTRL_TRANS_LOOPING:
+		// flying
+		newState = UnmannedVehicle.STATE_LAUNCHED;
+		break;               
+
+	    case ParrotARDroneV1.CTRL_TRANS_TAKEOFF:
+		// taking off
+		newState = UnmannedVehicle.STATE_LAUNCHING;
+		break;               
+
+	    case ParrotARDroneV1.CTRL_TRANS_LANDING:
+		// landing
+		newState = UnmannedVehicle.STATE_LANDING;
+		break;               
+
+	    case ParrotARDroneV1.CTRL_DEFAULT:
+	    case ParrotARDroneV1.CTRL_INIT:
+	    // case ParrotARDroneV1.CTRL_TEST: // uncertain when this can occur
+	    case ParrotARDroneV1.CTRL_LANDED:
+	    default:
+		// landed
+		newState = UnmannedVehicle.STATE_LANDED;
+		break;            
+	}
+
+	if(newState != this.lastState) {
+	    console.log(
+		(new Date()) + ' ' + this.name + 
+		' state: ' + newState);
+	    this.lastState = newState;
+	    this._rcvdActiveState(newState);
 	}
 
 	var telemetry = new Telemetry({
@@ -118,15 +171,44 @@ QuadCopter.prototype.connect = function() {
 };
 
 QuadCopter.prototype.disconnect = function() {
-    // TODO: work out how to disconnect
+    // there is no specific way to disconnect via the api, possibly because it's UDP
+    if(this.client) {
+	// turn off nav data
+	this.client.config('general:navdata_demo', 'TRUE');
+    }
+    // remove the client
     this.client = null;
+};
+
+QuadCopter.prototype.reconnect = function() {
+    if(this.debug) {
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' reset');
+    }
+    if(this.client) {
+	// resume clears all listeners and recreates them, this appears that it may do the job
+	this.client.resume();
+    } else {
+	this.connect();
+    }
+};
+
+QuadCopter.prototype.reset = function() {
+    if(this.debug) {
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' reset');
+    }
+    if(this.client) {
+	// reset will disable the emergency flag with the drone (when red leds are showing)
+	this.client.disableEmergency();
+    }
 };
 
 QuadCopter.prototype.takeoff = function() {
     if(this.debug) {
 	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' takeoff ' + this.client);
     }
-    this.client.takeoff();
+    if(this.client) {
+	this.client.takeoff();
+    }
 };
 
 QuadCopter.prototype.land = function() {
