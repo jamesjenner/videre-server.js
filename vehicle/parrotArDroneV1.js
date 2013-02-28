@@ -168,6 +168,8 @@ QuadCopter.prototype.connect = function() {
 	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' setting navdata demo to false');
     }
     this.client.config('general:navdata_demo', 'FALSE');
+
+    this._connectionState(UnmannedVehicle.COMMS_CONNECTED);
 };
 
 QuadCopter.prototype.disconnect = function() {
@@ -178,6 +180,7 @@ QuadCopter.prototype.disconnect = function() {
     }
     // remove the client
     this.client = null;
+    this._connectionState(UnmannedVehicle.COMMS_DISCONNECTED);
 };
 
 QuadCopter.prototype.reconnect = function() {
