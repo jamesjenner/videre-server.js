@@ -136,59 +136,19 @@ ClientComms.prototype.sendVehicles = function(connection, vehicles) {
 }
 
 ClientComms.prototype.sendAddVehicle = function(vehicle) {
-    if(this.secureAndUnsecure || this.unsecureOnly) {
-	if(this.debug) {
-	    console.log((new Date()) + ' Sending unsecure id: ' + Message.ADD_VEHICLE + ' body: ' + JSON.stringify(vehicle));
-	}
-	this.unsecureServer.broadcast(Message.constructMessage(Message.ADD_VEHICLE, vehicle));
-    } else {
-	if(this.debug) {
-	    console.log((new Date()) + ' Sending secure id: ' + Message.ADD_VEHICLE + ' body: ' + JSON.stringify(vehicle));
-	}
-	this.unsecureServer.broadcast(Message.constructMessage(Message.ADD_VEHICLE, vehicle));
-    }
+    this._constructAndBroadcastMsg(Message.ADD_VEHICLE, vehicle, 0);
 }
 
 ClientComms.prototype.sendDeleteVehicle = function(vehicle) {
-    if(this.secureAndUnsecure || this.unsecureOnly) {
-	if(this.debug) {
-	    console.log((new Date()) + ' Sending unsecure id: ' + Message.DELETE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
-	}
-	this.unsecureServer.broadcast(Message.constructMessage(Message.DELETE_VEHICLE, vehicle));
-    } else {
-	if(this.debug) {
-	    console.log((new Date()) + ' Sending secure id: ' + Message.DELETE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
-	}
-	this.secureServer.broadcast(Message.constructMessage(Message.DELETE_VEHICLE, vehicle));
-    }
+    this._constructAndBroadcastMsg(Message.DELETE_VEHICLE, vehicle, 0);
 }
 
 ClientComms.prototype.sendUpdateVehicle = function(vehicle) {
-    if(this.secureAndUnsecure || this.unsecureOnly) {
-	if(this.debug) {
-	    console.log((new Date()) + ' Sending unsecure id: ' + Message.UPDATE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
-	}
-	this.unsecureServer.broadcast(Message.constructMessage(Message.UPDATE_VEHICLE, vehicle));
-    } else {
-	if(this.debug) {
-	    console.log((new Date()) + ' Sending secure id: ' + Message.UPDATE_VEHICLE + ' body: ' + JSON.stringify(vehicle));
-	}
-	this.secureServer.broadcast(Message.constructMessage(Message.UPDATE_VEHICLE, vehicle));
-    }
+    this._constructAndBroadcastMsg(Message.UPDATE_VEHICLE, vehicle, 0);
 }
 
 ClientComms.prototype.sendUpdateNavPath = function(msgBody) {
-    if(this.secureAndUnsecure || this.unsecureOnly) {
-	if(this.debug) {
-	    console.log((new Date()) + ' Sending unsecure id: ' + Message.UPDATE_NAV_PATH + ' body: ' + JSON.stringify(msgBody));
-	}
-	this.unsecureServer.broadcast(Message.constructMessage(Message.UPDATE_NAV_PATH, msgBody));
-    } else {
-	if(this.debug) {
-	    console.log((new Date()) + ' Sending secure id: ' + Message.UPDATE_NAV_PATH + ' body: ' + JSON.stringify(msgBody));
-	}
-	this.secureServer.broadcast(Message.constructMessage(Message.UPDATE_NAV_PATH, msgBody));
-    }
+    this._constructAndBroadcastMsg(Message.UPDATE_NAV_PATH, msgBody, 0);
 }
 
 ClientComms.prototype.sendNavPathUpdated = function(connection, id) {
@@ -200,79 +160,65 @@ ClientComms.prototype.sendNavPathUpdated = function(connection, id) {
 
 
 ClientComms.prototype.sendTelemetry = function(telemetry) {
-    if(this.secureAndUnsecure || this.unsecureOnly) {
-	if(this.debug && this.debugLevel > 0) {
-	    console.log((new Date()) + ' Sending unsecure id: ' + Message.VEHICLE_TELEMETRY + ' body: ' + JSON.stringify(telemetry));
-	}
-	this.unsecureServer.broadcast(Message.constructMessage(Message.VEHICLE_TELEMETRY, telemetry));
-    } else {
-	if(this.debug && this.debugLevel > 0) {
-	    console.log((new Date()) + ' Sending secure id: ' + Message.VEHICLE_TELEMETRY + ' body: ' + JSON.stringify(telemetry));
-	}
-	this.secureServer.broadcast(Message.constructMessage(Message.VEHICLE_TELEMETRY, telemetry));
-    }
+    this._constructAndBroadcastMsg(Message.VEHICLE_TELEMETRY, telemetry, 1);
 }
 
 ClientComms.prototype.sendPayload = function(payload) {
+    this._constructAndBroadcastMsg(Message.VEHICLE_PAYLOAD, payload, 1);
+}
+
+ClientComms.prototype._broadcastMsg = function(msg) {
     if(this.secureAndUnsecure || this.unsecureOnly) {
-	if(this.debug) {
-	    console.log((new Date()) + ' Sending unsecure id: ' + Message.VEHICLE_PAYLOAD + ' body: ' + JSON.stringify(payload));
-	}
-	this.unsecureServer.broadcast(Message.constructMessage(Message.VEHICLE_PAYLOAD, payload));
+	this.unsecureServer.broadcast(msg);
     } else {
-	if(this.debug) {
-	    console.log((new Date()) + ' Sending secure id: ' + Message.VEHICLE_PAYLOAD + ' body: ' + JSON.stringify(payload));
-	}
-	this.secureServer.broadcast(Message.constructMessage(Message.VEHICLE_PAYLOAD, payload));
+	this.secureServer.broadcast(msg);
     }
+}
+
+ClientComms.prototype._constructAndBroadcastMsg = function(msgId, body, dbgLvl) {
+    var msg = Message.constructMessage(msgId, body);
+
+    if(this.debug && this.debugLevel >= dbgLvl) {
+	console.log((new Date()) + ' Sending id: ' + JSON.stringify(msgId));
+    }
+
+    this._broadcastMsg(msg);
+}
+
+ClientComms.prototype.sendConnecting = function(vehicle) {
+    this._constructAndBroadcastMsg(Message.VEHICLE_CONNECTING, {id: vehicle.id}, 0);
+}
+
+ClientComms.prototype.sendConnected = function(vehicle) {
+    this._constructAndBroadcastMsg(Message.VEHICLE_CONNECTED, {id: vehicle.id}, 0);
+}
+
+ClientComms.prototype.sendDisconnecting = function(vehicle) {
+    this._constructAndBroadcastMsg(Message.VEHICLE_DISCONNECTING, {id: vehicle.id}, 0);
+}
+
+ClientComms.prototype.sendDisconnected = function(vehicle) {
+    this._constructAndBroadcastMsg(Message.VEHICLE_DISCONNECTED, {id: vehicle.id}, 0);
+}
+
+ClientComms.prototype.sendReconnecting = function(vehicle) {
+    this._constructAndBroadcastMsg(Message.VEHICLE_RECONNECTING, {id: vehicle.id}, 0);
 }
 
 ClientComms.prototype.sendLaunching = function(vehicle) {
-    var msg = Message.constructMessage(Message.VEHICLE_LAUNCHING, {id: vehicle.id});
-    if(this.debug) {
-	console.log((new Date()) + ' Sending id: ' + Message.VEHICLE_LAUNCHING);
-    }
-    if(this.secureAndUnsecure || this.unsecureOnly) {
-	this.unsecureServer.broadcast(msg);
-    } else {
-	this.secureServer.broadcast(msg);
-    }
+    this._constructAndBroadcastMsg(Message.VEHICLE_LAUNCHING, {id: vehicle.id}, 0);
 }
 
 ClientComms.prototype.sendLaunched = function(vehicle) {
-    var msg = Message.constructMessage(Message.VEHICLE_LAUNCHED, {id: vehicle.id});
-    if(this.debug) {
-	console.log((new Date()) + ' Sending id: ' + Message.VEHICLE_LAUNCHED);
-    }
-    if(this.secureAndUnsecure || this.unsecureOnly) {
-	this.unsecureServer.broadcast(msg);
-    } else {
-	this.secureServer.broadcast(msg);
-    }
+    this._constructAndBroadcastMsg(Message.VEHICLE_LAUNCHED, {id: vehicle.id}, 0);
 }
 
 ClientComms.prototype.sendLanding = function(vehicle) {
-    var msg = Message.constructMessage(Message.VEHICLE_LANDING, {id: vehicle.id});
-    if(this.debug) {
-	console.log((new Date()) + ' Sending id: ' + Message.VEHICLE_LANDING);
-    }
-    if(this.secureAndUnsecure || this.unsecureOnly) {
-	this.unsecureServer.broadcast(msg);
-    } else {
-	this.secureServer.broadcast(msg);
-    }
+    this._constructAndBroadcastMsg(Message.VEHICLE_LANDING, {id: vehicle.id}, 0);
 }
 
 ClientComms.prototype.sendLanded = function(vehicle) {
-    var msg = Message.constructMessage(Message.VEHICLE_LANDED, {id: vehicle.id});
-    if(this.debug) {
-	console.log((new Date()) + ' Sending id: ' + Message.VEHICLE_LANDED);
-    }
-    if(this.secureAndUnsecure || this.unsecureOnly) {
-	this.unsecureServer.broadcast(msg);
-    } else {
-	this.secureServer.broadcast(msg);
-    }
+    this._constructAndBroadcastMsg(Message.VEHICLE_LANDED, {id: vehicle.id}, 0);
 }
 
 fireNewConnection = function(self, connection) {
