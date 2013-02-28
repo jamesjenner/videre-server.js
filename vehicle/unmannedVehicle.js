@@ -28,6 +28,12 @@ UnmannedVehicle.STATE_LAUNCHED = 1;
 UnmannedVehicle.STATE_LANDING = 2;
 UnmannedVehicle.STATE_LANDED = 3;
 
+UnmannedVehicle.COMMS_CONNECTING = 0;
+UnmannedVehicle.COMMS_CONNECTED = 1;
+UnmannedVehicle.COMMS_DISCONNECTING = 2;
+UnmannedVehicle.COMMS_DISCONNECTED = 3;
+UnmannedVehicle.COMMS_RECONNECTING = 4;
+
 function UnmannedVehicle(options) {
     EventEmitter.call(this);
     options = options || {};
@@ -38,7 +44,7 @@ function UnmannedVehicle(options) {
     this.name = options.name || "Thunderbird 1";
     this.id = options.id || "unknown";
 
-    this.connected = false;
+    this.connectionState = UnmannedVehicle.COMMS_DISCONNECTED;
 }
 
 UnmannedVehicle.prototype._rcvdTelemetry = function(data) {
@@ -51,6 +57,11 @@ UnmannedVehicle.prototype._rcvdPayload = function(data) {
 
 UnmannedVehicle.prototype._rcvdActiveState = function(data) {
     this.emit('activeState', data);
+};
+
+UnmannedVehicle.prototype._connectionState = function(state) {
+    this.connectionState = state;
+    this.emit('connectionState', this.connectionState);
 };
 
 UnmannedVehicle.prototype._processData = function(navData) {};
