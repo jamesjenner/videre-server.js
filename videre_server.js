@@ -396,6 +396,15 @@ function makeOnActiveStateFunction(remoteVehicle, vehicle) {
 }
 
 /*
+ * enclosure for call to process connection state when an connection state event occurs
+ */
+function makeOnConnectionStateFunction(remoteVehicle, vehicle) {
+    return function(d) {
+	processConnectionState(remoteVehicle, vehicle, d);
+    };
+}
+
+/*
  * enclosure for call to process telemetry when a telemetry event occurs
  */
 function makeOnTelemetryFunction(remoteVehicle, vehicle) {
@@ -452,6 +461,7 @@ function startVehicleComms(vehicles) {
 
 	    remoteVehicle.on('telemetry', makeOnTelemetryFunction(remoteVehicle, vehicles[i]));
 	    remoteVehicle.on('activeState', makeOnActiveStateFunction(remoteVehicle, vehicles[i]));
+	    remoteVehicle.on('connectionState', makeOnConnectionStateFunction(remoteVehicle, vehicles[i]));
 	    remoteVehicle.on('payload', makeOnPayloadFunction(remoteVehicle, vehicles[i]));
 
 	    // TODO: what happens if we lose coms? what performs the auto re-connect?
@@ -627,6 +637,44 @@ function newConnection(connection) {
 }
 
 /*
+ * process connection state
+ *
+ * capture connection state and pass to the clients
+ */
+function processConnectionState(remoteVehicle, vehicle, d) {
+    if(config.debug && config.debugLevel > 0) {
+	console.log((new Date()) + ' videre-server: process connection state for vehicle ' + vehicle.name + ' state: ' + d);
+    }
+
+    switch(d) {
+        case UnmannedVehicle.COMMS_CONNECTING:
+	    vehicle.connectionStatus = Vehicle.COMMS_CONNECTING;
+	    clientComms.sendConnecting(vehicle);
+	    break;
+
+        case UnmannedVehicle.COMMS_CONNECTED:
+	    vehicle.connectionStatus = Vehicle.COMMS_CONNECTED;
+	    clientComms.sendConnected(vehicle);
+	    break;
+
+        case UnmannedVehicle.COMMS_DISCONNECTING:
+	    vehicle.connectionStatus = Vehicle.COMMS_CONNECTING;
+	    clientComms.sendDisconnecting(vehicle);
+	    break;
+
+        case UnmannedVehicle.COMMS_DISCONNECTED:
+	    vehicle.connectionStatus = Vehicle.COMMS_DISCONNECTED;
+	    clientComms.sendDisconnected(vehicle);
+	    break;
+
+        case UnmannedVehicle.COMMS_RECONNECTING:
+	    vehicle.connectionStatus = Vehicle.COMMS_RECONNECTING;
+	    clientComms.sendReconnecting(vehicle);
+	    break;
+    }
+}
+
+/*
  * process active state
  *
  * capture active state and pass to the clients
@@ -691,6 +739,9 @@ function sendTelemetry() {
     for(var i = 0, l = vehicles.length; i < l; i++) {
 	// check if telemetry has been updated since last send
 	if(vehicles[i].telemetry && vehicles[i].telemetry.dirty) {
+	    if(config.debug && config.debugLevel > 3) {
+		console.log((new Date()) + ' videre-server: send telemetry, sending: ' + JSON.stringify(vehicles[i].telemetry));
+	    }
 	    var msg = new Object();
 	    msg.id = vehicles[i].id;
 	    msg.name = vehicles[i].name;
