@@ -142,6 +142,12 @@ ParrotARDroneV1.prototype._processData = function(navData) {
 
 QuadCopter.prototype.connect = function() {
     var self = this;
+
+    if(this.client) {
+	// if the client exists then disconnect
+	this.disconnect();
+    }
+
     this.client = arDrone.createClient(this.address);
 
     // create video stream
@@ -173,13 +179,43 @@ QuadCopter.prototype.connect = function() {
 };
 
 QuadCopter.prototype.disconnect = function() {
+    console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' disconnecting');
     // there is no specific way to disconnect via the api, possibly because it's UDP
     if(this.client) {
+        console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' client exists so setting nav data off');
 	// turn off nav data
 	this.client.config('general:navdata_demo', 'TRUE');
+
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' removing client listeners');
+	// remove all listeners from the client
+	this.client.removeAllListeners();
+
+	// this is a hack to close the udp control stream and the nav stream, doesn't affect the pngStream
+
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' stopping client ');
+	this.client.stop();
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' clearing interval for cmd firing');
+	clearInterval(this.client._interval);
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' clearing commands ' + JSON.stringify(this.client._udpControl._cmds));
+	this.client._udpControl._cmds = [];
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' closing _udpControl');
+	this.client._udpControl.close();
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' removing _udpNavdatasStream listeners');
+	this.client._udpNavdatasStream.removeAllListeners();
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' removing _udpNavdatasStream socket listeners');
+	this.client._udpNavdatasStream._socket.removeAllListeners();
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' clearing _timer for nav data');
+	clearInterval(this.client._udpNavdatasStream._timer);
+	console.log((new Date()) + ' parrotArDroneV1: ' + this.name + ' destroying  _udpNavdatasStream');
+	// this.client._udpNavdatasStream.destroy();
+
+	this.client = null;
     }
+
+    // the client doesn't have a disconnect option, however this may be available in the future
+    // this.client.disconnect();
+
     // remove the client
-    this.client = null;
     this._connectionState(UnmannedVehicle.COMMS_DISCONNECTED);
 };
 
@@ -201,7 +237,9 @@ QuadCopter.prototype.reset = function() {
     }
     if(this.client) {
 	// reset will disable the emergency flag with the drone (when red leds are showing)
+	// this appears to only be an internal action, looking at the code. it doesn't actualy reset the drone if it has errored
 	this.client.disableEmergency();
+	this.client.resume();
     }
 };
 
