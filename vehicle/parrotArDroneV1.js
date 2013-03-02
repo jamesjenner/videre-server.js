@@ -225,6 +225,7 @@ QuadCopter.prototype.reconnect = function() {
     }
     if(this.client) {
 	// resume clears all listeners and recreates them, this appears that it may do the job
+	this.client.stop();
 	this.client.resume();
     } else {
 	this.connect();
