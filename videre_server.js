@@ -708,10 +708,6 @@ function processActiveState(remoteVehicle, vehicle, d) {
  * note: some devices may pass payload and telemetry together
  */
 function processTelemetry(remoteVehicle, vehicle, d) {
-    if(config.debug && config.debugLevel > 3) {
-	console.log((new Date()) + ' videre-server: process telemetry for vehicle ' + vehicle.name);
-    }
-
     // convert telemetry from drone to client format
     var telemetry = transformParrot.transform(d);
     telemetry.dirty = true;
