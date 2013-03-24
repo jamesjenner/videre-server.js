@@ -28,6 +28,8 @@ var Message           = require('./videre-common/js/message.js');
 var Drone             = require('./videre-common/js/drone.js');
 var DroneCapabilities = require('./videre-common/js/droneCapabilities.js');
 var Path              = require('./videre-common/js/path.js');
+var VehicleRegister   = require('./vehicle/register.js');
+
 var Parrot            = require('./vehicle/parrotArDroneV1.js');
 var UnmannedVehicle   = require('./vehicle/unmannedVehicle.js');
 var TransformParrot   = require('./transform/transformParrotArDroneV1.js');
@@ -38,6 +40,7 @@ var VEHICLES_FILE = 'vehicles.json';
 // load the vehicle configs from the file
 var vehicles = loadVehicles(VEHICLES_FILE);
 
+var vehicleRegister = new VehicleRegister();
 
 /* options handling */
 // TODO: look at replacing or extending opt, would like error on invalid arg, exclusivity of args, better formatting of help, etc
@@ -634,6 +637,9 @@ function sendVehicles(connection) {
 function newConnection(connection) {
     // on a new connection send the vehicles to the client
     clientComms.sendVehicles(connection, vehicles);
+
+    // on a new connection send the valid devices to the client
+    clientComms.sendVehicleDeviceTypes(connection, vehicleRegister.getList());
 }
 
 /*
