@@ -17,7 +17,8 @@
  */
 
 var EventEmitter = require('events').EventEmitter;
-var util = require('util');
+var util         = require('util');
+var Transform    = require('./transform/transform.js');
 
 module.exports = UnmannedVehicle;
 
@@ -33,6 +34,8 @@ UnmannedVehicle.COMMS_CONNECTED = 1;
 UnmannedVehicle.COMMS_DISCONNECTING = 2;
 UnmannedVehicle.COMMS_DISCONNECTED = 3;
 UnmannedVehicle.COMMS_RECONNECTING = 4;
+
+UnmannedVehicle._transform = new Transform();
 
 function UnmannedVehicle(options) {
     EventEmitter.call(this);
@@ -73,3 +76,7 @@ UnmannedVehicle.prototype.reset = function() {};
 UnmannedVehicle.prototype.connect = function() {};
 UnmannedVehicle.prototype.disconnect = function() {};
 UnmannedVehicle.prototype.reconnect = function() {};
+
+UnmannedVehicle.prototype.transformTelemetry = function(d) {
+    return UnmannedVehicle._transform.transformTelemetry(d);
+};
