@@ -24,7 +24,7 @@ function VehicleRegister(options) {
     options = options || {};
 }
 
-VehicleRegister.DEVICE_PARROT_V1 = "ParrotARDroneV1";
+VehicleRegister.DEVICE_PARROT_V1 = "parrot.v1";
 VehicleRegister.DEVICE_DEMO = "Demo";
 
 VehicleRegister.prototype.getList = function() {
@@ -34,7 +34,10 @@ VehicleRegister.prototype.getList = function() {
     ];
 }
 
-VehicleRegister.prototype.getTransform = function(deviceName) {
+/**
+ * getDriver - get the device driver object 
+ */
+VehicleRegister.prototype.getDriver = function(deviceName) {
     switch(deviceName) {
 	case VehicleRegister.DEVICE_PARROT_V1:
             return require('./parrotArDroneV1.js');
@@ -44,20 +47,6 @@ VehicleRegister.prototype.getTransform = function(deviceName) {
 
 	case VehicleRegister.DEVICE_DEMO:
             return require('./demo.js');
-	    break;
-    }
-}
-
-VehicleRegister.prototype.getTransform = function(deviceName) {
-    switch(deviceName) {
-	case VehicleRegister.DEVICE_PARROT_V1:
-            return require('../transform/transformParrotArDroneV1.js');
-	    break;
-
-	/* insert new hardware defs here */
-
-	case VehicleRegister.DEVICE_DEMO:
-            return require('../vehicle/transformDemo.js');
 	    break;
     }
 }
