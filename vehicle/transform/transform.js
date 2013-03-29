@@ -1,5 +1,5 @@
 /*
- * clientTransform.js
+ * transform.js
  *
  * Copyright (c) 2012 James G Jenner
  *
@@ -16,9 +16,37 @@
  * along with this program. If not, see http://www.gnu.org/licenses/
  */
 
-module.exports = ClientTransform;
+module.exports = Transform;
 
-function ClientTransform() {
+var Telemetry       = require('../../videre-common/js/telemetry.js');
+
+function Transform() {
 }
 
-ClientTransform.prototype.transform = function(d) { }
+Transform.prototype.transformTelemetry = function(d) {
+    var telemetry = new Telemetry();
+
+    // check if we can just pass d as the Telemetry
+    telemetry.state = d.state;
+    telemetry.speed = d.speed;
+    telemetry.velocity.x = d.velocity.x ;
+    telemetry.velocity.y = d.velocity.y ;
+    telemetry.velocity.z = d.velocity.z ;
+    telemetry.attitude.pitch = d.attitude.pitch;
+    telemetry.attitude.roll = d.attitude.roll;
+    telemetry.attitude.yaw = d.attitude.yaw;
+    telemetry.attitude.x = d.attitude.x;
+    telemetry.attitude.y = d.attitude.y;
+    telemetry.attitude.z = d.attitude.z;
+    telemetry.altitude = d.altitude;
+    telemetry.temperature = d.temperature;
+    telemetry.heading = telemetry.heading
+    telemetry.vsi = d.vsi;
+    telemetry.position.latitude = d.position.latitude;
+    telemetry.position.longitude = d.position.longitude;
+    telemetry.batteryVoltage = d.batteryVoltage;
+    telemetry.batteryCharge = d.batteryCharge;
+
+    return telemetry;
+}
+
