@@ -16,17 +16,15 @@
  * along with this program. If not, see http://www.gnu.org/licenses/
  */
 
-var fs              = require('fs');
-var util            = require('util');
+var fs        = require('fs');
+var util      = require('util');
 
-var ClientTransform = require('./clientTransform.js');
-var Telemetry       = require('./clientTransform.js');
-
-var Telemetry       = require('../videre-common/js/telemetry.js');
+var Transform = require('./transform.js');
+var Telemetry = require('../../videre-common/js/telemetry.js');
 
 module.exports = TransformParrotArDroneV1;
 
-util.inherits(TransformParrotArDroneV1, ClientTransform);
+util.inherits(TransformParrotArDroneV1, Transform);
 
 function TransformParrotArDroneV1() {
 }
@@ -43,7 +41,7 @@ TransformParrotArDroneV1.CTRL_TRANS_LANDING = 'CTRL_TRANS_LANDING';
 TransformParrotArDroneV1.CTRL_TRANS_LOOPING = 'CTRL_TRANS_LOOPING';
 
 
-TransformParrotArDroneV1.prototype.transform = function(d) {
+TransformParrotArDroneV1.prototype.transformTelemetry = function(d) {
     var telemetry = new Telemetry();
 
     var data = {};
