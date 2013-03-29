@@ -28,19 +28,15 @@ var Message           = require('./videre-common/js/message.js');
 var Drone             = require('./videre-common/js/drone.js');
 var DroneCapabilities = require('./videre-common/js/droneCapabilities.js');
 var Path              = require('./videre-common/js/path.js');
-var VehicleRegister   = require('./vehicle/register.js');
+var VehicleDriverRegister   = require('./vehicle/register.js');
 
-var Parrot            = require('./vehicle/parrotArDroneV1.js');
 var UnmannedVehicle   = require('./vehicle/unmannedVehicle.js');
-var TransformParrot   = require('./transform/transformParrotArDroneV1.js');
-
-var transformParrot = new TransformParrot();
 
 var VEHICLES_FILE = 'vehicles.json';
 // load the vehicle configs from the file
 var vehicles = loadVehicles(VEHICLES_FILE);
 
-var vehicleRegister = new VehicleRegister();
+var vehicleDriverRegister = new VehicleDriverRegister();
 
 /* options handling */
 // TODO: look at replacing or extending opt, would like error on invalid arg, exclusivity of args, better formatting of help, etc
@@ -431,33 +427,28 @@ function startVehicleComms(vehicles) {
 
     for(var i = 0, l = vehicles.length; i < l; i++) {
 	if(config.debug) {
-	    console.log((new Date()) + " videre-server.js: startVehicleComms: loading " + vehicles[i].name);
+	    console.log((new Date()) + " videre-server.js: startVehicleComms: loading " + vehicles[i].name + ' type: ' + vehicles[i].deviceType);
 	}
 
 	remoteVehicle = null;
 
-	switch(vehicles[i].deviceType) {
-	    case(Vehicle.DEVICE_PARROT_V1):
-		// create the remote vehicle comms handler and map values from the common vehicle data
-		remoteVehicle = new Parrot({
-		    name: vehicles[i].name, 
-		    id: vehicles[i].id, 
-		    address: vehicles[i].vehicleAddr,
-		    debug: config.debug,
-		    debugLevel: config.debugLevel
-	        });
-		break;
+	var Driver  = vehicleDriverRegister.getDriver(vehicles[i].deviceType);
 
-	    // not implemented yet 
-	    case(Vehicle.DEVICE_PARROT_V2):
+	if(!Driver) {
+	    if(config.debug) {
+		console.log((new Date()) + ' videre-server.js: vehicle device ' + vehicles[i].deviceType + ' not supported for vehicle ' + vehicles[i].name);
+	    }
 
-	    // unknown device type
-	    default:
-		if(config.debug) {
-		    console.log((new Date()) + ' videre-server.js: vehicle device ' + vehicles[i].deviceType + ' not supported for vehicle ' + vehicles[i].name);
-		}
-		break;
-	}
+	    continue;
+	} 
+
+	remoteVehicle = new Driver({
+	    name: vehicles[i].name, 
+	    id: vehicles[i].id, 
+	    address: vehicles[i].vehicleAddr,
+	    debug: config.debug,
+	    debugLevel: config.debugLevel
+	});
 
 	if (remoteVehicle) {
             vehicleComms.push(remoteVehicle);
@@ -471,9 +462,12 @@ function startVehicleComms(vehicles) {
 	    if(config.debug) {
 		console.log((new Date()) + " videre-server.js: startVehicleComms: connecting " + vehicles[i].name);
 	    }
-	    remoteVehicle.connect();
 
-            // remoteVehicles[i].testRun();
+	    remoteVehicle.connect();
+	} else {
+	    if(config.debug) {
+		console.log((new Date()) + ' videre-server.js: vehicle device ' + vehicles[i].deviceType + ' not supported for vehicle ' + vehicles[i].name);
+	    }
 	}
     }
 
@@ -639,7 +633,7 @@ function newConnection(connection) {
     clientComms.sendVehicles(connection, vehicles);
 
     // on a new connection send the valid devices to the client
-    clientComms.sendVehicleDeviceTypes(connection, vehicleRegister.getList());
+    clientComms.sendVehicleDeviceTypes(connection, vehicleDriverRegister.getList());
 }
 
 /*
@@ -715,7 +709,7 @@ function processActiveState(remoteVehicle, vehicle, d) {
  */
 function processTelemetry(remoteVehicle, vehicle, d) {
     // convert telemetry from drone to client format
-    var telemetry = transformParrot.transform(d);
+    var telemetry = remoteVehicle.transformTelemetry(d);
     telemetry.dirty = true;
     vehicle.telemetry = telemetry;
 }
