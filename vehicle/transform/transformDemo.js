@@ -16,13 +16,11 @@
  * along with this program. If not, see http://www.gnu.org/licenses/
  */
 
-var fs              = require('fs');
-var util            = require('util');
+var fs        = require('fs');
+var util      = require('util');
 
-var ClientTransform = require('./clientTransform.js');
-var Telemetry       = require('./clientTransform.js');
-
-var Telemetry       = require('../videre-common/js/telemetry.js');
+var Transform = require('./transform.js');
+var Telemetry = require('../../videre-common/js/telemetry.js');
 
 module.exports = TransformDemo;
 
@@ -31,7 +29,7 @@ util.inherits(TransformDemo, ClientTransform);
 function TransformDemo() {
 }
 
-TransformDemo.prototype.transform = function(d) {
+TransformDemo.prototype.transformTelemetry = function(d) {
     var telemetry = new Telemetry();
 
     // check if we can just pass d as the Telemetry
