@@ -16,14 +16,14 @@
  * along with this program. If not, see http://www.gnu.org/licenses/
  */
 
-var util       = require('util');
-var arDrone    = require('ar-drone');
+var util            = require('util');
+var arDrone         = require('ar-drone');
 
-var QuadCopter = require('./quadCopter.js');
+var QuadCopter      = require('./quadCopter.js');
 var UnmannedVehicle = require('./unmannedVehicle.js');
-
-var Attitude   = require('../videre-common/js/attitude');
-var Telemetry  = require('../videre-common/js/telemetry');
+var TransformParrot = require('./transform/transformParrotArDroneV1.js');
+var Attitude        = require('../videre-common/js/attitude');
+var Telemetry       = require('../videre-common/js/telemetry');
 
 module.exports = ParrotARDroneV1;
 
@@ -37,6 +37,8 @@ ParrotARDroneV1.CTRL_TRANS_TAKEOFF = "CTRL_TRANS_TAKEOFF";
 ParrotARDroneV1.CTRL_TRANS_GOTOFIX = "CTRL_TRANS_GOTOFIX";
 ParrotARDroneV1.CTRL_TRANS_LANDING = "CTRL_TRANS_LANDING";
 ParrotARDroneV1.CTRL_TRANS_LOOPING = "CTRL_TRANS_LOOPING";
+
+ParrotARDroneV1._transform = new TransformParrot();
 
 function ParrotARDroneV1(options) {
     ParrotARDroneV1.super_.call(this, options);  // call the super constructr
@@ -396,4 +398,8 @@ ParrotARDroneV1.prototype.testRun = function() {
 	    this.land();
         });
         */
+};
+
+ParrotARDroneV1.prototype.transformTelemetry = function(d) {
+    return ParrotARDroneV1._transform.transformTelemetry(d);
 };
