@@ -5,6 +5,8 @@ Node.js based server for Videre. This server will act as the gateway between dro
 
 The videre suite of software is designed to allow multi client access to drones via multiple servers. Refer to the videre project for the client.
 
+Currently support only exists for AR Drone (tested on V1, should work on V2). Support for Navlink is currently in progress.
+
 Usage
 -----
 
@@ -53,6 +55,8 @@ Module Dependancies are:
  - node-bcrypt - https://npmjs.org/package/bcrypt
  - opt - https://npmjs.org/package/opt or https://github.com/rsdoiel/opt
  - ar-drone - https://npmjs.org/package/ar-drone or https://github.com/felixge/node-ar-drone
+ - serialport - https://npmjs.org/package/serialport
+ - underscore - https://npmjs.org/package/underscore
 
 To install the modules use the following commands:
 
@@ -62,6 +66,8 @@ npm install node-uuid
 npm install bcrypt
 npm install opt
 npm install ar-drone
+npm install serialport
+npm install underscore
 ```
 
 Submodules
