@@ -22,10 +22,7 @@
 var SerialPort = require("serialport").SerialPort
 var mavlink = require('../implementations/mavlink_common_v1.0');
 
-var COMPORT = "/dev/ttyUSB0";
-var BAUD = 57600;
 
-var DEBUG = 2;
 /*
 connection = net.createConnection(5760, '127.0.0.1');
 connection.on('data', function(data) {
@@ -33,17 +30,39 @@ connection.on('data', function(data) {
 });
 */
 
-var mavlinkParser = new MAVLink();
+module.exports = MavlinkProtocol;
 
-var serialPort = new SerialPort(COMPORT, {
-	baudrate: BAUD
-});
+MavlinkProtocol.DEFAULT_COMPORT = "/dev/ttyUSB0";
+MavlinkProtocol.DEFAULT_BAUD = 57600;
 
-// serialPort.write(message.buffer);
+function MavlinkProtocol(options) {
+    options = options || {};
 
-serialPort.on("data", function (data) {
-    mavlinkParser.parseBuffer(data);
-});
+    this.debug = ((options.debug != null) ? options.debug : false);
+    this.serialPort = ((options.serialPort != null) ? options.serialPort : MavlinkProtocol.DEFAULT_COMPORT);
+    this.serialBaud = ((options.baud != null) ? options.baud : MavlinkProtocol.DEFAULT_BAUD);
+}
+
+MavlinkProtocol.prototype.initSerialPort = function() {
+    this.serialDevice = new SerialPort(this.serialPort, {
+	baudrate: this.baud
+    });
+
+    this.mavlinkParser = new MAVLink();
+
+    this._setupMavlinkListeners();
+
+    this.serialDevice.on("data", function (data) {
+	this.mavlinkParser.parseBuffer(data);
+    });
+}
+
+MavlinkProtocol.prototype._writeSerialPort = function(data) {
+    serialPort.write(data);
+}
+
+
+MavlinkProtocol.prototype._setupMavlinkListeners = function() {
 
 /*
  * mav status:
@@ -494,3 +513,4 @@ mavlinkParser.on('GPS_RAW_INT', function(message) {
     });
 });
 
+}
