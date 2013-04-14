@@ -21,7 +21,10 @@
 
 var SerialPort = require("serialport").SerialPort
 var mavlink = require('../implementations/mavlink_common_v1.0');
+var net = require('net');
 
+var Attitude        = require('../videre-common/js/attitude');
+var Telemetry       = require('../videre-common/js/telemetry');
 
 /*
 connection = net.createConnection(5760, '127.0.0.1');
@@ -34,16 +37,66 @@ module.exports = MavlinkProtocol;
 
 MavlinkProtocol.DEFAULT_COMPORT = "/dev/ttyUSB0";
 MavlinkProtocol.DEFAULT_BAUD = 57600;
+MavlinkProtocol.LOCAL_HOST = "127.0.0.1";
+MavlinkProtocol.DEFAULT_PORT = "5760";
+
+MavlinkProtocol.CONNECTION_SERIAL = "serial";
+MavlinkProtocol.CONNECTION_NETWORK = "network";
+
+    /*
+     * Base Mode
+     *
+     * 128 0b100 00000 MAV safety set to armed. Motors are enabled / running / can start. Ready to fly.
+     *  64 0b010 00000 remote control input is enabled.
+     *  32 0b001 00000 hardware in the loop simulation. All motors / actuators are blocked, but 
+     *                 internal software is full operational.
+     *  16 0b000 10000 system stabilizes electronically its attitude (and optionally position). 
+     *                 It needs however further control inputs to move around.
+     *   8 0b000 01000 guided mode enabled, system flies MISSIONs / mission items.
+     *   4 0b000 00100 autonomous mode enabled, system finds its own goal positions. 
+     *                 Guided flag can be set or not, depends on the actual implementation.
+     *   2 0b000 00010 system has a test mode enabled. This flag is intended for temporary 
+     *                 system tests and should not be used for stable implementations.
+     *   1 0b000 00001 Reserved for future use.
+     */
+MavlinkProtocol.BASE_MODE_ARMED = 1 << 7;
+MavlinkProtocol.BASE_MODE_REMOTE_CONTROL_ENABLED = 1 << 6;
+MavlinkProtocol.BASE_MODE_HARDWARE_IN_LOOP = 1 << 5;
+MavlinkProtocol.BASE_MODE_SYSTEM_STABILIZED = 1 << 4;
+MavlinkProtocol.BASE_MODE_GUIDED_MODE = 1 << 3;
+MavlinkProtocol.BASE_MODE_AUTONOMOUS_MODE = 1 << 2;
+MavlinkProtocol.BASE_MODE_TEST_MODE = 1 << 1;
+MavlinkProtocol.BASE_MODE_RESERVED = 1 << 0;
 
 function MavlinkProtocol(options) {
     options = options || {};
 
     this.debug = ((options.debug != null) ? options.debug : false);
+
+    this.connectionMethod = ((options.debug != null) ? options.connectionMethod : MavlinkProtocol.CONNECTION_SERIAL);
+
+    this.networkAddress = ((options.networkAddress != null) ? options.networkAddress : MavlinkProtocol.LOCAL_HOST);
+    this.networkPort = ((options.networkPort != null) ? options.networkPort : MavlinkProtocol.DEFAULT_PORT);
+
     this.serialPort = ((options.serialPort != null) ? options.serialPort : MavlinkProtocol.DEFAULT_COMPORT);
     this.serialBaud = ((options.baud != null) ? options.baud : MavlinkProtocol.DEFAULT_BAUD);
+
+    this.vehicleState = {};
+
+    this.telemetry = new Telemetry();
 }
 
-MavlinkProtocol.prototype.initSerialPort = function() {
+MavlinkProtocol.prototype.connect = function() {
+    if(this.connectionMethod === MavlinkProtocol.CONNECTION_SERIAL) {
+	this._initSerialPort();
+    } else {
+	this._initNetwork();
+    }
+
+    this._setupMavlinkListeners();
+}
+
+MavlinkProtocol.prototype._initSerialPort = function() {
     this.serialDevice = new SerialPort(this.serialPort, {
 	baudrate: this.baud
     });
@@ -57,10 +110,22 @@ MavlinkProtocol.prototype.initSerialPort = function() {
     });
 }
 
-MavlinkProtocol.prototype._writeSerialPort = function(data) {
-    serialPort.write(data);
+MavlinkProtocol.prototype._initNetwork = function() {
+    this.netConnection = net.createConnection(this.networkPort, this.networkAddress);
+
+    this.netConnection.on('data', function(data) {
+	mavlinkParser.parseBuffer(data);
+    });
 }
 
+MavlinkProtocol.prototype.write = function(data) {
+    if(this.connectionMethod === MavlinkProtocol.CONNECTION_SERIAL) {
+	serialPort.write(data);
+    } else {
+	// TODO: set this up
+
+    }
+}
 
 MavlinkProtocol.prototype._setupMavlinkListeners = function() {
 
@@ -90,11 +155,13 @@ MavlinkProtocol.prototype._setupMavlinkListeners = function() {
  *
  */
 
-mavlinkParser.on('message', function(message) {
-    console.log(message.name + ' <- received message');
+this.mavlinkParser.on('message', function(message) {
+    if (this.debug > 2) {
+	console.log(message.name + ' <- received message');
+    }
 });
 
-mavlinkParser.on('PING', function(message) {
+this.mavlinkParser.on('PING', function(message) {
     /*
     time_usec  Unix timestamp in microseconds
     seq  PING sequence
@@ -104,14 +171,18 @@ mavlinkParser.on('PING', function(message) {
                       if greater than 0: message is a ping response and number is the system id of the requesting system
     */
     
-    console.log('Ping' + 
-	' time_usec: ' + message.time_usec + 
-	' seq: ' + message.seq +
-	' target_system: ' + message.target_system +
-	' target_component: ' + message.target_component);
+    if(this.debug == 1) {
+	console.log('Ping');
+    } else if (this.debug > 1) {
+	console.log('Ping' + 
+	    ' time_usec: ' + message.time_usec + 
+	    ' seq: ' + message.seq +
+	    ' target_system: ' + message.target_system +
+	    ' target_component: ' + message.target_component);
+    }
 });
 
-mavlinkParser.on('HEARTBEAT', function(message) {
+this.mavlinkParser.on('HEARTBEAT', function(message) {
     /*
      * type            Type of the MAV (quadrotor, helicopter, etc)
      * autopilot       Autopilot type / class.
@@ -164,38 +235,21 @@ mavlinkParser.on('HEARTBEAT', function(message) {
      */
 
     /*
-     * Base Mode
+     * System status
      *
-     * 128 0b10000000 MAV safety set to armed. Motors are enabled / running / can start. Ready to fly.
-     *  64 0b01000000 remote control input is enabled.
-     *  32 0b00100000 hardware in the loop simulation. All motors / actuators are blocked, but 
-     *                internal software is full operational.
-     *  16 0b00010000 system stabilizes electronically its attitude (and optionally position). 
-     *                It needs however further control inputs to move around.
-     *   8 0b00001000 guided mode enabled, system flies MISSIONs / mission items.
-     *   4 0b00000100 autonomous mode enabled, system finds its own goal positions. 
-     *                Guided flag can be set or not, depends on the actual implementation.
-     *   2 0b00000010 system has a test mode enabled. This flag is intended for temporary 
-     *                system tests and should not be used for stable implementations.
-     *   1 0b00000001 Reserved for future use.
+     * 0 Uninitialized system, state is unknown.
+     * 1 System is booting up.
+     * 2 System is calibrating and not flight-ready.
+     * 3 System is grounded and on standby. It can be launched any time.
+     * 4 System is active and might be already airborne. Motors are engaged.
+     * 5 System is in a non-normal flight mode. It can however still navigate.
+     * 6 System is in a non-normal flight mode. It lost control over parts or 
+     *   over the whole airframe. It is in mayday and going down.
+     * 7 System just initialized its power-down sequence, will shut down now.
      */
-
-    /*
-    * System status
-    *
-    * 0 Uninitialized system, state is unknown.
-    *   System is booting up.
-    *   System is calibrating and not flight-ready.
-    *   System is grounded and on standby. It can be launched any time.
-    *   System is active and might be already airborne. Motors are engaged.
-    *   System is in a non-normal flight mode. It can however still navigate.
-    *   System is in a non-normal flight mode. It lost control over parts or 
-    *   over the whole airframe. It is in mayday and going down.
-    *   System just initialized its power-down sequence, will shut down now.
-    */
-    if(DEBUG == 1) {
+    if(this.debug == 1) {
 	console.log('Heartbeat');
-    } else if (DEBUG > 1) {
+    } else if (this.debug > 1) {
 	console.log('Heartbeat: ' +
 	    ' type: ' + message.type + 
 	    ' autopilot: ' + message.autopilot + 
@@ -206,7 +260,23 @@ mavlinkParser.on('HEARTBEAT', function(message) {
 	);
     }
 
-    vehicleState = _.extend(vehicleState, {
+    var armed = message.base_mode & MavlinkProtocol.BASE_MODE_ARMED != 0 ? true : false;
+
+    if(this.telemetry.armed != armed) {
+	this.telemetry.armed = armed;
+	this.telemetry.dirty = true;
+    }
+    /*
+MavlinkProtocol.BASE_MODE_ARMED
+MavlinkProtocol.BASE_MODE_REMOTE_CONTROL_ENABLED
+MavlinkProtocol.BASE_MODE_HARDWARE_IN_LOOP
+MavlinkProtocol.BASE_MODE_SYSTEM_STABILIZED
+MavlinkProtocol.BASE_MODE_GUIDED_MODE
+MavlinkProtocol.BASE_MODE_AUTONOMOUS_MODE
+MavlinkProtocol.BASE_MODE_TEST_MODE
+MavlinkProtocol.BASE_MODE_RESERVED
+    */
+    this.vehicleState = _.extend(this.vehicleState, {
 	type: message.type,
 	autopilot: message.autopilot,
 	base_mode: message.base_mode,
@@ -216,13 +286,11 @@ mavlinkParser.on('HEARTBEAT', function(message) {
     });
 });
 
-var vehicleState = {};
-
-mavlinkParser.on('MISSION_ITEM_REACHED', function(message) {
+this.mavlinkParser.on('MISSION_ITEM_REACHED', function(message) {
     console.log('Mission item reached ' + message.seq);
 });
 
-mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
+this.mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
     /* 
      * The filtered global position (e.g. fused GPS and accelerometers). 
      * The position is in GPS-frame (right-handed, Z-up). It is designed 
@@ -236,14 +304,14 @@ mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
      * vx             Ground X Speed (Latitude), expressed as m/s * 100
      * vy             Ground Y Speed (Longitude), expressed as m/s * 100
      * vz             Ground Z Speed (Altitude), expressed as m/s * 100
-     * hdgu           Compass heading in degrees * 100, 0.0..359.99 degrees. If unknown, set to: 65535
+     * hdg            Compass heading in degrees * 100, 0.0..359.99 degrees. If unknown, set to: 65535
      */
-    if(DEBUG == 1) {
+    if(this.debug == 1) {
 	console.log('Global position (int)');
-    } else if (DEBUG > 1) {
+    } else if (this.debug > 1) {
 	console.log('Global position (int)' + 
 	    ' lat: ' + message.lat / 10000000 + 
-	    ' lng: ' + message.lon/10000000 + 
+	    ' lng: ' + message.lon / 10000000 + 
 	    ' alt: ' + message.alt / 1000 +
 	    ' rel alt: ' + message.relative_alt / 1000 +
 	    ' vx: ' + message.vx / 100 +
@@ -253,7 +321,13 @@ mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
 	);
     }
 
-    vehicleState = _.extend(vehicleState, {
+    var lat = message.lat/10000000;
+
+    // should we have a configurable tollerance based on the accuracy of the GPS?
+    if(this.telemetry.armed != armed) {
+    }
+
+    this.vehicleState = _.extend(this.vehicleState, {
 	lat: message.lat/10000000,
 	lon: message.lon/10000000,
 	alt: message.alt/1000,
@@ -265,7 +339,7 @@ mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
     });
 });
 
-mavlinkParser.on('STATUS_TEXT', function(message) {
+this.mavlinkParser.on('STATUS_TEXT', function(message) {
     /* 
      * Status text message. These messages are printed in yellow in the COMM console of QGroundControl. 
      *
@@ -276,16 +350,16 @@ mavlinkParser.on('STATUS_TEXT', function(message) {
      * severity  Severity of status. Relies on the definitions within RFC-5424. See enum MAV_SEVERITY.
      * text      Status text message, without null termination character
      */
-    if(DEBUG == 1) {
+    if(this.debug == 1) {
 	console.log('Status text');
-    } else if (DEBUG > 1) {
+    } else if (this.debug > 1) {
 	console.log('Status text' + 
 	    ' severity: ' + message.severity +
 	    ' text: ' + message.text);
     }
 });
 
-mavlinkParser.on('PARAM_VALUE', function(message) {
+this.mavlinkParser.on('PARAM_VALUE', function(message) {
     /*
     * Emit the value of a onboard parameter. 
     *
@@ -301,9 +375,9 @@ mavlinkParser.on('PARAM_VALUE', function(message) {
     * param_count    Total number of onboard parameters
     * param_index    Index of this onboard parameter
     */
-    if(DEBUG == 1) {
+    if(this.debug == 1) {
 	console.log('Param Value');
-    } else if (DEBUG > 1) {
+    } else if (this.debug > 1) {
 	console.log('Param Value' + 
 	    ' param_id: ' + message.id +
 	    ' param_value: ' + message.param_value +
@@ -313,7 +387,7 @@ mavlinkParser.on('PARAM_VALUE', function(message) {
     }
 });
 
-mavlinkParser.on('HIGHRES_IMU', function(message) {
+this.mavlinkParser.on('HIGHRES_IMU', function(message) {
     /* 
      * The IMU readings in SI units in NED body frame
      *
@@ -333,9 +407,9 @@ mavlinkParser.on('HIGHRES_IMU', function(message) {
      * temperature     Temperature in degrees celsius
      * fields_updated  Bitmask for fields that have updated since last message, bit 0 = xacc, bit 12: temperature
      */
-    if(DEBUG == 1) {
+    if(this.debug == 1) {
         console.log('High res IMU');
-    } else if (DEBUG > 1) {
+    } else if (this.debug > 1) {
 	console.log('High res IMU:' +
 	    ' time_usec: ' + message.time_usec +
 	    ' xacc: ' + message.xacc +
@@ -354,7 +428,7 @@ mavlinkParser.on('HIGHRES_IMU', function(message) {
 	);
     }
 
-    vehicleState = _.extend(vehicleState, {
+    this.vehicleState = _.extend(this.vehicleState, {
 	time_usec: message.time_usec,
 	xacc: message.xacc,
 	yacc: message.yacc,
@@ -372,9 +446,9 @@ mavlinkParser.on('HIGHRES_IMU', function(message) {
     });
 });
 
-mavlinkParser.on('GPS_STATUS', function(message) {
+this.mavlinkParser.on('GPS_STATUS', function(message) {
     // TODO: consider how to handle this
-    vehicleState = _.extend(vehicleState, {
+    this.vehicleState = _.extend(this.vehicleState, {
 	satellites_visible: message.satellites_visible,
 	satellite_prn: new Uint8Array(message.satellite_prn),
 	satellite_used: new Uint8Array(message.satellite_used),
@@ -383,11 +457,11 @@ mavlinkParser.on('GPS_STATUS', function(message) {
 	satellite_snr: new Uint8Array(message.satellite_snr)
     });
     
-    if(DEBUG == 1) {
+    if(this.debug == 1) {
         console.log('GPS Status');
-    } else if (DEBUG > 1) {
+    } else if (this.debug > 1) {
 	console.log('GPS Status: ' +
-	    ' sats visible: ' + vehicleState.satellites_visible);
+	    ' sats visible: ' + this.vehicleState.satellites_visible);
 
 	for(var i = 0, l = message.satellite_prn.length; i < l; i++) {
 	    console.log(' Satellite ' + i + ',' +
@@ -401,10 +475,10 @@ mavlinkParser.on('GPS_STATUS', function(message) {
     }
 });
 
-mavlinkParser.on('SYS_STATUS', function(message) {
-    if(DEBUG == 1) {
+this.mavlinkParser.on('SYS_STATUS', function(message) {
+    if(this.debug == 1) {
 	console.log('Sys Status');
-    } else if (DEBUG > 1) {
+    } else if (this.debug > 1) {
 	console.log('Sys Status:' +
 	    ' battery voltage (millivolts): ' + message.voltage_battery + 
 	    ' current (10 millamperes): ' + message.current_battery + 
@@ -413,7 +487,7 @@ mavlinkParser.on('SYS_STATUS', function(message) {
 	    ' comm errors: ' + message.errors_com);
     }
 
-    vehicleState = _.extend(vehicleState, {
+    this.vehicleState = _.extend(this.vehicleState, {
 	voltage_battery: message.voltage_battery,
 	current_battery: message.current_battery,
 	battery_remaining: message.battery_remaining,
@@ -422,7 +496,7 @@ mavlinkParser.on('SYS_STATUS', function(message) {
     });
 });
 
-mavlinkParser.on('ATTITUDE', function(message) {
+this.mavlinkParser.on('ATTITUDE', function(message) {
     /* 
      * The attitude in the aeronautical frame (right-handed, Z-down, X-front, Y-right).
      *
@@ -434,9 +508,9 @@ mavlinkParser.on('ATTITUDE', function(message) {
      * pitchspeed     Pitch angular speed (rad/s)
      * yawspeed       Yaw angular speed (rad/s)
      */
-    if(DEBUG == 1) {
+    if(this.debug == 1) {
 	console.log('Attitude');
-    } else if (DEBUG > 1) {
+    } else if (this.debug > 1) {
 	console.log('Attitude:' + 
 	    ' pitch: ' + message.pitch + 
 	    ' roll: ' + message.roll + 
@@ -446,7 +520,7 @@ mavlinkParser.on('ATTITUDE', function(message) {
 	    ' yaw speed: ' + message.yawspeed);
     }
 
-    vehicleState = _.extend(vehicleState, {
+    this.vehicleState = _.extend(this.vehicleState, {
 	pitch: message.pitch,
 	roll: message.roll,
 	yaw: message.yaw,
@@ -456,7 +530,7 @@ mavlinkParser.on('ATTITUDE', function(message) {
     });
 });
 
-mavlinkParser.on('VFR_HUD', function(message) {
+this.mavlinkParser.on('VFR_HUD', function(message) {
     /* Metrics typically displayed on a HUD for fixed wing aircraft
      *
      * airspeed    Current airspeed in m/s
@@ -466,9 +540,9 @@ mavlinkParser.on('VFR_HUD', function(message) {
      * alt         Current altitude (MSL), in meters
      * climb       Current climb rate in meters/second
      */
-    if(DEBUG == 1) {
+    if(this.debug == 1) {
 	console.log('VFR HUD');
-    } else if (DEBUG > 1) {
+    } else if (this.debug > 1) {
 	console.log('VFR HUD:' + 
 	    ' air speed: ' + message.airspeed + 
 	    ' ground speed: ' + message.groundspeed + 
@@ -477,7 +551,7 @@ mavlinkParser.on('VFR_HUD', function(message) {
 	    ' climb: ' + message.climb);
     }
 
-    vehicleState = _.extend(vehicleState, {
+    this.vehicleState = _.extend(this.vehicleState, {
 	airspeed: message.airspeed,
 	groundspeed: message.groundspeed,
 	heading: message.heading,
@@ -486,21 +560,41 @@ mavlinkParser.on('VFR_HUD', function(message) {
     });
 });
 
-mavlinkParser.on('GPS_RAW_INT', function(message) {
-    if(DEBUG == 1) {
+this.mavlinkParser.on('GPS_RAW_INT', function(message) {
+    /*
+     * The global position, as returned by the Global Positioning System (GPS). 
+     * This is NOT the global position estimate of the sytem, but rather a RAW 
+     * sensor value. See message GLOBAL_POSITION for the global position 
+     * estimate. Coordinate frame is right-handed, Z-axis up (GPS frame).
+     *
+     * time_usec          Timestamp (microseconds since UNIX epoch or microseconds since system boot)
+     * fix_type           0-1: no fix, 2: 2D fix, 3: 3D fix. Some applications will not use the value of 
+     *                    this field unless it is at least two, so always correctly fill in the fix.
+     * lat                Latitude in 1E7 degrees
+     * lon                Longitude in 1E7 degrees
+     * alt                Altitude in 1E3 meters (millimeters) above MSL
+     * ephu               GPS HDOP horizontal dilution of position in cm (m*100). If unknown, set to: 65535
+     * epvu               GPS VDOP horizontal dilution of position in cm (m*100). If unknown, set to: 65535
+     * velu               GPS ground speed (m/s * 100). If unknown, set to: 65535
+     * cogu               Course over ground (NOT heading, but direction of movement) in degrees * 100, 
+     *                    0.0..359.99 degrees. If unknown, set to: 65535
+     * satellites_visible Number of satellites visible. If unknown, set to 255
+     */
+    if(this.debug == 1) {
 	console.log('GPS Raw (int)');
-    } else if (DEBUG > 1) {
+    } else if (this.debug > 1) {
 	console.log('GPS Raw (int):' + 
-	    ' lat: ' + message.lat + 
-	    ' lng: ' + message.lng + 
-	    ' alt: ' + message.alt + 
-	    ' eph: ' + message.eph + 
-	    ' epv: ' + message.epv + 
-	    ' vel: ' + message.vel + 
+	    ' fix type: ' + message.fix_type +
+	    ' lat: ' + message.lat / 10000000 + 
+	    ' lng: ' + message.lon / 10000000 + 
+	    ' alt: ' + message.alt / 1000 + 
+	    ' eph: ' + message.eph / 100 + 
+	    ' epv: ' + message.epv / 100 + 
+	    ' vel: ' + message.vel / 100 + 
 	    ' cog: ' + message.cog);
     }
 
-    vehicleState = _.extend(vehicleState, {
+    this.vehicleState = _.extend(this.vehicleState, {
 	fix_type: message.fix_type,
 	satellites_visible: message.satellites_visible,
 	lat: message.lat / 10000000,
