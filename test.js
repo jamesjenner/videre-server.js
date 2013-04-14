@@ -7,6 +7,20 @@ var COMPORT = "/dev/ttyUSB0";
 var BAUD = 57600;
 
 var DEBUG = 2;
+
+var DEBUG_GLOBAL_POSITION_INT = true;
+var DEBUG_GPS_RAW_INT = false;
+var DEBUG_HIGHRES_IMU = false;
+var DEBUG_GPS_STATUS = false;
+
+var DEBUG_SYS_STATUS = false;
+var DEBUG_ATTITUDE = true;
+var DEBUG_VFR_HUD = true;
+var DEBUG_RECEIVED_MSG = true;
+var DEBUG_HEARTBEAT = false;
+
+
+
 /*
 connection = net.createConnection(5760, '127.0.0.1');
 connection.on('data', function(data) {
@@ -53,7 +67,9 @@ serialPort.on("data", function (data) {
  */
 
 mavlinkParser.on('message', function(message) {
-    console.log(message.name + ' <- received message');
+    if(DEBUG > 0 && DEBUG_RECEIVED_MSG) {
+	console.log(message.name + ' <- received message');
+    }
 });
 
 mavlinkParser.on('PING', function(message) {
@@ -155,6 +171,8 @@ mavlinkParser.on('HEARTBEAT', function(message) {
     *   over the whole airframe. It is in mayday and going down.
     *   System just initialized its power-down sequence, will shut down now.
     */
+    if(DEBUG_HEARTBEAT) {
+
     if(DEBUG == 1) {
 	console.log('Heartbeat');
     } else if (DEBUG > 1) {
@@ -166,6 +184,7 @@ mavlinkParser.on('HEARTBEAT', function(message) {
 	    ' system_status: ' + message.system_status + 
 	    ' mavlink_version: ' + message.mavlink_version
 	);
+    }
     }
 
     vehicleState = _.extend(vehicleState, {
@@ -200,19 +219,26 @@ mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
      * vz             Ground Z Speed (Altitude), expressed as m/s * 100
      * hdgu           Compass heading in degrees * 100, 0.0..359.99 degrees. If unknown, set to: 65535
      */
+    if(DEBUG_GLOBAL_POSITION_INT) {
+	console.log('Global position (int)');
     if(DEBUG == 1) {
 	console.log('Global position (int)');
     } else if (DEBUG > 1) {
 	console.log('Global position (int)' + 
+	    ' lat: ' + message.lat + 
 	    ' lat: ' + message.lat / 10000000 + 
-	    ' lng: ' + message.lon/10000000 + 
+	    ' lng: ' + message.lon / 10000000 + 
+	    ' lng: ' + message.lon + 
 	    ' alt: ' + message.alt / 1000 +
+	    ' alt: ' + message.alt +
 	    ' rel alt: ' + message.relative_alt / 1000 +
+	    ' rel alt: ' + message.relative_alt +
 	    ' vx: ' + message.vx / 100 +
 	    ' vy: ' + message.vy / 100 +
 	    ' vz: ' + message.vz / 100 +
 	    ' hdg: ' + message.hdg / 100
 	);
+    }
     }
 
     vehicleState = _.extend(vehicleState, {
@@ -295,6 +321,7 @@ mavlinkParser.on('HIGHRES_IMU', function(message) {
      * temperature     Temperature in degrees celsius
      * fields_updated  Bitmask for fields that have updated since last message, bit 0 = xacc, bit 12: temperature
      */
+    if(DEBUG_HIGHRES_IMU) {
     if(DEBUG == 1) {
         console.log('High res IMU');
     } else if (DEBUG > 1) {
@@ -314,6 +341,7 @@ mavlinkParser.on('HIGHRES_IMU', function(message) {
 	    ' pressure_alt: ' + message.pressure_alt +
 	    ' temperature: ' + message.temperature
 	);
+    }
     }
 
     vehicleState = _.extend(vehicleState, {
@@ -345,6 +373,8 @@ mavlinkParser.on('GPS_STATUS', function(message) {
 	satellite_snr: new Uint8Array(message.satellite_snr)
     });
     
+    if(DEBUG_GPS_STATUS) {
+
     if(DEBUG == 1) {
         console.log('GPS Status');
     } else if (DEBUG > 1) {
@@ -361,9 +391,12 @@ mavlinkParser.on('GPS_STATUS', function(message) {
 	    );
 	}
     }
+    }
 });
 
 mavlinkParser.on('SYS_STATUS', function(message) {
+    if(DEBUG_SYS_STATUS) {
+
     if(DEBUG == 1) {
 	console.log('Sys Status');
     } else if (DEBUG > 1) {
@@ -373,6 +406,7 @@ mavlinkParser.on('SYS_STATUS', function(message) {
 	    ' remaining %: ' + message.battery_remaining + 
 	    ' comm drop rate %: ' + message.drop_rate_comm + 
 	    ' comm errors: ' + message.errors_com);
+    }
     }
 
     vehicleState = _.extend(vehicleState, {
@@ -396,6 +430,8 @@ mavlinkParser.on('ATTITUDE', function(message) {
      * pitchspeed     Pitch angular speed (rad/s)
      * yawspeed       Yaw angular speed (rad/s)
      */
+    if(DEBUG_ATTITUDE) {
+
     if(DEBUG == 1) {
 	console.log('Attitude');
     } else if (DEBUG > 1) {
@@ -406,6 +442,7 @@ mavlinkParser.on('ATTITUDE', function(message) {
 	    ' pitch speed: ' + message.pitch.speed + 
 	    ' rollspeed: ' + message.rollspeed + 
 	    ' yaw speed: ' + message.yawspeed);
+    }
     }
 
     vehicleState = _.extend(vehicleState, {
@@ -428,6 +465,8 @@ mavlinkParser.on('VFR_HUD', function(message) {
      * alt         Current altitude (MSL), in meters
      * climb       Current climb rate in meters/second
      */
+    if(DEBUG_VFR_HUD) {
+
     if(DEBUG == 1) {
 	console.log('VFR HUD');
     } else if (DEBUG > 1) {
@@ -437,6 +476,7 @@ mavlinkParser.on('VFR_HUD', function(message) {
 	    ' heading: ' + message.heading + 
 	    ' throttle: ' + message.throttle + 
 	    ' climb: ' + message.climb);
+    }
     }
 
     vehicleState = _.extend(vehicleState, {
@@ -449,17 +489,42 @@ mavlinkParser.on('VFR_HUD', function(message) {
 });
 
 mavlinkParser.on('GPS_RAW_INT', function(message) {
+    /*
+     * The global position, as returned by the Global Positioning System (GPS). 
+     * This is NOT the global position estimate of the sytem, but rather a RAW 
+     * sensor value. See message GLOBAL_POSITION for the global position 
+     * estimate. Coordinate frame is right-handed, Z-axis up (GPS frame).
+     *
+     * time_usec          Timestamp (microseconds since UNIX epoch or microseconds since system boot)
+     * fix_type           0-1: no fix, 2: 2D fix, 3: 3D fix. Some applications will not use the value of 
+     *                    this field unless it is at least two, so always correctly fill in the fix.
+     * lat                Latitude in 1E7 degrees
+     * lon                Longitude in 1E7 degrees
+     * alt                Altitude in 1E3 meters (millimeters) above MSL
+     * ephu               GPS HDOP horizontal dilution of position in cm (m*100). If unknown, set to: 65535
+     * epvu               GPS VDOP horizontal dilution of position in cm (m*100). If unknown, set to: 65535
+     * velu               GPS ground speed (m/s * 100). If unknown, set to: 65535
+     * cogu               Course over ground (NOT heading, but direction of movement) in degrees * 100, 
+     *                    0.0..359.99 degrees. If unknown, set to: 65535
+     * satellites_visible Number of satellites visible. If unknown, set to 255
+     */
+
+    if(DEBUG_GPS_RAW_INT) {
+
     if(DEBUG == 1) {
 	console.log('GPS Raw (int)');
     } else if (DEBUG > 1) {
 	console.log('GPS Raw (int):' + 
-	    ' lat: ' + message.lat + 
-	    ' lng: ' + message.lng + 
-	    ' alt: ' + message.alt + 
-	    ' eph: ' + message.eph + 
-	    ' epv: ' + message.epv + 
-	    ' vel: ' + message.vel + 
+	    ' fix type: ' + message.fix_type +
+	    ' sats: ' + message.satellites_visible + 
+	    ' lat: ' + message.lat / 10000000 + 
+	    ' lng: ' + message.lon / 10000000 + 
+	    ' alt: ' + message.alt / 1000 + 
+	    ' eph: ' + message.eph / 100 + 
+	    ' epv: ' + message.epv / 100 + 
+	    ' vel: ' + message.vel / 100 + 
 	    ' cog: ' + message.cog);
+    }
     }
 
     vehicleState = _.extend(vehicleState, {
@@ -474,4 +539,8 @@ mavlinkParser.on('GPS_RAW_INT', function(message) {
 	cog: message.cog
     });
 });
+
+var msg = new mavlink.messages.ping(0, 0, 0, 0);
+console.log(" test ping message: " + msg.pack());
+serialPort.write(msg.pack());
 
