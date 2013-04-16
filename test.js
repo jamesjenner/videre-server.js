@@ -2,19 +2,20 @@
 
 var SerialPort = require("serialport").SerialPort
 var mavlink = require('./implementations/mavlink_common_v1.0');
+var _ = require("underscore");
 
 var COMPORT = "/dev/ttyUSB0";
 var BAUD = 57600;
 
 var DEBUG = 2;
 
-var DEBUG_GLOBAL_POSITION_INT = true;
+var DEBUG_GLOBAL_POSITION_INT = false;
 var DEBUG_GPS_RAW_INT = false;
 var DEBUG_HIGHRES_IMU = false;
 var DEBUG_GPS_STATUS = false;
 
 var DEBUG_SYS_STATUS = false;
-var DEBUG_ATTITUDE = true;
+var DEBUG_ATTITUDE = false;
 var DEBUG_VFR_HUD = true;
 var DEBUG_RECEIVED_MSG = true;
 var DEBUG_HEARTBEAT = false;
@@ -540,7 +541,42 @@ mavlinkParser.on('GPS_RAW_INT', function(message) {
     });
 });
 
-var msg = new mavlink.messages.ping(0, 0, 0, 0);
-console.log(" test ping message: " + msg.pack());
-serialPort.write(msg.pack());
+
+setTimeout(function() {
+    console.log("************************ sending ping ************************");
+    // var msg = new mavlink.messages.ping(0, 0, 0, 0);
+    // request = new mavlink.messages.ping(1, 0, 0, 0);
+    // request = new mavlink.messages.request_data_stream(1, 0, mavlink.MAV_DATA_STREAM_ALL, 1, 1);
+
+    /*
+    Set the system mode, as defined by enum MAV_MODE. There is no target
+    component id as the mode is by definition for the overall aircraft,
+    not only for one component.
+
+                    target_system             : The system setting the mode (uint8_t)
+		    base_mode                 : The new base mode (uint8_t)
+		    custom_mode               : The new autopilot-specific mode. This field can be ignored by an autopilot. (uint32_t)
+
+    request = new mavlink.messages.set_mode(1, mavlink.MAV_MODE_PREFLIGHT, 0);
+    */
+    request = new mavlink.messages.mission_request(1, 0);
+    /*
+    request = new mavlink.messages.mission_request(1, 1);
+    request = new mavlink.messages.mission_request(1, 2);
+    request = new mavlink.messages.mission_request(1, 3);
+    */
+
+    _.extend(request, {
+	srcSystem: 255,
+	srcComponent: 0,
+	seq: 1
+    });
+
+    p = new Buffer(request.pack());
+    console.log("sending message " + p);
+    serialPort.write(p);
+}, 10000);
+
+// console.log(" test ping message: " + msg);
+// serialPort.write(msg.pack());
 
