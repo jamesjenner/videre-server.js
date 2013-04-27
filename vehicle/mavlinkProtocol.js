@@ -68,6 +68,11 @@ MavlinkProtocol.BASE_MODE_AUTONOMOUS_MODE = 1 << 2;
 MavlinkProtocol.BASE_MODE_TEST_MODE = 1 << 1;
 MavlinkProtocol.BASE_MODE_RESERVED = 1 << 0;
 
+MavlinkProtocol.WAYPOINT_IDLE = 0;
+MavlinkProtocol.WAYPOINT_REQUEST = 1;
+MavlinkProtocol.WAYPOINT_RECEIVING = 2;
+MavlinkProtocol.WAYPOINT_COMPLETE = 3;
+
 function MavlinkProtocol(options) {
     options = options || {};
 
@@ -84,6 +89,12 @@ function MavlinkProtocol(options) {
     this.vehicleState = {};
 
     this.telemetry = new Telemetry();
+    // a negative id means that it is currently not known, it is set by the heartbeat message
+    this.systemId = -1;
+    this._msgSequence = 0;
+    this.waypointMode = MavlinkProtocol.WAYPOINT_IDLE;
+    this.waypointCount = 0;
+    this.waypointLastSequence = -1;
 }
 
 MavlinkProtocol.prototype.connect = function() {
@@ -125,6 +136,78 @@ MavlinkProtocol.prototype.write = function(data) {
 	// TODO: set this up
 
     }
+}
+
+/**
+ * request the waypoints from the drone
+ *
+ * returns  0 if request generated
+ *         -1 if the system id is unknown
+ *         -2 if currently processing a request for waypoints
+ */
+MavlinkProtocol.prototype.requestWaypoints = function(data) {
+    var request = false;
+
+    if(this.debug > 0) {
+	console.log("Requesting waypoints");
+    }
+
+    if(systemId = -1) {
+	if(this.debug > 0) {
+	    console.log("Cannot request waypoints as system id has not been set");
+	}
+
+	return -1;
+    }
+
+    switch(this.waypointMode) {
+        case MavlinkProtocol.WAYPOINT_IDLE:
+	    if(this.debug > 1) {
+		console.log("requestWaypoints accepted, currently idle");
+	    }
+	    request = true;
+	    break;
+
+        case MavlinkProtocol.WAYPOINT_REQUEST:
+	    if(this.debug > 1) {
+		console.log("requestWaypoints accepted, consecutive request");
+	    }
+	    request = true;
+	    break;
+
+        case MavlinkProtocol.WAYPOINT_RECEIVING:
+	    if(this.debug > 1) {
+		console.log("requestWaypoints rejected, currently receiving waypoints");
+	    }
+	    request = false;
+	    break;
+
+	// TODO: this seems redundant
+        case MavlinkProtocol.WAYPOINT_COMPLETE:
+	    if(this.debug > 1) {
+		console.log("requestWaypoints accepted, currently in complete mode");
+	    }
+	    request = true;
+	    break;
+    }
+
+    if(request) {
+	// set mode to request mode
+        this.waypointMode = MavlinkProtocol.WAYPOINT_REQUEST;
+	
+	// clear current waypoints
+	
+	// request the waypoints
+        this._writeMessage(new mavlink.messages.mission_request_list(systemId, 50));
+    } else {
+	if(this.debug > 0) {
+	    console.log("Cannot request waypoints as currently receiving waypoints");
+	}
+
+	return -2;
+    }
+
+    return 0;
 }
 
 MavlinkProtocol.prototype._setupMavlinkListeners = function() {
@@ -284,6 +367,161 @@ MavlinkProtocol.BASE_MODE_RESERVED
 	system_status: message.system_status,
 	mavlink_version: message.mavlink_version
     });
+});
+
+/*
+MavlinkProtocol.WAYPOINT_IDLE = 0;
+MavlinkProtocol.WAYPOINT_REQUEST = 1;
+MavlinkProtocol.WAYPOINT_RECEIVING = 2;
+MavlinkProtocol.WAYPOINT_COMPLETE = 3;
+* JGJ
+*/
+
+
+/* waypoint management */
+this.mavlinkParser.on('MISSION_COUNT', function(message) {
+    /*
+     * This message is emitted as response to MISSION_REQUEST_LIST by the MAV and to initiate a write transaction. 
+     * The GCS can then request the individual mission item based on the knowledge of the total number of MISSIONs.
+     */
+    if(DEBUG_MISSION_COUNT) {
+	if(DEBUG == 1) {
+	    console.log('Mission Count');
+	} else if (DEBUG > 1) {
+	    console.log('Mission Count: ' +
+		' sys: ' + message.header.srcSystem +
+		' component: ' + message.header.srcComponent +
+		' target sys: ' + message.target_system + 
+		' target component: ' + message.target_component + 
+		' count: ' + message.count);
+	    console.log(JSON.stringify(message));
+	}
+    }
+
+    if(this.waypointMode === MavlinkProtocol.WAYPOINT_IDLE || 
+       this.waypointMode === MavlinkProtocol.WAYPOINT_REQUEST || 
+       this.waypointMode === MavlinkProtocol.WAYPOINT_COMPLETE) {
+	// set to receiving waypoint
+	this.waypointMode = MavlinkProtocol.WAYPOINT_RECEIVING;
+
+	this.waypointCount = message.count;
+	this.waypointLastSequence = -1;
+
+	// send message
+	if(this.debug > 1) {
+	    console.log("requesting first waypoint");
+	}
+	this._writeMessage(new mavlink.messages.mission_request(message.header.srcSystem, message.header.srcComponent, 0));
+    }
+});
+
+this.mavlinkParser.on('MISSION_ITEM', function(message) {
+    /* 
+     * Message encoding a mission item. This message is emitted to announce the presence of a mission item and to 
+     * set a mission item on the system. The mission item can be either in x, y, z meters (type: LOCAL) or x:lat, 
+     * y:lon, z:altitude. Local frame is Z-down, right handed (NED), global frame is Z-up, right handed (ENU). 
+     * See also http://qgroundcontrol.org/mavlink/waypoint_protocol.
+     *
+     *
+     * contents:
+     *   target_system    System ID
+     *   target_component Component ID
+     *   seq              Sequence
+     *   frame            The coordinate system of the MISSION. see MAV_FRAME in mavlink_types.h
+     *   command          The scheduled action for the MISSION. see MAV_CMD in common.xml MAVLink specs
+     *   current          false:0, true:1
+     *   autocontinue     auto-continue to next wp
+     *   param1           PARAM1 / For NAV command MISSIONs: Radius in which the MISSION is accepted as reached, 
+     *                    in meters
+     *   param2           PARAM2 / For NAV command MISSIONs: Time that the MAV should stay inside the PARAM1 
+     *                    radius before advancing, in milliseconds
+     *   param3           PARAM3 / For LOITER command MISSIONs: Orbit to circle around the MISSION, in meters. 
+     *                    If positive the orbit direction should be clockwise, if negative the orbit direction 
+     *                    should be counter-clockwise.
+     *   param4           PARAM4 / For NAV and LOITER command MISSIONs: Yaw orientation in degrees, [0..360] 0 = NORTH
+     *   x                PARAM5 / local: x position, global: latitude
+     *   y                PARAM6 / y position: global: longitude
+     *   z                PARAM7 / z position: global: altitude
+     */
+    /*
+     * MAV_FRAME definition:
+     *
+     *   0    MAV_FRAME_GLOBAL              Global coordinate frame, WGS84 coordinate system. First value / x: latitude, 
+     *                                      second value / y: longitude, third value / z: positive altitude over mean sea 
+     *                                      level (MSL)
+     *   1    MAV_FRAME_LOCAL_NED           Local coordinate frame, Z-up (x: north, y: east, z: down).
+     *   2    MAV_FRAME_MISSION             NOT a coordinate frame, indicates a mission command.
+     *   3    MAV_FRAME_GLOBAL_RELATIVE_ALT Global coordinate frame, WGS84 coordinate system, relative altitude 
+     *                                      over ground with respect to the home position. First value / x: latitude, 
+     *                                      second value / y: longitude, third value / z: positive altitude with 0 being 
+     *                                      at the altitude of the home location.
+     *   4    MAV_FRAME_LOCAL_ENU           Local coordinate frame, Z-down (x: east, y: north, z: up)
+     */
+    /*
+     * MAV_CMD summary:
+     *
+     * Commands to be executed by the MAV. They can be executed on user request, or as part of a mission script. 
+     * If the action is used in a mission, the parameter mapping to the waypoint/mission message is as follows: 
+     * Param 1, Param 2, Param 3, Param 4, X: Param 5, Y:Param 6, Z:Param 7. This command list is similar what 
+     * ARINC 424 is for commercial aircraft: A data format how to interpret waypoint/mission data.
+     */
+
+    if(DEBUG_MISSION_ITEM) {
+	if(DEBUG == 1) {
+	    console.log('Mission Item');
+	} else if (DEBUG > 1) {
+	    console.log('Mission Item: ' +
+		' sys: ' + message.header.srcSystem +
+		' component: ' + message.header.srcComponent +
+		' target sys: ' + message.target_system + 
+		' target component: ' + message.target_component + 
+		' seq: ' + message.seq +
+                ' frame: ' + message.frame +
+                ' cmd: ' + message.command +
+                ' current: ' + message.current +
+                ' autocontinue: ' + message.autocontinue +
+                ' param1: ' + message.param1 +
+                ' param2: ' + message.param2 +
+                ' param3: ' + message.param3 +
+                ' param4: ' + message.param4 +
+                ' x: ' + message.x +
+                ' y: ' + message.y +
+                ' z: ' + message.z)
+	}
+    }
+
+    switch(this.waypointMode) {
+        case MavlinkProtocol.WAYPOINT_IDLE:
+	    // if the first one, then switch to receiving mode
+            if(message.current > 0) {
+		break;
+	    }
+
+        case MavlinkProtocol.WAYPOINT_REQUEST:
+            this.waypointMode = MavlinkProtocol.WAYPOINT_RECEIVING;
+
+        case MavlinkProtocol.WAYPOINT_RECEIVING:
+	    if(waypointLastSequence != -1 && waypointLastSequence + 1 != message.current) {
+		// received waypoint out of sequence
+		break;
+	    }
+	    this.waypointLastSequence = message.current;
+	    
+	    // TODO: save the waypoint
+	    
+	    // send message
+	    if(this.debug > 1) {
+		console.log("requesting waypoint " + (this.waypointLastSequence + 1));
+	    }
+	    this._writeMessage(new mavlink.messages.mission_request(
+		message.header.srcSystem, 
+		message.header.srcComponent, 
+		this.waypointLastSequence + 1));
+
+	// error?? ignore
+        case MavlinkProtocol.WAYPOINT_COMPLETE:
+	    break;
+    }
 });
 
 this.mavlinkParser.on('MISSION_ITEM_REACHED', function(message) {
@@ -608,3 +846,29 @@ this.mavlinkParser.on('GPS_RAW_INT', function(message) {
 });
 
 }
+
+MavlinkProtocol.prototype._writeMessage = function(request) {
+    _.extend(request, {
+	srcSystem: 255,
+	srcComponent: 0,
+	// seq: getNextSequence()
+    });
+
+    p = new Buffer(request.pack());
+    console.log("sending message " + p);
+    this.serialPort.write(p);
+};
+
+function getNextSequence() {
+    this._msgSequence++;
+
+    if(this._msgSequence > 255) {
+	this._msgSequence = 1;
+    }
+
+    return this._msgSequence;
+}
+//
+// console.log(" test ping message: " + msg);
+// serialPort.write(msg.pack());
+
