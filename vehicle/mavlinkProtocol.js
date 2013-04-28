@@ -74,6 +74,9 @@ MavlinkProtocol.WAYPOINT_NOT_REQUESTED = 0;
 MavlinkProtocol.WAYPOINT_REQUESTED = 1;
 MavlinkProtocol.WAYPOINT_RECEIVING = 2;
 
+MavlinkProtocol._MISSION_REQUEST_LIST_TIMEOUT_ID = 0;
+MavlinkProtocol._MISSION_REQUEST_TIMEOUT_ID = 1;
+
 /**
  * define a new mavlink protocol 
  *
@@ -123,8 +126,11 @@ function MavlinkProtocol(options) {
     this._waypointMode = MavlinkProtocol.WAYPOINT_NOT_REQUESTED;
     this._waypointCount = 0;
     this._waypointLastSequence = -1;
+    this._waypointTimeoutId = null;
+    this._waypointTimeoutCounter = null;
     this._baseMode = null;
     this._waypoints = new Array();
+    this.timeoutIds = [null, null];
 }
 
 /**
@@ -252,7 +258,14 @@ MavlinkProtocol.prototype.requestWaypoints = function() {
         this._waypointMode = MavlinkProtocol.WAYPOINT_REQUESTED;
 	
 	// request the waypoints
-        this._writeMessage(new mavlink.messages.mission_request_list(this.systemId, 50));
+	this._writeWithTimeout({
+	    message: new mavlink.messages.mission_request_list(this.systemId, 50),
+	    timeout: 10000, 
+	    maxAttempts: 3, 
+	    messageName: 'mission request list', 
+	    attempts: 0,
+	    timeoutId: MavlinkProtocol._MISSION_REQUEST_LIST_TIMEOUT_ID,
+	});
     } else {
 	if(this.debugWaypoints) {
 	    console.log("Cannot request waypoints as currently receiving waypoints");
@@ -262,6 +275,29 @@ MavlinkProtocol.prototype.requestWaypoints = function() {
     }
 
     return 0;
+}
+
+MavlinkProtocol.prototype._writeWithTimeout = function(options) {
+    var that = this;
+
+    that.timeoutIds[options.timeoutId] = setTimeout(function() {
+	options.attempts++;
+
+	if(options.attempts > 3) {
+	    if(that.debug) {
+		console.log("Message " + options.messageName + " response timed out, retries exceeded");
+	    }
+	    that.timeoutIds[options.timeoutId] = null;
+	} else {
+	    if(that.debug && that.debugLevel > 1) {
+		console.log("Message " + options.messageName + " timed out, retrying. Attempt: " + options.attempts);
+	    }
+
+	    that._writeWithTimeout.call(that, options);
+	}
+    }, options.timeout);
+
+    that._writeMessage(options.message);
 }
 
 MavlinkProtocol.prototype._setupMavlinkListeners = function() {
@@ -404,7 +440,6 @@ this.mavlinkParser.on('HEARTBEAT', function(message) {
     if(that.debugHeartbeat && that.debugLevel == 1) {
 	console.log('Heartbeat');
     } else if (that.debugHeartbeat && that.debugLevel > 1) {
-	console.log('Heartbeat, figuring out details...');
         var mavType = 'unknown';
 	var autopilot = 'unknown';
 	var sysStatus = 'unknown';
@@ -547,6 +582,9 @@ this.mavlinkParser.on('MISSION_COUNT', function(message) {
 	}
     }
 
+    // clear the timeout as we received the mission count
+    clearTimeout(that.timeoutIds[MavlinkProtocol._MISSION_REQUEST_LIST_TIMEOUT_ID]);
+
     // it not requested and we receiving waypoints then that's okay, treat it like we requested it
     if(that._waypointMode === MavlinkProtocol.WAYPOINT_NOT_REQUESTED || 
        that._waypointMode === MavlinkProtocol.WAYPOINT_REQUESTED) {
@@ -558,9 +596,17 @@ this.mavlinkParser.on('MISSION_COUNT', function(message) {
 	that._waypoints = new Array();
 
 	// request the first waypoint
-	that._writeMessage.call(that, new mavlink.messages.mission_request(message.header.srcSystem, message.header.srcComponent, 0));
+	that._writeWithTimeout.call(that, {
+	    message: new mavlink.messages.mission_request(message.header.srcSystem, message.header.srcComponent, 0),
+	    timeout: 10000, 
+	    maxAttempts: 3, 
+	    messageName: 'mission request', 
+	    attempts: 0,
+	    timeoutId: MavlinkProtocol._MISSION_REQUEST_TIMEOUT_ID,
+	});
     }
 });
+
 
 this.mavlinkParser.on('MISSION_ITEM', function(message) {
     /* 
@@ -630,6 +676,9 @@ this.mavlinkParser.on('MISSION_ITEM', function(message) {
 	    ' y: ' + message.y +
 	    ' z: ' + message.z)
     }
+
+    // clear the timeout as we received a mission item 
+    clearTimeout(that.timeoutIds[MavlinkProtocol._MISSION_REQUEST_TIMEOUT_ID]);
 
     switch(that._waypointMode) {
         case MavlinkProtocol.WAYPOINT_NOT_REQUESTED:
@@ -728,21 +777,32 @@ this.mavlinkParser.on('MISSION_ITEM', function(message) {
 	    if(message.seq + 1 == that._waypointCount) {
 		// we have the last waypoint 
 	    
-		// QMissionControl sends an ack as a 0 id message back after all waypoints received,
-		// this is odd as the msg 0 is the heartbeat, so uncertain why it is doing this
-	    
-		// call the waypoint callback, passing the waypoints
-		that.retreivedWaypointsListener(that._waypoints);
+		// send an ack as the remote system will be waiting for one
+		that._writeMessage.call(that, 
+		    new mavlink.messages.mission_ack(
+		    message.header.srcSystem, 
+		    message.header.srcComponent, 
+		    mavlink.MAV_MISSION_ACCEPTED));
+
 		// reset the mode and the waypoints
 		that._waypointMode = MavlinkProtocol.WAYPOINT_NOT_REQUESTED;
 		that.waypoints = new Array();
+
+		// call the waypoint callback, passing the waypoints
+		that.retreivedWaypointsListener(that._waypoints);
 	    } else {
-		// send requets for next waypoint
-		that._writeMessage.call(that, 
-		    new mavlink.messages.mission_request(
-		    message.header.srcSystem, 
-		    message.header.srcComponent, 
-		    that._waypointLastSequence));
+		// send requets for next waypoint, with a timeout for retries
+		that._writeWithTimeout.call(that, {
+		    message: new mavlink.messages.mission_request(
+			message.header.srcSystem, 
+			message.header.srcComponent, 
+			that._waypointLastSequence),
+		    timeout: 10000, 
+		    maxAttempts: 3, 
+		    messageName: 'mission request', 
+		    attempts: 0,
+		    timeoutId: MavlinkProtocol._MISSION_REQUEST_TIMEOUT_ID,
+		});
 	    }
 	    break;
 
