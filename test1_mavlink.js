@@ -16,6 +16,7 @@ console.log("test1: instantiating mavlinkProtocol");
 var mavlinkProtocol = new MavlinkProtocol({
     debug: DEBUG,
     debugWaypoints: true,
+    debugHeartbeat: true,
     debugLevel: DEBUG_LEVEL,
     connectionMethod: MavlinkProtocol.CONNECTION_SERIAL,
     stateChangedListener: stateChanged,
