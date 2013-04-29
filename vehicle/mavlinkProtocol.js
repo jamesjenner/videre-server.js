@@ -20,13 +20,17 @@
 
 
 var SerialPort = require("serialport").SerialPort
-var mavlink = require('../implementations/mavlink_common_v1.0');
-var net = require('net');
+var net        = require('net');
 
-var Attitude        = require('../videre-common/js/attitude');
-var Point           = require('../videre-common/js/point');
-var Position        = require('../videre-common/js/position');
-var Telemetry       = require('../videre-common/js/telemetry');
+var mavlink    = require('../implementations/mavlink_common_v1.0');
+
+var MavlinkCnv = require('./mavlinkCnv.js');
+
+// TODO: should be able to remove these, telemetry is refered to in the code but it's not doing anything afaict
+var Attitude   = require('../videre-common/js/attitude');
+var Point      = require('../videre-common/js/point');
+var Position   = require('../videre-common/js/position');
+var Telemetry  = require('../videre-common/js/telemetry');
 
 /*
 connection = net.createConnection(5760, '127.0.0.1');
@@ -70,12 +74,21 @@ MavlinkProtocol.BASE_MODE_AUTONOMOUS_MODE = 1 << 2;
 MavlinkProtocol.BASE_MODE_TEST_MODE = 1 << 1;
 MavlinkProtocol.BASE_MODE_RESERVED = 1 << 0;
 
-MavlinkProtocol.WAYPOINT_NOT_REQUESTED = 0;
+MavlinkProtocol.WAYPOINT_COMPONENT = 50;
+
+MavlinkProtocol.WAYPOINT_NO_ACTION = 0;
 MavlinkProtocol.WAYPOINT_REQUESTED = 1;
 MavlinkProtocol.WAYPOINT_RECEIVING = 2;
 
+MavlinkProtocol.WAYPOINT_UPDATE_REQUESTED = 3;
+MavlinkProtocol.WAYPOINT_SENDING = 4;
+
 MavlinkProtocol._MISSION_REQUEST_LIST_TIMEOUT_ID = 0;
 MavlinkProtocol._MISSION_REQUEST_TIMEOUT_ID = 1;
+
+MavlinkProtocol._MISSION_COUNT_TIMEOUT_ID = 2;
+MavlinkProtocol._MISSION_WAYPOINT_REQUEST_TIMEOUT_ID = 3;
+MavlinkProtocol._MISSION_WAYPOINT_ACK_TIMEOUT_ID = 4;
 
 /**
  * define a new mavlink protocol 
@@ -94,6 +107,7 @@ function MavlinkProtocol(options) {
     options = options || {};
 
     this.debug = ((options.debug != null) ? options.debug : false);
+    this.debugMessage = ((options.debugMessage != null) ? options.debugMessage : false);
     this.debugAttitude = ((options.debugAttitude != null) ? options.debugAttitude : false);
     this.debugSysStatus = ((options.debugSysStatus != null) ? options.debugSysStatus : false);
     this.debugWaypoints = ((options.debugWaypoints != null) ? options.debugWaypoints : false);
@@ -115,6 +129,8 @@ function MavlinkProtocol(options) {
     this.stateChangedListener = ((options.stateChangedListener != null) ? options.stateChangedListener : function(){});
     this.modeChangedListener = ((options.modeChangedListener != null) ? options.modeChangedListener : function(){});
     this.retreivedWaypointsListener = ((options.retreivedWaypointsListener != null) ? options.retreivedWaypointsListener : function(){});
+    this.setWaypointsErrorListener = ((options.setWaypointsErrorListener != null) ? options.setWaypointsErrorListener : function(){});
+    this.setWaypointsSuccessfulListener = ((options.setWaypointsSuccessfulListener != null) ? options.setWaypointsSuccessfulListener : function(){});
 
     this.vehicleState = {};
 
@@ -123,7 +139,7 @@ function MavlinkProtocol(options) {
     this.systemId = -1;
     this.systemStatus = -1;
     this._msgSequence = 0;
-    this._waypointMode = MavlinkProtocol.WAYPOINT_NOT_REQUESTED;
+    this._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
     this._waypointCount = 0;
     this._waypointLastSequence = -1;
     this._waypointTimeoutId = null;
@@ -215,11 +231,95 @@ MavlinkProtocol.prototype._writeMessage = function(data) {
 }
 
 /**
+ * request to update the waypoints for the drone
+ *
+ * returns  0 if request generated
+ *         -1 if the system id is unknown
+ *         -2 if currently processing waypoints
+ */
+MavlinkProtocol.prototype.requestSetWaypoints = function(waypoints) {
+    var request = false;
+
+    if(this.debugWaypoints) {
+	console.log("Requesting setting of " + waypoints.length + " waypoints");
+    }
+
+    if(this.systemId === -1) {
+	if(this.debugWaypoints) {
+	    console.log("Cannot request to set waypoints as system id has not been set");
+	}
+
+	return -1;
+    }
+
+    switch(this._waypointMode) {
+        case MavlinkProtocol.WAYPOINT_NO_ACTION:
+	    request = true;
+	    break;
+
+        case MavlinkProtocol.WAYPOINT_REQUESTED:
+	    if(this.debugWaypoints && this.debugLevel > 1) {
+		console.log("requestSetWaypoints rejected, currently requesting waypoints");
+	    }
+	    request = false;
+	    break;
+
+        case MavlinkProtocol.WAYPOINT_RECEIVING:
+	    if(this.debugWaypoints && this.debugLevel > 1) {
+		console.log("requestSetWaypoints rejected, currently receiving waypoints");
+	    }
+	    request = false;
+	    break;
+
+        case MavlinkProtocol.WAYPOINT_UPDATE_REQUESTED:
+	    request = true;
+	    break;
+
+        case MavlinkProtocol.WAYPOINT_SENDING:
+	    if(this.debugWaypoints && this.debugLevel > 1) {
+		console.log("requestSetWaypoints rejected, currently sending waypoints");
+	    }
+	    request = false;
+	    break;
+    }
+
+    if(request) {
+	// clear timeouts, just in case
+        clearTimeout(this.timeoutIds[MavlinkProtocol._MISSION_COUNT_TIMEOUT_ID]);
+        clearTimeout(this.timeoutIds[MavlinkProtocol._MISSION_WAYPOINT_REQUEST_TIMEOUT_ID]);
+        clearTimeout(this.timeoutIds[MavlinkProtocol._MISSION_WAYPOINT_ACK_TIMEOUT_ID]);
+
+	// setup the waypoint info
+	this._waypoints = MavlinkCnv.waypointsVtoM(waypoints);
+	this._waypointCount = this._waypoints.length;
+	this._waypointLastSequence = -1;
+
+	// set mode to request mode
+        this._waypointMode = MavlinkProtocol.WAYPOINT_UPDATE_REQUESTED;
+	
+	// request the waypoints
+	this._writeWithTimeout({
+	    message: new mavlink.messages.mission_count(this.systemId, MavlinkProtocol.WAYPOINT_COMPONENT, waypoints.length),
+	    timeout: 10000, 
+	    maxAttempts: 3, 
+	    messageName: 'mission count', 
+	    attempts: 0,
+	    timeoutId: MavlinkProtocol._MISSION_COUNT_TIMEOUT_ID,
+	    onMaxAttempts: function() { this._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION }
+	});
+    } else {
+	return -2;
+    }
+
+    return 0;
+}
+
+/**
  * request the waypoints from the drone
  *
  * returns  0 if request generated
  *         -1 if the system id is unknown
- *         -2 if currently processing a request for waypoints
+ *         -2 if currently processing waypoints
  */
 MavlinkProtocol.prototype.requestWaypoints = function() {
     var request = false;
@@ -237,7 +337,7 @@ MavlinkProtocol.prototype.requestWaypoints = function() {
     }
 
     switch(this._waypointMode) {
-        case MavlinkProtocol.WAYPOINT_NOT_REQUESTED:
+        case MavlinkProtocol.WAYPOINT_NO_ACTION:
 	    request = true;
 	    break;
 
@@ -248,6 +348,20 @@ MavlinkProtocol.prototype.requestWaypoints = function() {
         case MavlinkProtocol.WAYPOINT_RECEIVING:
 	    if(this.debugWaypoints && this.debugLevel > 1) {
 		console.log("requestWaypoints rejected, currently receiving waypoints");
+	    }
+	    request = false;
+	    break;
+
+        case MavlinkProtocol.WAYPOINT_UPDATE_REQUESTED:
+	    if(this.debugWaypoints && this.debugLevel > 1) {
+		console.log("requestWaypoints rejected, currently requesting to update waypoints");
+	    }
+	    request = false;
+	    break;
+
+        case MavlinkProtocol.WAYPOINT_SENDING:
+	    if(this.debugWaypoints && this.debugLevel > 1) {
+		console.log("requestWaypoints rejected, currently updating waypoints");
 	    }
 	    request = false;
 	    break;
@@ -268,19 +382,15 @@ MavlinkProtocol.prototype.requestWaypoints = function() {
 	
 	// request the waypoints
 	this._writeWithTimeout({
-	    message: new mavlink.messages.mission_request_list(this.systemId, 50),
+	    message: new mavlink.messages.mission_request_list(this.systemId, MavlinkProtocol.WAYPOINT_COMPONENT),
 	    timeout: 10000, 
 	    maxAttempts: 3, 
 	    messageName: 'mission request list', 
 	    attempts: 0,
 	    timeoutId: MavlinkProtocol._MISSION_REQUEST_LIST_TIMEOUT_ID,
-	    onMaxAttempts: function() { this._waypointMode = MavlinkProtocol.WAYPOINT_NOT_REQUESTED }
+	    onMaxAttempts: function() { this._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION }
 	});
     } else {
-	if(this.debugWaypoints) {
-	    console.log("Cannot request waypoints as currently receiving waypoints");
-	}
-
 	return -2;
     }
 
@@ -344,7 +454,7 @@ MavlinkProtocol.prototype._setupMavlinkListeners = function() {
 
 
 this.mavlinkParser.on('message', function(message) {
-    if (that.debug && that.debugLevel > 9) {
+    if (that.debugMessage) {
 	console.log(message.name + ' <- received message');
     }
 });
@@ -576,12 +686,13 @@ this.mavlinkParser.on('HEARTBEAT', function(message) {
     }
 });
 
-/* waypoint management */
+/*
+ * This message is recieved as response to MISSION_REQUEST_LIST, stating the number of missions that can be 
+ * received.
+ *
+ * At this point each individual mission is requested.
+ */
 this.mavlinkParser.on('MISSION_COUNT', function(message) {
-    /*
-     * This message is emitted as response to MISSION_REQUEST_LIST by the MAV and to initiate a write transaction. 
-     * The GCS can then request the individual mission item based on the knowledge of the total number of MISSIONs.
-     */
     if(that.debugWaypoints) {
 	if(that.debugLevel == 1) {
 	    console.log('Mission Count');
@@ -599,7 +710,7 @@ this.mavlinkParser.on('MISSION_COUNT', function(message) {
     clearTimeout(that.timeoutIds[MavlinkProtocol._MISSION_REQUEST_LIST_TIMEOUT_ID]);
 
     // it not requested and we receiving waypoints then that's okay, treat it like we requested it
-    if(that._waypointMode === MavlinkProtocol.WAYPOINT_NOT_REQUESTED || 
+    if(that._waypointMode === MavlinkProtocol.WAYPOINT_NO_ACTION || 
        that._waypointMode === MavlinkProtocol.WAYPOINT_REQUESTED) {
 	// set to receiving waypoint
 	that._waypointMode = MavlinkProtocol.WAYPOINT_RECEIVING;
@@ -616,62 +727,17 @@ this.mavlinkParser.on('MISSION_COUNT', function(message) {
 	    messageName: 'mission request', 
 	    attempts: 0,
 	    timeoutId: MavlinkProtocol._MISSION_REQUEST_TIMEOUT_ID,
-	    onMaxAttempts: function() { that._waypointMode = MavlinkProtocol.WAYPOINT_NOT_REQUESTED }
+	    onMaxAttempts: function() { that._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION }
 	});
     }
 });
 
-
+/* 
+ * This message is recieved in response to a MISSION_REQUEST, this contains the mission item details.
+ *
+ * The next mission item can be requested, if complete then an ACK is sent.
+ */
 this.mavlinkParser.on('MISSION_ITEM', function(message) {
-    /* 
-     * Message encoding a mission item. This message is emitted to announce the presence of a mission item and to 
-     * set a mission item on the system. The mission item can be either in x, y, z meters (type: LOCAL) or x:lat, 
-     * y:lon, z:altitude. Local frame is Z-down, right handed (NED), global frame is Z-up, right handed (ENU). 
-     * See also http://qgroundcontrol.org/mavlink/waypoint_protocol.
-     *
-     *
-     * contents:
-     *   target_system    System ID
-     *   target_component Component ID
-     *   seq              Sequence
-     *   frame            The coordinate system of the MISSION. see MAV_FRAME in mavlink_types.h
-     *   command          The scheduled action for the MISSION. see MAV_CMD in common.xml MAVLink specs
-     *   current          false:0, true:1
-     *   autocontinue     auto-continue to next wp
-     *   param1           PARAM1 / For NAV command MISSIONs: Radius in which the MISSION is accepted as reached, 
-     *                    in meters
-     *   param2           PARAM2 / For NAV command MISSIONs: Time that the MAV should stay inside the PARAM1 
-     *                    radius before advancing, in milliseconds
-     *   param3           PARAM3 / For LOITER command MISSIONs: Orbit to circle around the MISSION, in meters. 
-     *                    If positive the orbit direction should be clockwise, if negative the orbit direction 
-     *                    should be counter-clockwise.
-     *   param4           PARAM4 / For NAV and LOITER command MISSIONs: Yaw orientation in degrees, [0..360] 0 = NORTH
-     *   x                PARAM5 / local: x position, global: latitude
-     *   y                PARAM6 / y position: global: longitude
-     *   z                PARAM7 / z position: global: altitude
-     */
-    /*
-     * MAV_FRAME definition:
-     *
-     *   0    MAV_FRAME_GLOBAL              Global coordinate frame, WGS84 coordinate system. First value / x: latitude, 
-     *                                      second value / y: longitude, third value / z: positive altitude over mean sea 
-     *                                      level (MSL)
-     *   1    MAV_FRAME_LOCAL_NED           Local coordinate frame, Z-up (x: north, y: east, z: down).
-     *   2    MAV_FRAME_MISSION             NOT a coordinate frame, indicates a mission command.
-     *   3    MAV_FRAME_GLOBAL_RELATIVE_ALT Global coordinate frame, WGS84 coordinate system, relative altitude 
-     *                                      over ground with respect to the home position. First value / x: latitude, 
-     *                                      second value / y: longitude, third value / z: positive altitude with 0 being 
-     *                                      at the altitude of the home location.
-     *   4    MAV_FRAME_LOCAL_ENU           Local coordinate frame, Z-down (x: east, y: north, z: up)
-     */
-    /*
-     * MAV_CMD summary:
-     *
-     * Commands to be executed by the MAV. They can be executed on user request, or as part of a mission script. 
-     * If the action is used in a mission, the parameter mapping to the waypoint/mission message is as follows: 
-     * Param 1, Param 2, Param 3, Param 4, X: Param 5, Y:Param 6, Z:Param 7. This command list is similar what 
-     * ARINC 424 is for commercial aircraft: A data format how to interpret waypoint/mission data.
-     */
 
     if(that.debugWaypoints && that.debugLevel == 1) {
 	console.log('Mission Item');
@@ -695,7 +761,7 @@ this.mavlinkParser.on('MISSION_ITEM', function(message) {
     clearTimeout(that.timeoutIds[MavlinkProtocol._MISSION_REQUEST_TIMEOUT_ID]);
 
     switch(that._waypointMode) {
-        case MavlinkProtocol.WAYPOINT_NOT_REQUESTED:
+        case MavlinkProtocol.WAYPOINT_NO_ACTION:
 	    // if the first one then switch to receiving mode as it's okay to receive when not requested, otherwise ignore
             if(message.seq > 0) {
 		if(that.debugWaypoints && that.debugLevel > 1) {
@@ -719,74 +785,8 @@ this.mavlinkParser.on('MISSION_ITEM', function(message) {
 	    // update the last sequence processed
 	    that._waypointLastSequence = message.seq + 1;
 
-	    var loiter = false;
-	    
-	    // TODO: if we receive a MAV_CMD_NAV_LAST then we should ignore as it's just a holder,
-	    // it may be that it is used internally and not actually communicated between systems
-	    
-	    // TODO: extend support beyond the nav commands listed below
-	    
-	    // convert the waypoint to a point
-	    var point = new Point(message.x, message.y, {
-		sequence: message.seq,
-		current: message.current === 1 ? true : false,
-		altitude: message.z,
-		isHome: false,
-		loiter: false,
-		loiterTime: 0,
-		loiterRadius: 0,
-		returnHome: false,
-		terminus: false,
-	    });
-
-	    switch(message.command) {
-	        case mavlink.MAV_CMD_NAV_RETURN_TO_LAUNCH:
-		    point.returnHome = true;
-		    break;
-
-	        case mavlink.MAV_CMD_NAV_TAKEOFF:
-		    point.start = true;
-		    point.pitch = message.param1;
-		    point.yaw = message.param4;
-		    break;
-
-	        case mavlink.MAV_CMD_NAV_LAND:
-		    point.yaw = message.param4;
-		    point.terminus = true;
-		    point.stop = true;
-		    break;
-
-	        case mavlink.MAV_CMD_NAV_LOITER_TIME:
-		    point.loiter = true;
-		    point.loiterTime = message.param1;
-		    point.loiterRadius = message.param3;
-		    point.yaw = message.param4;
-		    break;
-
-		case mavlink.MAV_CMD_NAV_LOITER_TURNS:
-		    point.loiter = true;
-		    point.loiterLaps = message.param1;
-		    point.loiterRadius = message.param3;
-		    point.yaw = message.param4;
-		    break;
-
-		case mavlink.MAV_CMD_NAV_LOITER_UNLIM:
-		    point.loiter = true;
-		    point.loiterRadius = message.param3;
-		    point.autoContinue = false;
-		    point.yaw = message.param4;
-		    break;
-
-		case mavlink.MAV_CMD_NAV_WAYPOINT:
-		    point.loiter = message.param1 != 0 || message.param3 != 0 ? true : false;
-                    point.loiterTime = message.param1;
-                    point.loiterRadius = message.param3;
-		    point.accuracy = message.param2;
-		    point.yaw = message.param4;
-		    break;
-	    }
-
-	    that._waypoints.push(point);
+	    // push the command onto the waypoints stack, we convert these when they're complete
+	    that._waypoints.push(message);
 	    
 	    if(message.seq + 1 == that._waypointCount) {
 		// we have the last waypoint 
@@ -794,16 +794,21 @@ this.mavlinkParser.on('MISSION_ITEM', function(message) {
 		// send an ack as the remote system will be waiting for one
 		that._writeMessage.call(that, 
 		    new mavlink.messages.mission_ack(
-		    message.header.srcSystem, 
-		    message.header.srcComponent, 
-		    mavlink.MAV_MISSION_ACCEPTED));
+			message.header.srcSystem, 
+			message.header.srcComponent, 
+			mavlink.MAV_MISSION_ACCEPTED));
 
 		// reset the mode and the waypoints
-		that._waypointMode = MavlinkProtocol.WAYPOINT_NOT_REQUESTED;
-		that.waypoints = new Array();
+		that._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
+
+		// convert the waypoints to videre format
+		var waypoints = MavlinkCnv.waypointsMtoV(that._waypoints);
 
 		// call the waypoint callback, passing the waypoints
-		that.retreivedWaypointsListener(that._waypoints);
+		that.retreivedWaypointsListener(waypoints);
+
+		// reset waypoints
+		that._waypoints = new Array();
 	    } else {
 		// send requets for next waypoint, with a timeout for retries
 		that._writeWithTimeout.call(that, {
@@ -816,7 +821,7 @@ this.mavlinkParser.on('MISSION_ITEM', function(message) {
 		    messageName: 'mission request', 
 		    attempts: 0,
 		    timeoutId: MavlinkProtocol._MISSION_REQUEST_TIMEOUT_ID,
-		    onMaxAttempts: function() { that._waypointMode = MavlinkProtocol.WAYPOINT_NOT_REQUESTED }
+		    onMaxAttempts: function() { that._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION }
 		});
 	    }
 	    break;
@@ -826,6 +831,206 @@ this.mavlinkParser.on('MISSION_ITEM', function(message) {
 		console.log("Mission item: waypoint state unknown, ignoring");
 	    }
 	    break;
+    }
+});
+
+// TODO: there is no timeout with setting the mission/waypoints, this should be changed
+
+/* 
+ * This message is recieved in response to a MISSION_COUNT, this requests details for the specified item.
+ *
+ * Mission requests are to be in order and completed with an ACK.
+ */
+this.mavlinkParser.on('MISSION_REQUEST', function(message) {
+    if(that.debugWaypoints && that.debugLevel == 1) {
+	console.log('Mission Request');
+    } else if (that.debugWaypoints && that.debugLevel > 1) {
+	console.log('Mission Request for item: ' + message.seq);
+    }
+
+    // clear the timeout that created the requst, if the first item
+    if(message.seq == 0) {
+	clearTimeout(that.timeoutIds[MavlinkProtocol._MISSION_COUNT_TIMEOUT_ID]);
+    }
+
+    switch(that._waypointMode) {
+        case MavlinkProtocol.WAYPOINT_NO_ACTION:
+	    if(message.seq != 0) {
+		if(that.debugWaypoints && that.debugLevel > 1) {
+		    console.log('Mission Request for item: ' + message.seq + ' when not expecting requests, ignored');
+		}
+		break;
+	    }
+
+        case MavlinkProtocol.WAYPOINT_UPDATE_REQUESTED:
+	    that._waypointMode = MavlinkProtocol.WAYPOINT_SENDING;
+
+        case MavlinkProtocol.WAYPOINT_SENDING:
+	    // send the requested waypoint
+	    if(message.seq > that._waypoints.length) {
+		if(that.debugWaypoints && that.debugLevel > 1) {
+		    console.log('Mission Request for item: ' + message.seq + ' is larger than number of waypoints, ignored');
+		}
+		break;
+	    }
+
+	    // if waypoint is the current or previous waypoint, then accept
+	    if(that._waypointLastSequence + 1 === message.seq) {
+		// we have the expected sequence
+		console.log('received expected sequence');
+
+		that._waypointLastSequence = message.seq;
+
+		that._writeMessage(new mavlink.messages.mission_item(
+		    message.header.srcSystem, 
+		    message.header.srcComponent, 
+		    message.seq,
+		    that._waypoints[message.seq].frame,
+		    that._waypoints[message.seq].command,
+		    that._waypoints[message.seq].current,
+		    that._waypoints[message.seq].autocontinue,
+		    that._waypoints[message.seq].param1,
+		    that._waypoints[message.seq].param2,
+		    that._waypoints[message.seq].param3,
+		    that._waypoints[message.seq].param4,
+		    that._waypoints[message.seq].x,
+		    that._waypoints[message.seq].y,
+		    that._waypoints[message.seq].z
+		));
+	    } else if (that._waypointLastSequence === message.seq) {
+		// we have been sent the same sequence twice, just ignore
+		console.log('received same sequence, ignoring');
+	    } else {
+		// we are out of sequence, the received sequence is not correct, error
+		// expected 0, got 1
+		console.log('received incorrect sequence, sending error via ack. Expected: ' + 
+		   
+		    that._waypointLastSequence + ', got:  ' + 
+		    message.seq);
+		that._writeMessage.call(that, 
+		    new mavlink.messages.mission_ack(
+			message.header.srcSystem, 
+			message.header.srcComponent, 
+			mavlink.MAV_MISSION_INVALID_SEQUENCE));
+	    }
+	    break;
+
+	default:
+	    if (that.debugWaypoints && that.debugLevel > 1) {
+		console.log('Mission Request for item: ' + message.seq + ' when in unknown state, ignored');
+	    }
+	    break;
+    }
+});
+
+/*
+ * This message is recieved when all the missions have been sent.
+ */
+this.mavlinkParser.on('MISSION_ACK', function(message) {
+    if(that.debugWaypoints) {
+	console.log('Mission Ack ' + message.type);
+    }
+
+    if(message.type === mavlink.MAV_MISSION_ACCEPTED) {
+	switch(that._waypointMode) {
+	    case MavlinkProtocol.WAYPOINT_NO_ACTION:
+		if(that.debugWaypoints && that.debugLevel > 1) {
+		    console.log('Mission Ack but state is no action, ignoring');
+		}
+		break;
+
+	    case MavlinkProtocol.WAYPOINT_UPDATE_REQUESTED:
+		if(that.debugWaypoints && that.debugLevel > 1) {
+		    console.log('Mission Ack but state is update requested, reseting to no action');
+		}
+		that._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
+		break;
+
+	    case MavlinkProtocol.WAYPOINT_SENDING:
+		if(that._waypointLastSequence + 1 == that._waypoints.length) {
+		    if(that.debugWaypoints && that.debugLevel > 1) {
+			console.log('Mission update sucessful');
+		    }
+
+		    // call the success listener
+		    that.setWaypointsSuccessfulListener();
+		}
+
+		that._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
+		break;
+	}
+    } else {
+	// an error has occurred, so no point continuing
+	that._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
+
+	// clear out the timeout just in case it was set
+	clearTimeout(that.timeoutIds[MavlinkProtocol._MISSION_COUNT_TIMEOUT_ID]);
+
+	// display debug if appropriate
+	switch(message.type) {
+	    case MAV_MISSION_ERROR:
+		text = "Mission_ack: generic error / not accepting mission commands at all right now";
+		break;
+
+	    case MAV_MISSION_UNSUPPORTED_FRAME:
+		text = "Mission_ack: coordinate frame is not supported";
+		break;
+
+	    case MAV_MISSION_UNSUPPORTED:
+		text = "Mission_ack: command is not supported";
+		break;
+
+	    case MAV_MISSION_NO_SPACE:
+		text = "Mission_ack: mission item exceeds storage space";
+		break;
+
+	    case MAV_MISSION_INVALID:
+		text = "Mission_ack: one of the parameters has an invalid value";
+		break;
+
+	    case MAV_MISSION_INVALID_PARAM1:
+		text = "Mission_ack: param1 has an invalid value";
+		break;
+
+	    case MAV_MISSION_INVALID_PARAM2:
+		text = "Mission_ack: param2 has an invalid value";
+		break;
+
+	    case MAV_MISSION_INVALID_PARAM3:
+		text = "Mission_ack: param3 has an invalid value";
+		break;
+
+	    case MAV_MISSION_INVALID_PARAM4:
+		text = "Mission_ack: param4 has an invalid value";
+		break;
+
+	    case MAV_MISSION_INVALID_PARAM5:
+		text = "Mission_ack: _Xx/param5 has an invalid value";
+		break;
+
+	    case MAV_MISSION_INVALID_PARAM6:
+		text = "Mission_ack: _Yy/param6 has an invalid value";
+		break;
+
+	    case MAV_MISSION_INVALID_PARAM7:
+		text = "Mission_ack: param7 has an invalid value";
+		break;
+
+	    case MAV_MISSION_INVALID_SEQUENCE:
+		text = "Mission_ack: received waypoint out of sequence";
+		break;
+
+	    case MAV_MISSION_DENIED:
+		text = "Mission_ack: not accepting any mission commands from this communication partner";
+		break;
+	}
+
+	// fire error event
+	that.setWaypointsErrorListener(text + "" + that._waypointSequence);
+
+        if(that.debugWaypoints) {
+	    console.log(text);
+	}
     }
 });
 
