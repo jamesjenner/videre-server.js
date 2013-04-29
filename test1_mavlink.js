@@ -17,22 +17,27 @@ var mavlinkProtocol = new MavlinkProtocol({
     debug: DEBUG,
     debugWaypoints: true,
     debugHeartbeat: false,
+    debugMessage: false,
     debugLevel: DEBUG_LEVEL,
     connectionMethod: MavlinkProtocol.CONNECTION_SERIAL,
     stateChangedListener: stateChanged,
     modeChangedListener: modeChanged,
-    retreivedWaypointsListener: retreivedWaypoints
-
+    retreivedWaypointsListener: retreivedWaypoints,
+    setWaypointsErrorListener: setWaypointsFail,
+    setWaypointsSuccessfulListener: setWaypointsSuccess
 
 });
 
+console.log("***************************************************************");
 console.log("test1: connecting");
 mavlinkProtocol.connect();
 
 function stateChanged(value, text) {
+console.log("***************************************************************");
     console.log("state: " + text);
 }
 function modeChanged() {
+console.log("***************************************************************");
     console.log("mode: ");
     console.log("       autonomous:       " + mavlinkProtocol.autonomousMode);
     console.log("       test mode:        " + mavlinkProtocol.testMode);
@@ -42,20 +47,44 @@ function modeChanged() {
     console.log("       guided:           " + mavlinkProtocol.guided);
     console.log("       armed:            " + mavlinkProtocol.armed);
 }
-function retreivedWaypoints(waypoints) {
+
+var waypoints = null;
+
+function retreivedWaypoints(data) {
+    console.log("***************************************************************");
     console.log("test1: waypoints retreived");
-    console.log(JSON.stringify(waypoints, null, '\t'));
+    console.log(JSON.stringify(data, null, '\t'));
+
+    waypoints = data;
+}
+
+function setWaypointsFail(text) {
+    console.log("***************************************************************");
+    console.log("test1: setting waypoints failed: " + text);
+}
+
+function setWaypointsSuccess() {
+    console.log("***************************************************************");
+    console.log("test1: setting waypoints worked!");
 }
 
 // TODO: how to handle timeouts? ...
 setTimeout(function() {
+console.log("***************************************************************");
+    console.log("test1: requetsing waypoints");
     var i = mavlinkProtocol.requestWaypoints.call(mavlinkProtocol);
 }, 3000);
 
 setTimeout(function() {
-    var i = mavlinkProtocol.requestWaypoints.call(mavlinkProtocol);
-}, 5000);
+console.log("***************************************************************");
+    console.log("test1: requetsing set waypoints");
+    if(waypoints != null) {
+	var i = mavlinkProtocol.requestSetWaypoints.call(mavlinkProtocol, waypoints);
+    }
+}, 10000);
 
+/*
 setTimeout(function() {
     var i = mavlinkProtocol.requestWaypoints.call(mavlinkProtocol);
 }, 60000);
+*/
