@@ -7,7 +7,7 @@ var COMPORT = "/dev/ttyUSB0";
 var BAUD = 57600;
 
 var DEBUG = true;
-var DEBUG_LEVEL = 4;
+var DEBUG_LEVEL = 2;
 
 var MavlinkProtocol = require('./vehicle/mavlinkProtocol.js');
 
@@ -16,7 +16,7 @@ console.log("test1: instantiating mavlinkProtocol");
 var mavlinkProtocol = new MavlinkProtocol({
     debug: DEBUG,
     debugWaypoints: true,
-    debugHeartbeat: true,
+    debugHeartbeat: false,
     debugLevel: DEBUG_LEVEL,
     connectionMethod: MavlinkProtocol.CONNECTION_SERIAL,
     stateChangedListener: stateChanged,
@@ -52,8 +52,10 @@ setTimeout(function() {
     var i = mavlinkProtocol.requestWaypoints.call(mavlinkProtocol);
 }, 3000);
 
-/*
 setTimeout(function() {
     var i = mavlinkProtocol.requestWaypoints.call(mavlinkProtocol);
-}, 15000);
-*/
+}, 5000);
+
+setTimeout(function() {
+    var i = mavlinkProtocol.requestWaypoints.call(mavlinkProtocol);
+}, 60000);
