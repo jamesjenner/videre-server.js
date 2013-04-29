@@ -254,6 +254,15 @@ MavlinkProtocol.prototype.requestWaypoints = function() {
     }
 
     if(request) {
+	// clear timeouts, just in case
+	clearTimeout(this.timeoutIds[MavlinkProtocol._MISSION_REQUEST_LIST_TIMEOUT_ID]);
+	clearTimeout(this.timeoutIds[MavlinkProtocol._MISSION_REQUEST_TIMEOUT_ID]);
+
+	// reset the waypoint info
+	this._waypoints = new Array();
+	this._waypointCount = 0;
+	this._waypointLastSequence = -1;
+
 	// set mode to request mode
         this._waypointMode = MavlinkProtocol.WAYPOINT_REQUESTED;
 	
@@ -265,6 +274,7 @@ MavlinkProtocol.prototype.requestWaypoints = function() {
 	    messageName: 'mission request list', 
 	    attempts: 0,
 	    timeoutId: MavlinkProtocol._MISSION_REQUEST_LIST_TIMEOUT_ID,
+	    onMaxAttempts: function() { this._waypointMode = MavlinkProtocol.WAYPOINT_NOT_REQUESTED }
 	});
     } else {
 	if(this.debugWaypoints) {
@@ -287,7 +297,10 @@ MavlinkProtocol.prototype._writeWithTimeout = function(options) {
 	    if(that.debug) {
 		console.log("Message " + options.messageName + " response timed out, retries exceeded");
 	    }
-	    that.timeoutIds[options.timeoutId] = null;
+
+	    if(options.onMaxAttempts) {
+		options.onMaxAttempts.call(that);
+	    }
 	} else {
 	    if(that.debug && that.debugLevel > 1) {
 		console.log("Message " + options.messageName + " timed out, retrying. Attempt: " + options.attempts);
@@ -603,6 +616,7 @@ this.mavlinkParser.on('MISSION_COUNT', function(message) {
 	    messageName: 'mission request', 
 	    attempts: 0,
 	    timeoutId: MavlinkProtocol._MISSION_REQUEST_TIMEOUT_ID,
+	    onMaxAttempts: function() { that._waypointMode = MavlinkProtocol.WAYPOINT_NOT_REQUESTED }
 	});
     }
 });
@@ -802,6 +816,7 @@ this.mavlinkParser.on('MISSION_ITEM', function(message) {
 		    messageName: 'mission request', 
 		    attempts: 0,
 		    timeoutId: MavlinkProtocol._MISSION_REQUEST_TIMEOUT_ID,
+		    onMaxAttempts: function() { that._waypointMode = MavlinkProtocol.WAYPOINT_NOT_REQUESTED }
 		});
 	    }
 	    break;
