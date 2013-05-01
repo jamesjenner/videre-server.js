@@ -24,7 +24,9 @@ var mavlinkProtocol = new MavlinkProtocol({
     modeChangedListener: modeChanged,
     retreivedWaypointsListener: retreivedWaypoints,
     setWaypointsErrorListener: setWaypointsFail,
-    setWaypointsSuccessfulListener: setWaypointsSuccess
+    setWaypointsSuccessfulListener: setWaypointsSuccess,
+    setWaypointAchievedListener: setWaypointAcheived, 
+    setWaypointTargetListener: setWaypointTarget, 
 
 });
 
@@ -68,23 +70,44 @@ function setWaypointsSuccess() {
     console.log("test1: setting waypoints worked!");
 }
 
-// TODO: how to handle timeouts? ...
+function setWaypointAcheived(waypoint) {
+    console.log("***************************************************************");
+    console.log("test1: waypoint acheived: " + waypoint);
+}
+function setWaypointTarget(waypoint) {
+    console.log("***************************************************************");
+    console.log("test1: targeted waypoint: " + waypoint);
+}
+
 setTimeout(function() {
-console.log("***************************************************************");
-    console.log("test1: requetsing waypoints");
-    var i = mavlinkProtocol.requestWaypoints.call(mavlinkProtocol);
+    console.log("***************************************************************");
+    console.log("test1: requesting waypoints");
+    if(!mavlinkProtocol.requestWaypoints.call(mavlinkProtocol)) {
+	console.log("error requesting waypoints");
+    }
 }, 3000);
 
 setTimeout(function() {
-console.log("***************************************************************");
+    console.log("***************************************************************");
     console.log("test1: requetsing set waypoints");
     if(waypoints != null) {
 	var i = mavlinkProtocol.requestSetWaypoints.call(mavlinkProtocol, waypoints);
     }
 }, 10000);
 
-/*
 setTimeout(function() {
-    var i = mavlinkProtocol.requestWaypoints.call(mavlinkProtocol);
-}, 60000);
-*/
+    console.log("***************************************************************");
+    console.log("test1: set target waypoint");
+    if(!mavlinkProtocol.requestSetTargetWaypoint.call(mavlinkProtocol, 3)) {
+	console.log("error requesting set target waypoint");
+    }
+}, 15000);
+
+setTimeout(function() {
+    console.log("***************************************************************");
+    console.log("test1: clearing waypoints");
+    if(!mavlinkProtocol.requestClearWaypoints.call(mavlinkProtocol)) {
+	console.log("error requesting clear waypoints");
+    }
+}, 20000);
+
