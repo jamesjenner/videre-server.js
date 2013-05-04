@@ -237,12 +237,17 @@ MavlinkProtocol.prototype._writeMessage = function(data) {
  * returns  1 if request generated
  *         -1 if the system id is unknown
  *         -2 if currently processing waypoints
+ *         -3 no waypoints specified
  */
 MavlinkProtocol.prototype.requestSetWaypoints = function(waypoints) {
     var request = false;
 
     if(this.debugWaypoints) {
-	console.log("Requesting setting of " + waypoints.length + " waypoints");
+	if(this.waypoints) {
+	    console.log("Requesting setting of " + waypoints.length + " waypoints");
+	} else {
+	    console.log("Requesting setting of " + waypoints + " waypoints");
+	}
     }
 
     if(this.systemId === -1) {
@@ -251,6 +256,14 @@ MavlinkProtocol.prototype.requestSetWaypoints = function(waypoints) {
 	}
 
 	return -1;
+    }
+
+    if(!this.waypoints || this.waypoints.length === 0) {
+	if(this.debugWaypoints) {
+	    console.log("Cannot request to set waypoints when no waypoints have been specified");
+	}
+
+	return -3;
     }
 
     if(this._waypointMode === MavlinkProtocol.WAYPOINT_NO_ACTION || 
@@ -808,8 +821,9 @@ this.mavlinkParser.on('MISSION_COUNT', function(message) {
     clearTimeout(that.timeoutIds[MavlinkProtocol._MISSION_REQUEST_LIST_TIMEOUT_ID]);
 
     // it not requested and we receiving waypoints then that's okay, treat it like we requested it
-    if(that._waypointMode === MavlinkProtocol.WAYPOINT_NO_ACTION || 
-       that._waypointMode === MavlinkProtocol.WAYPOINT_REQUESTED) {
+    if(message.count > 0 && 
+       (that._waypointMode === MavlinkProtocol.WAYPOINT_NO_ACTION || 
+       that._waypointMode === MavlinkProtocol.WAYPOINT_REQUESTED)) {
 	// set to receiving waypoint
 	that._waypointMode = MavlinkProtocol.WAYPOINT_RECEIVING;
 
@@ -827,6 +841,9 @@ this.mavlinkParser.on('MISSION_COUNT', function(message) {
 	    timeoutId: MavlinkProtocol._MISSION_REQUEST_TIMEOUT_ID,
 	    onMaxAttempts: function() { that._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION }
 	});
+    } else {
+	// obviously no waypoints so nothing to do
+        that._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
     }
 });
 
