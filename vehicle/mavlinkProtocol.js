@@ -21,6 +21,8 @@
 
 var SerialPort = require("serialport").SerialPort
 var net        = require('net');
+var events     = require('events');
+var util       = require('util');
 
 var mavlink    = require('../implementations/mavlink_common_v1.0');
 
@@ -129,14 +131,6 @@ function MavlinkProtocol(options) {
     this.serialPort = ((options.serialPort != null) ? options.serialPort : MavlinkProtocol.DEFAULT_COMPORT);
     this.serialBaud = ((options.baud != null) ? options.baud : MavlinkProtocol.DEFAULT_BAUD);
 
-    this.stateChangedListener = ((options.stateChangedListener != null) ? options.stateChangedListener : function(){});
-    this.modeChangedListener = ((options.modeChangedListener != null) ? options.modeChangedListener : function(){});
-    this.retreivedWaypointsListener = ((options.retreivedWaypointsListener != null) ? options.retreivedWaypointsListener : function(){});
-    this.setWaypointsErrorListener = ((options.setWaypointsErrorListener != null) ? options.setWaypointsErrorListener : function(){});
-    this.setWaypointsSuccessfulListener = ((options.setWaypointsSuccessfulListener != null) ? options.setWaypointsSuccessfulListener : function(){});
-    this.setWaypointAchievedListener = ((options.setWaypointAchievedListener != null) ? options.setWaypointAchievedListener : function(){});
-    this.setWaypointTargetListener = ((options.setWaypointTargetListener != null) ? options.setWaypointTargetListener : function(){});
-
     this.vehicleState = {};
 
     this.telemetry = new Telemetry();
@@ -152,7 +146,18 @@ function MavlinkProtocol(options) {
     this._baseMode = null;
     this._waypoints = new Array();
     this.timeoutIds = [null, null];
+
+    this.autonomousMode  = false;
+    this.testMode        = false;
+    this.stabilizedMode  = false;
+    this.hardwareInLoop  = false;
+    this.remoteControl   = false;
+    this.guided          = false;
+    this.armed           = false;
 }
+
+// setup MavlinkProtocol as an emitter
+MavlinkProtocol.prototype = new events.EventEmitter;
 
 /**
  * connect to the remote mavlink based device
@@ -178,13 +183,13 @@ MavlinkProtocol.prototype._initSerialPort = function() {
 
     this._setupMavlinkListeners();
 
-    var that = this;
+    var self = this;
 
     this.serialDevice.on("data", function (data) {
-	if(that.debug && that.debugLevel > 9) {
+	if(self.debug && self.debugLevel > 9) {
 	    console.log("Serial port, received data: " + data);
 	}
-	that.mavlinkParser.parseBuffer(data);
+	self.mavlinkParser.parseBuffer(data);
     });
 }
 
@@ -195,10 +200,10 @@ MavlinkProtocol.prototype._initNetwork = function() {
 
     this._setupMavlinkListeners();
 
-    var that = this;
+    var self = this;
 
     this.netConnection.on('data', function(data) {
-	that.mavlinkParser.parseBuffer(data);
+	self.mavlinkParser.parseBuffer(data);
     });
 }
 
@@ -509,34 +514,34 @@ MavlinkProtocol.prototype._getWaypointState = function() {
 }
 
 MavlinkProtocol.prototype._writeWithTimeout = function(options) {
-    var that = this;
+    var self = this;
 
-    that.timeoutIds[options.timeoutId] = setTimeout(function() {
+    self.timeoutIds[options.timeoutId] = setTimeout(function() {
 	options.attempts++;
 
 	if(options.attempts > 3) {
-	    if(that.debug) {
+	    if(self.debug) {
 		console.log("Message " + options.messageName + " response timed out, retries exceeded");
 	    }
 
 	    if(options.onMaxAttempts) {
-		options.onMaxAttempts.call(that);
+		options.onMaxAttempts.call(self);
 	    }
 	} else {
-	    if(that.debug && that.debugLevel > 1) {
+	    if(self.debug && self.debugLevel > 1) {
 		console.log("Message " + options.messageName + " timed out, retrying. Attempt: " + options.attempts);
 	    }
 
-	    that._writeWithTimeout.call(that, options);
+	    self._writeWithTimeout.call(self, options);
 	}
     }, options.timeout);
 
-    that._writeMessage(options.message);
+    self._writeMessage(options.message);
 }
 
 MavlinkProtocol.prototype._setupMavlinkListeners = function() {
 
-    var that = this;
+    var self = this;
 /*
  * mav status:
  *
@@ -565,7 +570,7 @@ MavlinkProtocol.prototype._setupMavlinkListeners = function() {
 
 
 this.mavlinkParser.on('message', function(message) {
-    if (that.debugMessage) {
+    if (self.debugMessage) {
 	console.log(message.name + ' <- received message');
     }
 });
@@ -580,9 +585,9 @@ this.mavlinkParser.on('PING', function(message) {
                       if greater than 0: message is a ping response and number is the system id of the requesting system
     */
     
-    if(that.debug && that.debugLevel == 1) {
+    if(self.debug && self.debugLevel == 1) {
 	console.log('Ping');
-    } else if (that.debug && that.debugLevel > 1) {
+    } else if (self.debug && self.debugLevel > 1) {
 	console.log('Ping' + 
 	    ' time_usec: ' + message.time_usec + 
 	    ' seq: ' + message.seq +
@@ -602,65 +607,99 @@ this.mavlinkParser.on('HEARTBEAT', function(message) {
     */
 
     // setup the system id if it is not set
-    if(that.systemId === -1) {
-	that.systemId = message.header.srcSystem;
-	that.systemMavlinkVersion = message.mavlink_version;
-	that.systemType = message.type;
+    if(self.systemId === -1) {
+	self.systemId = message.header.srcSystem;
+	self.systemMavlinkVersion = message.mavlink_version;
+	self.systemType = message.type;
     }
 
     // if the system status has changed then update it
-    if(that.systemStatus != message.system_status) {
-	that.systemStatus = message.system_status
+    if(self.systemStatus != message.system_status) {
+	self.systemStatus = message.system_status
 
 	switch(message.system_status) {
 	    case mavlink.MAV_STATE_UNINIT:
-		that.systemStatusText = 'Uninitialized';
+		self.systemStatusText = 'Uninitialized';
 		break;
 	    case mavlink.MAV_STATE_BOOT:
-		that.systemStatusText = 'Booting';
+		self.systemStatusText = 'Booting';
 		break;
 	    case mavlink.MAV_STATE_CALIBRATING:
-		that.systemStatusText = 'Calibrating';
+		self.systemStatusText = 'Calibrating';
 		break;
 	    case mavlink.MAV_STATE_STANDBY:
-		that.systemStatusText = 'Standby';
+		self.systemStatusText = 'Standby';
 		break;
 	    case mavlink.MAV_STATE_ACTIVE:
-		that.systemStatusText = 'Active';
+		self.systemStatusText = 'Active';
 		break;
 	    case mavlink.MAV_STATE_CRITICAL:
-		that.systemStatusText = 'Critical';
+		self.systemStatusText = 'Critical';
 		break;
 	    case mavlink.MAV_STATE_EMERGENCY:
-		that.systemStatusText = 'Emergency / Mayday';
+		self.systemStatusText = 'Emergency / Mayday';
 		break;
             case mavlink.MAV_STATE_POWEROFF:
-		that.systemStatusText = 'Shuting down';
+		self.systemStatusText = 'Shuting down';
 		break;
 	}
 
-	// call the state changed callback
-	that.stateChangedListener(that.systemStatus, that.systemStatusText);
+	// fire the stateChanged event
+	self.emit('systemStatusChanged', self.systemStatus, self.systemStatusText);
     }
        
     // if the base mode has changed then update it
-    if(that._baseMode != message.base_mode) {
-	that.autonomousMode = message.base_mode & MavlinkProtocol.MAV_MODE_FLAG_AUTO_ENABLED != 0 ? true : false;
-	that.testMode       = message.base_mode & MavlinkProtocol.MAV_MODE_FLAG_TEST_ENABLED != 0 ? true : false;
-	that.stablizedMode  = message.base_mode & MavlinkProtocol.MAV_MODE_FLAG_STABILIZE_ENABLED != 0 ? true : false;
-	that.hardwareInLoop = message.base_mode & MavlinkProtocol.MAV_MODE_FLAG_HIL_ENABLED != 0 ? true : false;
-	that.remoteControl  = message.base_mode & MavlinkProtocol.MAV_MODE_FLAG_MANUAL_INPUT_ENABLED != 0 ? true : false;
-	that.guided         = message.base_mode & MavlinkProtocol.MAV_MODE_FLAG_GUIDED_ENABLED != 0 ? true : false;
-	that.armed          = message.base_mode & MavlinkProtocol.BASE_MODE_ARMED != 0 ? true : false;
+    if(self._baseMode != message.base_mode) {
+	var autonomousModeOld = self.autonomousMode;
+	var testModeOld = self.testMode;
+	var stabilizedModeOld = self.stabilizedMode;
+	var hardwareInLoopOld = self.hardwareInLoop;
+	var remoteControlOld = self.remoteControl;
+	var guidedOld = self.guided;
+	var armedOld = self.armed;
 
-	that._baseMode = message.base_mode;
+	self.autonomousMode  = message.base_mode & MavlinkProtocol.MAV_MODE_FLAG_AUTO_ENABLED != 0 ? true : false;
+	self.testMode        = message.base_mode & MavlinkProtocol.MAV_MODE_FLAG_TEST_ENABLED != 0 ? true : false;
+	self.stabilizedMode  = message.base_mode & MavlinkProtocol.MAV_MODE_FLAG_STABILIZE_ENABLED != 0 ? true : false;
+	self.hardwareInLoop  = message.base_mode & MavlinkProtocol.MAV_MODE_FLAG_HIL_ENABLED != 0 ? true : false;
+	self.remoteControl   = message.base_mode & MavlinkProtocol.MAV_MODE_FLAG_MANUAL_INPUT_ENABLED != 0 ? true : false;
+	self.guided          = message.base_mode & MavlinkProtocol.MAV_MODE_FLAG_GUIDED_ENABLED != 0 ? true : false;
+	self.armed           = message.base_mode & MavlinkProtocol.BASE_MODE_ARMED != 0 ? true : false;
 
-	// call the state changed callback
-	that.modeChangedListener();
+	self._baseMode = message.base_mode;
+
+	// fire the mode changed event as appropriate
+	if(autonomousModeOld != self.autonomousMode) {
+	    self.emit('autonomousModeChanged', self.autonomousMode);
+	}
+
+	if(testModeOld != self.testMode) {
+	    self.emit('testModeChanged', self.testMode);
+	}
+
+	if(stabilizedModeOld != self.stabilizedMode) {
+	    self.emit('stabilizedModeChanged', self.stabilizedMode);
+	}
+
+	if(hardwareInLoopOld != self.hardwareInLoop) {
+	    self.emit('hardwareInLoopModeChanged', self.hardwareInLoop);
+	}
+
+	if(remoteControlOld != self.remoteControl) {
+	    self.emit('remoteControlModeChanged', self.remoteControl);
+	}
+
+	if(guidedOld != self.guided) {
+	    self.emit('guidedModeChanged', self.guided);
+	}
+
+	if(armedOld != self.armed) {
+	    self.emit('armedModeChanged', self.armed);
+	}
     }
 
     /*
-    that.vehicleState = _.extend(that.vehicleState, {
+    self.vehicleState = _.extend(self.vehicleState, {
 	type: message.type,
 	autopilot: message.autopilot,
 	base_mode: message.base_mode,
@@ -671,9 +710,9 @@ this.mavlinkParser.on('HEARTBEAT', function(message) {
     */
 
     // set the system id from the heartbeat if it is not currently set
-    if(that.debugHeartbeat && that.debugLevel == 1) {
+    if(self.debugHeartbeat && self.debugLevel == 1) {
 	console.log('Heartbeat');
-    } else if (that.debugHeartbeat && that.debugLevel > 1) {
+    } else if (self.debugHeartbeat && self.debugLevel > 1) {
         var mavType = 'unknown';
 	var autopilot = 'unknown';
 	var sysStatus = 'unknown';
@@ -784,13 +823,13 @@ this.mavlinkParser.on('HEARTBEAT', function(message) {
 	console.log('           type:             ' + mavType);
 	console.log('           autopilot:        ' + autopilot);
 	console.log('           base_mode:        ' + message.base_mode);
-	console.log('           autonomous mode:  ' + that.autonomousMode);
-	console.log('           test mode:        ' + that.testMode);
-	console.log('           stabalized mode:  ' + that.stablizedMode);
-	console.log('           hardware in loop: ' + that.hardwareInLoop);
-	console.log('           remote control:   ' + that.remoteControl);
-	console.log('           guided:           ' + that.guided);
-	console.log('           armed:            ' + that.armed);
+	console.log('           autonomous mode:  ' + self.autonomousMode);
+	console.log('           test mode:        ' + self.testMode);
+	console.log('           stabalized mode:  ' + self.stablizedMode);
+	console.log('           hardware in loop: ' + self.hardwareInLoop);
+	console.log('           remote control:   ' + self.remoteControl);
+	console.log('           guided:           ' + self.guided);
+	console.log('           armed:            ' + self.armed);
 	console.log('           custom mode:      ' + message.custom_mode);
 	console.log('           system status:    ' + sysState);
 	console.log('           mavlink version:  ' + message.mavlink_version);
@@ -804,10 +843,10 @@ this.mavlinkParser.on('HEARTBEAT', function(message) {
  * At this point each individual mission is requested.
  */
 this.mavlinkParser.on('MISSION_COUNT', function(message) {
-    if(that.debugWaypoints) {
-	if(that.debugLevel == 1) {
+    if(self.debugWaypoints) {
+	if(self.debugLevel == 1) {
 	    console.log('Mission Count');
-	} else if (that.debugLevel > 1) {
+	} else if (self.debugLevel > 1) {
 	    console.log('Mission Count: ' +
 		' sys: ' + message.header.srcSystem +
 		' component: ' + message.header.srcComponent +
@@ -818,32 +857,32 @@ this.mavlinkParser.on('MISSION_COUNT', function(message) {
     }
 
     // clear the timeout as we received the mission count
-    clearTimeout(that.timeoutIds[MavlinkProtocol._MISSION_REQUEST_LIST_TIMEOUT_ID]);
+    clearTimeout(self.timeoutIds[MavlinkProtocol._MISSION_REQUEST_LIST_TIMEOUT_ID]);
 
     // it not requested and we receiving waypoints then that's okay, treat it like we requested it
     if(message.count > 0 && 
-       (that._waypointMode === MavlinkProtocol.WAYPOINT_NO_ACTION || 
-       that._waypointMode === MavlinkProtocol.WAYPOINT_REQUESTED)) {
+       (self._waypointMode === MavlinkProtocol.WAYPOINT_NO_ACTION || 
+       self._waypointMode === MavlinkProtocol.WAYPOINT_REQUESTED)) {
 	// set to receiving waypoint
-	that._waypointMode = MavlinkProtocol.WAYPOINT_RECEIVING;
+	self._waypointMode = MavlinkProtocol.WAYPOINT_RECEIVING;
 
-	that._waypointCount = message.count;
-	that._waypointLastSequence = -1;
-	that._waypoints = new Array();
+	self._waypointCount = message.count;
+	self._waypointLastSequence = -1;
+	self._waypoints = new Array();
 
 	// request the first waypoint
-	that._writeWithTimeout.call(that, {
+	self._writeWithTimeout.call(self, {
 	    message: new mavlink.messages.mission_request(message.header.srcSystem, message.header.srcComponent, 0),
 	    timeout: 10000, 
 	    maxAttempts: 3, 
 	    messageName: 'mission request', 
 	    attempts: 0,
 	    timeoutId: MavlinkProtocol._MISSION_REQUEST_TIMEOUT_ID,
-	    onMaxAttempts: function() { that._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION }
+	    onMaxAttempts: function() { self._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION }
 	});
     } else {
 	// obviously no waypoints so nothing to do
-        that._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
+        self._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
     }
 });
 
@@ -854,9 +893,9 @@ this.mavlinkParser.on('MISSION_COUNT', function(message) {
  */
 this.mavlinkParser.on('MISSION_ITEM', function(message) {
 
-    if(that.debugWaypoints && that.debugLevel == 1) {
+    if(self.debugWaypoints && self.debugLevel == 1) {
 	console.log('Mission Item');
-    } else if (that.debugWaypoints && that.debugLevel > 1) {
+    } else if (self.debugWaypoints && self.debugLevel > 1) {
 	console.log('Mission Item: ' +
 	    ' seq: ' + message.seq +
 	    ' frame: ' + message.frame +
@@ -873,24 +912,24 @@ this.mavlinkParser.on('MISSION_ITEM', function(message) {
     }
 
     // clear the timeout as we received a mission item 
-    clearTimeout(that.timeoutIds[MavlinkProtocol._MISSION_REQUEST_TIMEOUT_ID]);
+    clearTimeout(self.timeoutIds[MavlinkProtocol._MISSION_REQUEST_TIMEOUT_ID]);
 
-    switch(that._waypointMode) {
+    switch(self._waypointMode) {
         case MavlinkProtocol.WAYPOINT_NO_ACTION:
 	    // if the first one then switch to receiving mode as it's okay to receive when not requested, otherwise ignore
             if(message.seq > 0) {
-		if(that.debugWaypoints && that.debugLevel > 1) {
+		if(self.debugWaypoints && self.debugLevel > 1) {
 		    console.log("Waypoint has not been requested and sequence is larger than 0, ignoring");
 		}
 		break;
 	    }
 
         case MavlinkProtocol.WAYPOINT_REQUEST:
-            that._waypointMode = MavlinkProtocol.WAYPOINT_RECEIVING;
+            self._waypointMode = MavlinkProtocol.WAYPOINT_RECEIVING;
 
         case MavlinkProtocol.WAYPOINT_RECEIVING:
-	    if(that._waypointLastSequence != -1 && that._waypointLastSequence != message.seq) {
-		if(that.debugWaypoints && that.debugLevel > 1) {
+	    if(self._waypointLastSequence != -1 && self._waypointLastSequence != message.seq) {
+		if(self.debugWaypoints && self.debugLevel > 1) {
 		    console.log("Mission item: receiving waypoint out of order, ignoring");
 		}
 		// received waypoint out of sequence, ignore
@@ -898,51 +937,51 @@ this.mavlinkParser.on('MISSION_ITEM', function(message) {
 	    }
 
 	    // update the last sequence processed
-	    that._waypointLastSequence = message.seq + 1;
+	    self._waypointLastSequence = message.seq + 1;
 
 	    // push the command onto the waypoints stack, we convert these when they're complete
-	    that._waypoints.push(message);
+	    self._waypoints.push(message);
 	    
-	    if(message.seq + 1 == that._waypointCount) {
+	    if(message.seq + 1 == self._waypointCount) {
 		// we have the last waypoint 
 	    
 		// send an ack as the remote system will be waiting for one
-		that._writeMessage.call(that, 
+		self._writeMessage.call(self, 
 		    new mavlink.messages.mission_ack(
 			message.header.srcSystem, 
 			message.header.srcComponent, 
 			mavlink.MAV_MISSION_ACCEPTED));
 
 		// reset the mode and the waypoints
-		that._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
+		self._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
 
 		// convert the waypoints to videre format
-		var waypoints = MavlinkCnv.waypointsMtoV(that._waypoints);
+		var waypoints = MavlinkCnv.waypointsMtoV(self._waypoints);
 
 		// call the waypoint callback, passing the waypoints
-		that.retreivedWaypointsListener(waypoints);
+		self.emit('retreivedWaypoints', waypoints);
 
 		// reset waypoints
-		that._waypoints = new Array();
+		self._waypoints = new Array();
 	    } else {
 		// send requets for next waypoint, with a timeout for retries
-		that._writeWithTimeout.call(that, {
+		self._writeWithTimeout.call(self, {
 		    message: new mavlink.messages.mission_request(
 			message.header.srcSystem, 
 			message.header.srcComponent, 
-			that._waypointLastSequence),
+			self._waypointLastSequence),
 		    timeout: 10000, 
 		    maxAttempts: 3, 
 		    messageName: 'mission request', 
 		    attempts: 0,
 		    timeoutId: MavlinkProtocol._MISSION_REQUEST_TIMEOUT_ID,
-		    onMaxAttempts: function() { that._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION }
+		    onMaxAttempts: function() { self._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION }
 		});
 	    }
 	    break;
 
 	default:
-	    if(that.debugWaypoints && that.debugLevel > 1) {
+	    if(self.debugWaypoints && self.debugLevel > 1) {
 		console.log("Mission item: waypoint state unknown, ignoring");
 	    }
 	    break;
@@ -957,59 +996,59 @@ this.mavlinkParser.on('MISSION_ITEM', function(message) {
  * Mission requests are to be in order and completed with an ACK.
  */
 this.mavlinkParser.on('MISSION_REQUEST', function(message) {
-    if(that.debugWaypoints && that.debugLevel == 1) {
+    if(self.debugWaypoints && self.debugLevel == 1) {
 	console.log('Mission Request');
-    } else if (that.debugWaypoints && that.debugLevel > 1) {
+    } else if (self.debugWaypoints && self.debugLevel > 1) {
 	console.log('Mission Request for item: ' + message.seq);
     }
 
     // clear the timeout that created the requst, if the first item
-    clearTimeout(that.timeoutIds[MavlinkProtocol._MISSION_COUNT_TIMEOUT_ID]);
-    clearTimeout(that.timeoutIds[MavlinkProtocol._MISSION_ITEM_TIMEOUT_ID]);
+    clearTimeout(self.timeoutIds[MavlinkProtocol._MISSION_COUNT_TIMEOUT_ID]);
+    clearTimeout(self.timeoutIds[MavlinkProtocol._MISSION_ITEM_TIMEOUT_ID]);
 
-    switch(that._waypointMode) {
+    switch(self._waypointMode) {
         case MavlinkProtocol.WAYPOINT_NO_ACTION:
 	    if(message.seq != 0) {
-		if(that.debugWaypoints && that.debugLevel > 1) {
+		if(self.debugWaypoints && self.debugLevel > 1) {
 		    console.log('Mission Request for item: ' + message.seq + ' when not expecting requests, ignored');
 		}
 		break;
 	    }
 
         case MavlinkProtocol.WAYPOINT_UPDATE_REQUESTED:
-	    that._waypointMode = MavlinkProtocol.WAYPOINT_SENDING;
+	    self._waypointMode = MavlinkProtocol.WAYPOINT_SENDING;
 
         case MavlinkProtocol.WAYPOINT_SENDING:
 	    // send the requested waypoint
-	    if(message.seq > that._waypoints.length) {
-		if(that.debugWaypoints && that.debugLevel > 1) {
+	    if(message.seq > self._waypoints.length) {
+		if(self.debugWaypoints && self.debugLevel > 1) {
 		    console.log('Mission Request for item: ' + message.seq + ' is larger than number of waypoints, ignored');
 		}
 		break;
 	    }
 
 	    // if waypoint is the current or previous waypoint, then accept
-	    if(that._waypointLastSequence + 1 === message.seq) {
+	    if(self._waypointLastSequence + 1 === message.seq) {
 		// we have the expected sequence
-		that._waypointLastSequence = message.seq;
+		self._waypointLastSequence = message.seq;
 
-		that._writeWithTimeout.call(that, {
+		self._writeWithTimeout.call(self, {
 		    message: 
 		    new mavlink.messages.mission_item(
 			message.header.srcSystem, 
 			message.header.srcComponent, 
 			message.seq,
-			that._waypoints[message.seq].frame,
-			that._waypoints[message.seq].command,
-			that._waypoints[message.seq].current,
-			that._waypoints[message.seq].autocontinue,
-			that._waypoints[message.seq].param1,
-			that._waypoints[message.seq].param2,
-			that._waypoints[message.seq].param3,
-			that._waypoints[message.seq].param4,
-			that._waypoints[message.seq].x,
-			that._waypoints[message.seq].y,
-			that._waypoints[message.seq].z),
+			self._waypoints[message.seq].frame,
+			self._waypoints[message.seq].command,
+			self._waypoints[message.seq].current,
+			self._waypoints[message.seq].autocontinue,
+			self._waypoints[message.seq].param1,
+			self._waypoints[message.seq].param2,
+			self._waypoints[message.seq].param3,
+			self._waypoints[message.seq].param4,
+			self._waypoints[message.seq].x,
+			self._waypoints[message.seq].y,
+			self._waypoints[message.seq].z),
 		    timeout: 10000, 
 		    maxAttempts: 3, 
 		    messageName: 'mission item', 
@@ -1017,16 +1056,16 @@ this.mavlinkParser.on('MISSION_REQUEST', function(message) {
 		    timeoutId: MavlinkProtocol._MISSION_ITEM_TIMEOUT_ID,
 		    onMaxAttempts: function() { this._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION }
 		});
-	    } else if (that._waypointLastSequence === message.seq) {
+	    } else if (self._waypointLastSequence === message.seq) {
 		// we have been sent the same sequence twice, just ignore
 		console.log('received same sequence, ignoring');
 	    } else {
 		// we are out of sequence, the received sequence is not correct, error
 		// expected 0, got 1
 		console.log('received incorrect sequence, sending error via ack. Expected: ' + 
-		    that._waypointLastSequence + ', got:  ' + message.seq);
+		    self._waypointLastSequence + ', got:  ' + message.seq);
 
-		that._writeMessage.call(that, 
+		self._writeMessage.call(self, 
 		    new mavlink.messages.mission_ack(
 			message.header.srcSystem, 
 			message.header.srcComponent, 
@@ -1035,7 +1074,7 @@ this.mavlinkParser.on('MISSION_REQUEST', function(message) {
 	    break;
 
 	default:
-	    if (that.debugWaypoints && that.debugLevel > 1) {
+	    if (self.debugWaypoints && self.debugLevel > 1) {
 		console.log('Mission Request for item: ' + message.seq + ' when in unknown state, ignored');
 	    }
 	    break;
@@ -1046,52 +1085,52 @@ this.mavlinkParser.on('MISSION_REQUEST', function(message) {
  * This message is recieved when all the missions have been sent.
  */
 this.mavlinkParser.on('MISSION_ACK', function(message) {
-    if(that.debugWaypoints) {
+    if(self.debugWaypoints) {
 	console.log('Mission Ack ' + message.type);
     }
 
     // clear timers
-    clearTimeout(that.timeoutIds[MavlinkProtocol._MISSION_COUNT_TIMEOUT_ID]);
-    clearTimeout(that.timeoutIds[MavlinkProtocol._MISSION_ITEM_TIMEOUT_ID]);
-    clearTimeout(that.timeoutIds[MavlinkProtocol._MISSION_CLEAR_ALL]);
+    clearTimeout(self.timeoutIds[MavlinkProtocol._MISSION_COUNT_TIMEOUT_ID]);
+    clearTimeout(self.timeoutIds[MavlinkProtocol._MISSION_ITEM_TIMEOUT_ID]);
+    clearTimeout(self.timeoutIds[MavlinkProtocol._MISSION_CLEAR_ALL]);
 
     // reset the state
-    that._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
+    self._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
 
     if(message.type === mavlink.MAV_MISSION_ACCEPTED) {
-	switch(that._waypointMode) {
+	switch(self._waypointMode) {
 	    case MavlinkProtocol.WAYPOINT_NO_ACTION:
-		if(that.debugWaypoints && that.debugLevel > 1) {
+		if(self.debugWaypoints && self.debugLevel > 1) {
 		    console.log('Mission Ack but state is no action, ignoring');
 		}
 		break;
 
 	    case MavlinkProtocol.WAYPOINT_UPDATE_REQUESTED:
-		if(that.debugWaypoints && that.debugLevel > 1) {
+		if(self.debugWaypoints && self.debugLevel > 1) {
 		    console.log('Mission Ack but state is update requested, reseting to no action');
 		}
-		that._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
+		self._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
 		break;
 
 	    case MavlinkProtocol.WAYPOINT_SENDING:
-		if(that._waypointLastSequence + 1 == that._waypoints.length) {
-		    if(that.debugWaypoints && that.debugLevel > 1) {
+		if(self._waypointLastSequence + 1 == self._waypoints.length) {
+		    if(self.debugWaypoints && self.debugLevel > 1) {
 			console.log('Mission update sucessful');
 		    }
 
 		    // call the success listener
-		    that.setWaypointsSuccessfulListener();
+		    self.emit('setWaypointsSuccessful');
 		}
 
-		that._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
+		self._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
 		break;
 	}
     } else {
 	// an error has occurred, so no point continuing
-	that._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
+	self._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
 
 	// clear out the timeout just in case it was set
-	clearTimeout(that.timeoutIds[MavlinkProtocol._MISSION_COUNT_TIMEOUT_ID]);
+	clearTimeout(self.timeoutIds[MavlinkProtocol._MISSION_COUNT_TIMEOUT_ID]);
 
 	// display debug if appropriate
 	switch(message.type) {
@@ -1153,32 +1192,32 @@ this.mavlinkParser.on('MISSION_ACK', function(message) {
 	}
 
 	// fire error event
-	that.setWaypointsErrorListener(text + "" + that._waypointSequence);
+	self.emit('setWaypointsError', text + "" + self._waypointSequence);
 
-        if(that.debugWaypoints) {
+        if(self.debugWaypoints) {
 	    console.log(text);
 	}
     }
 });
 
 this.mavlinkParser.on('MISSION_CURRENT', function(message) {
-    if(that.debugWaypoints) {
+    if(self.debugWaypoints) {
 	console.log('Mission set to current: ' + message.seq);
     }
 
-    if(that._waypointMode === MavlinkProtocol.WAYPOINT_SETTING_TARGET) {
+    if(self._waypointMode === MavlinkProtocol.WAYPOINT_SETTING_TARGET) {
 	// clear out the timeout in case is still was set
-	clearTimeout(that.timeoutIds[MavlinkProtocol._MISSION_SET_TARGET_ID]);
-	that._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
+	clearTimeout(self.timeoutIds[MavlinkProtocol._MISSION_SET_TARGET_ID]);
+	self._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
     }
 
-    that.setWaypointTargetListener(message.seq);
+    self.emit('targetWaypoint', message.seq);
 });
 
 this.mavlinkParser.on('MISSION_ITEM_REACHED', function(message) {
     console.log('Mission item reached ' + message.seq);
 
-    that.setWaypointAchievedListener(message.seq);
+    self.emit('waypointAchieved', message.seq);
 });
 
 this.mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
@@ -1197,9 +1236,9 @@ this.mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
      * vz             Ground Z Speed (Altitude), expressed as m/s * 100
      * hdg            Compass heading in degrees * 100, 0.0..359.99 degrees. If unknown, set to: 65535
      */
-    if(that.debugGPS && that.debugLevel == 1) {
+    if(self.debugGPS && self.debugLevel == 1) {
 	console.log('Global position (int)');
-    } else if (that.debugGPS && that.debugLevel > 1) {
+    } else if (self.debugGPS && self.debugLevel > 1) {
 	console.log('Global position (int)' + 
 	    ' lat: ' + message.lat / 10000000 + 
 	    ' lng: ' + message.lon / 10000000 + 
@@ -1215,10 +1254,10 @@ this.mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
     var lat = message.lat/10000000;
 
     // should we have a configurable tollerance based on the accuracy of the GPS?
-    if(that.telemetry.armed != armed) {
+    if(self.telemetry.armed != armed) {
     }
 
-    that.vehicleState = _.extend(that.vehicleState, {
+    self.vehicleState = _.extend(self.vehicleState, {
 	lat: message.lat/10000000,
 	lon: message.lon/10000000,
 	alt: message.alt/1000,
@@ -1241,9 +1280,9 @@ this.mavlinkParser.on('STATUS_TEXT', function(message) {
      * severity  Severity of status. Relies on the definitions within RFC-5424. See enum MAV_SEVERITY.
      * text      Status text message, without null termination character
      */
-    if(that.debug && that.debugLevel == 1) {
+    if(self.debug && self.debugLevel == 1) {
 	console.log('Status text');
-    } else if (that.debug && that.debugLevel > 1) {
+    } else if (self.debug && self.debugLevel > 1) {
 	console.log('Status text' + 
 	    ' severity: ' + message.severity +
 	    ' text: ' + message.text);
@@ -1266,9 +1305,9 @@ this.mavlinkParser.on('PARAM_VALUE', function(message) {
     * param_count    Total number of onboard parameters
     * param_index    Index of this onboard parameter
     */
-    if(that.debug && that.debugLevel == 1) {
+    if(self.debug && self.debugLevel == 1) {
 	console.log('Param Value');
-    } else if (that.debug && that.debugLevel > 1) {
+    } else if (self.debug && self.debugLevel > 1) {
 	console.log('Param Value' + 
 	    ' param_id: ' + message.id +
 	    ' param_value: ' + message.param_value +
@@ -1298,9 +1337,9 @@ this.mavlinkParser.on('HIGHRES_IMU', function(message) {
      * temperature     Temperature in degrees celsius
      * fields_updated  Bitmask for fields that have updated since last message, bit 0 = xacc, bit 12: temperature
      */
-    if(that.debugIMU && that.debugLevel == 1) {
+    if(self.debugIMU && self.debugLevel == 1) {
         console.log('High res IMU');
-    } else if (that.debugIMU && that.debugLevel > 1) {
+    } else if (self.debugIMU && self.debugLevel > 1) {
 	console.log('High res IMU:' +
 	    ' time_usec: ' + message.time_usec +
 	    ' xacc: ' + message.xacc +
@@ -1319,7 +1358,7 @@ this.mavlinkParser.on('HIGHRES_IMU', function(message) {
 	);
     }
 
-    that.vehicleState = _.extend(that.vehicleState, {
+    self.vehicleState = _.extend(self.vehicleState, {
 	time_usec: message.time_usec,
 	xacc: message.xacc,
 	yacc: message.yacc,
@@ -1339,7 +1378,7 @@ this.mavlinkParser.on('HIGHRES_IMU', function(message) {
 
 this.mavlinkParser.on('GPS_STATUS', function(message) {
     // TODO: consider how to handle this
-    that.vehicleState = _.extend(that.vehicleState, {
+    self.vehicleState = _.extend(self.vehicleState, {
 	satellites_visible: message.satellites_visible,
 	satellite_prn: new Uint8Array(message.satellite_prn),
 	satellite_used: new Uint8Array(message.satellite_used),
@@ -1348,11 +1387,11 @@ this.mavlinkParser.on('GPS_STATUS', function(message) {
 	satellite_snr: new Uint8Array(message.satellite_snr)
     });
     
-    if(that.debugGPSStatus && that.debugLevel == 1) {
+    if(self.debugGPSStatus && self.debugLevel == 1) {
         console.log('GPS Status');
-    } else if (that.debugGPSStatus && that.debugLevel > 1) {
+    } else if (self.debugGPSStatus && self.debugLevel > 1) {
 	console.log('GPS Status: ' +
-	    ' sats visible: ' + that.vehicleState.satellites_visible);
+	    ' sats visible: ' + self.vehicleState.satellites_visible);
 
 	for(var i = 0, l = message.satellite_prn.length; i < l; i++) {
 	    console.log(' Satellite ' + i + ',' +
@@ -1367,9 +1406,9 @@ this.mavlinkParser.on('GPS_STATUS', function(message) {
 });
 
 this.mavlinkParser.on('SYS_STATUS', function(message) {
-    if(that.debugSysStatus && that.debugLevel == 1) {
+    if(self.debugSysStatus && self.debugLevel == 1) {
 	console.log('Sys Status');
-    } else if (that.debugSysStatus && that.debugLevel > 1) {
+    } else if (self.debugSysStatus && self.debugLevel > 1) {
 	console.log('Sys Status:' +
 	    ' battery voltage (millivolts): ' + message.voltage_battery + 
 	    ' current (10 millamperes): ' + message.current_battery + 
@@ -1378,7 +1417,7 @@ this.mavlinkParser.on('SYS_STATUS', function(message) {
 	    ' comm errors: ' + message.errors_com);
     }
 
-    that.vehicleState = _.extend(that.vehicleState, {
+    self.vehicleState = _.extend(self.vehicleState, {
 	voltage_battery: message.voltage_battery,
 	current_battery: message.current_battery,
 	battery_remaining: message.battery_remaining,
@@ -1399,9 +1438,9 @@ this.mavlinkParser.on('ATTITUDE', function(message) {
      * pitchspeed     Pitch angular speed (rad/s)
      * yawspeed       Yaw angular speed (rad/s)
      */
-    if(that.debugAttitude && that.debugLevel == 1) {
+    if(self.debugAttitude && self.debugLevel == 1) {
 	console.log('Attitude');
-    } else if (that.debugAttitude && that.debugLevel > 1) {
+    } else if (self.debugAttitude && self.debugLevel > 1) {
 	console.log('Attitude:' + 
 	    ' pitch: ' + message.pitch + 
 	    ' roll: ' + message.roll + 
@@ -1411,7 +1450,7 @@ this.mavlinkParser.on('ATTITUDE', function(message) {
 	    ' yaw speed: ' + message.yawspeed);
     }
 
-    that.vehicleState = _.extend(that.vehicleState, {
+    self.vehicleState = _.extend(self.vehicleState, {
 	pitch: message.pitch,
 	roll: message.roll,
 	yaw: message.yaw,
@@ -1431,9 +1470,9 @@ this.mavlinkParser.on('VFR_HUD', function(message) {
      * alt         Current altitude (MSL), in meters
      * climb       Current climb rate in meters/second
      */
-    if(that.debug && that.debugLevel == 1) {
+    if(self.debug && self.debugLevel == 1) {
 	console.log('VFR HUD');
-    } else if (that.debug && that.debugLevel > 1) {
+    } else if (self.debug && self.debugLevel > 1) {
 	console.log('VFR HUD:' + 
 	    ' air speed: ' + message.airspeed + 
 	    ' ground speed: ' + message.groundspeed + 
@@ -1442,7 +1481,7 @@ this.mavlinkParser.on('VFR_HUD', function(message) {
 	    ' climb: ' + message.climb);
     }
 
-    that.vehicleState = _.extend(that.vehicleState, {
+    self.vehicleState = _.extend(self.vehicleState, {
 	airspeed: message.airspeed,
 	groundspeed: message.groundspeed,
 	heading: message.heading,
@@ -1471,9 +1510,9 @@ this.mavlinkParser.on('GPS_RAW_INT', function(message) {
      *                    0.0..359.99 degrees. If unknown, set to: 65535
      * satellites_visible Number of satellites visible. If unknown, set to 255
      */
-    if(that.debugGPSRaw && that.debugLevel == 1) {
+    if(self.debugGPSRaw && self.debugLevel == 1) {
 	console.log('GPS Raw (int)');
-    } else if (that.debugGPSRaw && that.debugLevel > 1) {
+    } else if (self.debugGPSRaw && self.debugLevel > 1) {
 	console.log('GPS Raw (int):' + 
 	    ' fix type: ' + message.fix_type +
 	    ' lat: ' + message.lat / 10000000 + 
@@ -1485,7 +1524,7 @@ this.mavlinkParser.on('GPS_RAW_INT', function(message) {
 	    ' cog: ' + message.cog);
     }
 
-    that.vehicleState = _.extend(that.vehicleState, {
+    self.vehicleState = _.extend(self.vehicleState, {
 	fix_type: message.fix_type,
 	satellites_visible: message.satellites_visible,
 	lat: message.lat / 10000000,
