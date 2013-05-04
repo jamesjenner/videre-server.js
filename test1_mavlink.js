@@ -82,22 +82,30 @@ function setWaypointTarget(waypoint) {
 setTimeout(function() {
     console.log("***************************************************************");
     console.log("test1: requesting waypoints");
-    if(!mavlinkProtocol.requestWaypoints.call(mavlinkProtocol)) {
-	console.log("error requesting waypoints");
+
+    var i = mavlinkProtocol.requestWaypoints.call(mavlinkProtocol);
+    if(!i) {
+	console.log("error " + i + " requesting waypoints");
     }
 }, 3000);
 
 setTimeout(function() {
-    console.log("***************************************************************");
-    console.log("test1: requetsing set waypoints");
     if(waypoints != null) {
+	console.log("***************************************************************");
+	console.log("test1: requesting set waypoints");
+
 	var i = mavlinkProtocol.requestSetWaypoints.call(mavlinkProtocol, waypoints);
+
+	if(!i) {
+            console.log("error " + i + " requesting to set waypoints");
+	}
     }
 }, 10000);
 
 setTimeout(function() {
     console.log("***************************************************************");
     console.log("test1: set target waypoint");
+
     if(!mavlinkProtocol.requestSetTargetWaypoint.call(mavlinkProtocol, 3)) {
 	console.log("error requesting set target waypoint");
     }
@@ -106,6 +114,7 @@ setTimeout(function() {
 setTimeout(function() {
     console.log("***************************************************************");
     console.log("test1: clearing waypoints");
+
     if(!mavlinkProtocol.requestClearWaypoints.call(mavlinkProtocol)) {
 	console.log("error requesting clear waypoints");
     }
