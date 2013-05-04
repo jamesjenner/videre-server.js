@@ -20,26 +20,19 @@ var mavlinkProtocol = new MavlinkProtocol({
     debugMessage: false,
     debugLevel: DEBUG_LEVEL,
     connectionMethod: MavlinkProtocol.CONNECTION_SERIAL,
-    stateChangedListener: stateChanged,
-    modeChangedListener: modeChanged,
-    retreivedWaypointsListener: retreivedWaypoints,
-    setWaypointsErrorListener: setWaypointsFail,
-    setWaypointsSuccessfulListener: setWaypointsSuccess,
-    setWaypointAchievedListener: setWaypointAcheived, 
-    setWaypointTargetListener: setWaypointTarget, 
 
 });
 
 console.log("***************************************************************");
 console.log("test1: connecting");
-mavlinkProtocol.connect();
 
-function stateChanged(value, text) {
-console.log("***************************************************************");
+mavlinkProtocol.on('stateChanged', function(value, text) {
+    console.log("***************************************************************");
     console.log("state: " + text);
-}
-function modeChanged() {
-console.log("***************************************************************");
+});
+
+mavlinkProtocol.on('modeChanged', function() {
+    console.log("***************************************************************");
     console.log("mode: ");
     console.log("       autonomous:       " + mavlinkProtocol.autonomousMode);
     console.log("       test mode:        " + mavlinkProtocol.testMode);
@@ -48,39 +41,72 @@ console.log("***************************************************************");
     console.log("       remote control:   " + mavlinkProtocol.remoteControl);
     console.log("       guided:           " + mavlinkProtocol.guided);
     console.log("       armed:            " + mavlinkProtocol.armed);
-}
+});
 
 var waypoints = null;
 
-function retreivedWaypoints(data) {
-    console.log("***************************************************************");
+mavlinkProtocol.on('systemStatusChanged', function(systemStatus, systemStatusText) {
+    console.log("test1: system status changed to " + systemStatusText);
+});
+
+mavlinkProtocol.on('autonomousModeChanged', function(autonomousMode) {
+    console.log('test1: autonomous  ' + autonomousMode);
+});
+
+mavlinkProtocol.on('testModeChanged', function(testMode) {
+    console.log('test1: test mode ' + testMode);
+});
+
+mavlinkProtocol.on('stabilizedModeChanged', function(stabilizedMode) {
+    console.log('test1: stabilized  ' + stabilizedMode);
+});
+
+mavlinkProtocol.on('hardwareInLoopModeChanged', function(hardwareInLoop) {
+    console.log('test1: hardwareInLoop  ' + hardwareInLoop);
+});
+
+mavlinkProtocol.on('remoteControlModeChanged', function(remoteControl) {
+    console.log('test1: remoteControled ' + remoteControl);
+});
+
+mavlinkProtocol.on('guidedModeChanged', function(guided) {
+    console.log('test1: guided  ' + guided);
+});
+
+mavlinkProtocol.on('armedModeChanged', function(armed) {
+    console.log("test1: armed  " + armed);
+});
+
+mavlinkProtocol.on('retreivedWaypoints', function(data) {
     console.log("test1: waypoints retreived");
     console.log(JSON.stringify(data, null, '\t'));
 
     waypoints = data;
-}
+});
 
-function setWaypointsFail(text) {
-    console.log("***************************************************************");
+mavlinkProtocol.on('setWaypointsError', function(text) {
     console.log("test1: setting waypoints failed: " + text);
-}
+});
 
-function setWaypointsSuccess() {
-    console.log("***************************************************************");
-    console.log("test1: setting waypoints worked!");
-}
+mavlinkProtocol.on('setWaypointsSuccessful', function() {
+    console.log("test1: setting waypoints successful");
+});
 
-function setWaypointAcheived(waypoint) {
-    console.log("***************************************************************");
+mavlinkProtocol.on('setWaypointAcheived', function(waypoint) {
     console.log("test1: waypoint acheived: " + waypoint);
-}
-function setWaypointTarget(waypoint) {
-    console.log("***************************************************************");
+});
+
+mavlinkProtocol.on('targetWaypoint', function(waypoint) {
     console.log("test1: targeted waypoint: " + waypoint);
-}
+});
+
+mavlinkProtocol.on('waypointAchieved', function(waypoint) {
+    console.log("test1: waypoint acheived: " + waypoint);
+});
+
+mavlinkProtocol.connect();
 
 setTimeout(function() {
-    console.log("***************************************************************");
     console.log("test1: requesting waypoints");
 
     var i = mavlinkProtocol.requestWaypoints.call(mavlinkProtocol);
