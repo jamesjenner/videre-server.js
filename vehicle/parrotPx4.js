@@ -50,19 +50,30 @@ function ParrotPx4(options) {
 
     options = options || {};
 
-    this.address = options.address || "192.168.1.1";
-    this.client = null;
+    this.networkAddress = ((options.networkAddress != null) ? options.networkAddress : "localhost");
+    this.networkPort = ((options.networkPort != null) ? options.networkPort : "9001");
+    this.serialPort = ((options.serialPort != null) ? options.serialPort : "/dev/ttyUSB0");
+    this.serialBaud = ((options.baud != null) ? options.baud : 57600);
+
     this.debug = ((options.debug != null) ? options.debug : false);
     this.debugLevel = options.debugLevel || 0;
     this.state = new State();
+    this.batteryVoltage = 0;
+    this.batteryCharge = 0;
+    this.batteryCurrent = 0;
+    this.commDropRate = 0;
+    this.commErrors = 0;
 
     this.mavlinkDevice = new MavlinkProtocol({
-	debug: DEBUG,
-	debugWaypoints: true,
-	debugHeartbeat: false,
-	debugMessage: false,
-	debugLevel: DEBUG_LEVEL,
-	connectionMethod: MavlinkProtocol.CONNECTION_SERIAL
+	debug: this.debug,
+	debugLevel: this.debugLevel,
+	connectionMethod: MavlinkProtocol.CONNECTION_SERIAL,
+        positionMode: MavlinkProtocol.POSITION_MODE_DISTANCE,
+        serialPort: this.serialPort,
+        serialBaud: this.serialBaud,
+        networkAddress: this.networkAddress,
+        networkPort this.networkPort,
+        positionDiff: 1,
     });
 }
 
@@ -75,30 +86,66 @@ ParrotPx4.prototype._processData = function(navData) {
 	attitude: new Attitude({ pitch: d.rotation.pitch, roll: d.rotation.roll, yaw: d.rotation.yaw }),
 	altitude: d.altitude,
 	velocity: {x: d.xVelocity, y: d.yVelocity, z: d.zVelocity},
+	batteryVoltage: = this.batteryVoltage,
+	batteryCharge: = this.batteryRemaining,
+	batteryCurrent: = this.batteryCurrent,
+	commDropRate: = this.commDropRate,
+	commErrors: this.CommErrors,
 	});
 
     this._rcvdTelemetry(telemetry);
 };
 
-mavlinkDevice.on('modeChanged', function() {
+mavlinkProtocol.on('attitude', function(attitude) {
+    console.log("test1: attitude pitch: " + attitude.pitch + " roll: " + attitude.roll + " yaw: "  +  attitude.yaw);
+});
+
+mavlinkProtocol.on('positionGPSRawInt', function(position) {
+    this.position = position;
+    this._rcvdPosition(this.position);
+});
+
+mavlinkProtocol.on('systemState', function(batteryVoltage, batteryCurrent, batteryRemaining, commDropRate, commErrors) {
     if(this.debug && this.debugLevel > 2) {
 	console.log(
 	    (new Date()) + ' ' + this.name + 
-	    ' mode: ');
+	    ' battery voltage: ' + batteryVoltage +
+	    ' battery charger: ' + batteryRemaining +
+	    ' battery current: ' + batteryCurrent + 
+	    ' comm drop rate: ' + commDropRate +
+	    ' comm errors: ' + commErrors);
     }
 
+    this.batteryVoltage = batteryVoltage;
+    this.batteryCharge = batteryRemaining;
+    this.batteryCurrent = batteryCurrent;
+    this.commDropRate = commDropRate;
+    this.commErrors = CommErrors;
 });
 
-var waypoints = null;
-
-mavlinkProtocol.on('positionGPSRawInt', function(lat, lng, alt) {
+mavlinkProtocol.on('statusText', function(severity, text) {
+    console.log("test1:" + 
+	" status: " + severity + 
+	" : " + text); 
+    // TODO: figure out how this should be used, if it is used
 });
 
-mavlinkDevice.on('systemStatusChanged', function(systemStatus, systemStatusText) {
+mavlinkProtocol.on('positionGPSRawInt', function(position) {
     if(this.debug && this.debugLevel > 2) {
 	console.log(
 	    (new Date()) + ' ' + this.name + 
-	    ' system status changed to: ' + systemStatusText);
+            ' gps position lat: ' + position.latitude + ' lng: ' + position.longitude + ' alt: ' + position.altitude);
+    }
+
+    this.position = position;
+    this._position(this.position);
+});
+
+mavlinkDevice.on('stateChanged', function(value, text) {
+    if(this.debug && this.debugLevel > 2) {
+	console.log(
+	    (new Date()) + ' ' + this.name + 
+	    ' system status changed to: ' + value + ' : ' + text);
     }
 
     this.state.state = value;
@@ -260,6 +307,11 @@ QuadCopter.prototype.reconnect = function() {
     if(this.debug) {
 	console.log((new Date()) + ' parrotPx4: ' + this.name + ' reset');
     }
+
+    this.mavlinkDevice.disconnect();
+    this.mavlinkDevice.connect();
+
+    this._connectionState(UnmannedVehicle.COMMS_CONNECTED);
 };
 
 QuadCopter.prototype.reset = function() {
