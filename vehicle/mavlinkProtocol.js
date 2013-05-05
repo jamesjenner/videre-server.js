@@ -51,6 +51,10 @@ MavlinkProtocol.DEFAULT_PORT = "5760";
 MavlinkProtocol.CONNECTION_SERIAL = "serial";
 MavlinkProtocol.CONNECTION_NETWORK = "network";
 
+MavlinkProtocol.POSITION_MODE_NONE = 0;
+MavlinkProtocol.POSITION_MODE_DISTANCE = 1;
+MavlinkProtocol.POSITION_MODE_TIME = 2;
+
     /*
      * Base Mode
      *
@@ -123,6 +127,15 @@ function MavlinkProtocol(options) {
     this.debugGPSStatus = ((options.debugGPSStatus != null) ? options.debugGPSStatus : false);
     this.debugLevel = ((options.debugLevel != null) ? options.debugLevel : 0);
 
+    // the default for attitude accuracy is 0.05 radians, approx. 2.86 of a degree, 
+    // the default for attitude accuracy is 0.02 radians, approx. 1.15 of a degree, 
+    // the default for attitude accuracy is 0.002 radians, approx. 0.11 of a degree, 
+    // the default for attitude accuracy is 0.003 radians, approx. 0.17 of a degree, 
+    // note that attiude is represented in radians of 2pi, but split into -pi and +pi to make up the 2pi
+    this.pitchAccuracy = ((options.pitchAccuracy != null) ? options.pitchAccuracy : 0.003);
+    this.rollAccuracy = ((options.rollAccuracy != null) ? options.rollAccuracy : 0.003);
+    this.yawAccuracy = ((options.yawAccuracy != null) ? options.yawAccuracy : 0.05);
+
     this.connectionMethod = ((options.connectionMethod != null) ? options.connectionMethod : MavlinkProtocol.CONNECTION_SERIAL);
 
     this.networkAddress = ((options.networkAddress != null) ? options.networkAddress : MavlinkProtocol.LOCAL_HOST);
@@ -131,9 +144,19 @@ function MavlinkProtocol(options) {
     this.serialPort = ((options.serialPort != null) ? options.serialPort : MavlinkProtocol.DEFAULT_COMPORT);
     this.serialBaud = ((options.baud != null) ? options.baud : MavlinkProtocol.DEFAULT_BAUD);
 
+    this.positionMode = ((options.positionMode != null) ? options.positionMode : MavlinkProtocol.POSITION_MODE_NONE);
+    this.positionDiff = ((options.Diff != null) ? options.Diff : 1);
     this.vehicleState = {};
 
     this.telemetry = new Telemetry();
+    this.attitude = new Attitude();
+    this.position = new Position();
+    this.positionTimer = new Date().getTime();
+    this.batteryVoltage   = 0;
+    this.batteryCurrent   = 0;
+    this.batteryRemaining = 0;
+    this.commDropRate     = 0;
+    this.commErrors       = 0;
     // a negative id means that it is currently not known, it is set by the heartbeat message
     this.systemId = -1;
     this.systemStatus = -1;
@@ -170,9 +193,20 @@ MavlinkProtocol.prototype.connect = function() {
     }
 }
 
+/**
+ * disconnect from the remote mavlink based device
+ */
+MavlinkProtocol.prototype.disconnect = function() {
+    if(this.connectionMethod === MavlinkProtocol.CONNECTION_SERIAL) {
+	this._closeSerialPort();
+    } else {
+	this._closeNetworkConnection();
+    }
+}
+
 MavlinkProtocol.prototype._initSerialPort = function() {
     if(this.debug && this.debugLevel > 0) {
-	console.log("Connecting to serial port " + this.serialPort + " baud: " + this.serialBaud);
+	console.log("Opening serial port " + this.serialPort + " baud: " + this.serialBaud);
     }
 
     this.serialDevice = new SerialPort(this.serialPort, {
@@ -193,6 +227,17 @@ MavlinkProtocol.prototype._initSerialPort = function() {
     });
 }
 
+MavlinkProtocol.prototype._closeSerialPort = function() {
+    if(this.debug && this.debugLevel > 0) {
+	console.log("Closing serial port " + this.serialPort);
+    }
+
+    if(this.serialDevice) {
+	this.serialDevice.close();
+	this.serialDevice = null;
+    }
+}
+
 MavlinkProtocol.prototype._initNetwork = function() {
     this.netConnection = net.createConnection(this.networkPort, this.networkAddress);
 
@@ -205,6 +250,13 @@ MavlinkProtocol.prototype._initNetwork = function() {
     this.netConnection.on('data', function(data) {
 	self.mavlinkParser.parseBuffer(data);
     });
+}
+
+MavlinkProtocol.prototype._closeNetworkConnection = function() {
+    if(this.netConnection) {
+	this.netConnection.end();
+	this.netConnection = null;
+    }
 }
 
 /**
@@ -697,17 +749,6 @@ this.mavlinkParser.on('HEARTBEAT', function(message) {
 	    self.emit('armedModeChanged', self.armed);
 	}
     }
-
-    /*
-    self.vehicleState = _.extend(self.vehicleState, {
-	type: message.type,
-	autopilot: message.autopilot,
-	base_mode: message.base_mode,
-	custom_mode: message.custom_mode,
-	system_status: message.system_status,
-	mavlink_version: message.mavlink_version
-    });
-    */
 
     // set the system id from the heartbeat if it is not currently set
     if(self.debugHeartbeat && self.debugLevel == 1) {
@@ -1251,12 +1292,8 @@ this.mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
 	);
     }
 
-    var lat = message.lat/10000000;
-
-    // should we have a configurable tollerance based on the accuracy of the GPS?
-    if(self.telemetry.armed != armed) {
-    }
-
+    // TODO: using raw as int doesn't appear to be reported, not sure why
+    /*
     self.vehicleState = _.extend(self.vehicleState, {
 	lat: message.lat/10000000,
 	lon: message.lon/10000000,
@@ -1267,6 +1304,7 @@ this.mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
 	vz: message.vz/100,
 	hdg: message.hdg/100
     });
+    */
 });
 
 this.mavlinkParser.on('STATUS_TEXT', function(message) {
@@ -1287,6 +1325,8 @@ this.mavlinkParser.on('STATUS_TEXT', function(message) {
 	    ' severity: ' + message.severity +
 	    ' text: ' + message.text);
     }
+
+    self.emit('statusText', message.severity, message.text);
 });
 
 this.mavlinkParser.on('PARAM_VALUE', function(message) {
@@ -1358,6 +1398,8 @@ this.mavlinkParser.on('HIGHRES_IMU', function(message) {
 	);
     }
 
+    /*
+    * TODO: implement reportin the pressure based altitude, possibly the x/y/z mag as well
     self.vehicleState = _.extend(self.vehicleState, {
 	time_usec: message.time_usec,
 	xacc: message.xacc,
@@ -1374,6 +1416,7 @@ this.mavlinkParser.on('HIGHRES_IMU', function(message) {
 	pressure_alt: message.pressure_alt,
 	temperature: message.temperature
     });
+    */
 });
 
 this.mavlinkParser.on('GPS_STATUS', function(message) {
@@ -1406,6 +1449,26 @@ this.mavlinkParser.on('GPS_STATUS', function(message) {
 });
 
 this.mavlinkParser.on('SYS_STATUS', function(message) {
+    /*
+    * The general system state. If the system is following the MAVLink standard, the system state 
+    * is mainly defined by three orthogonal states/modes: The system mode, which is either LOCKED 
+    * (motors shut down and locked), MANUAL (system under RC control), GUIDED (system with 
+    * autonomous position control, position setpoint controlled manually) or AUTO (system guided 
+    * by path/waypoint planner). 
+    *
+    * The NAV_MODE defined the current flight state: LIFTOFF (often an open-loop maneuver), 
+    * LANDING, WAYPOINTS or VECTOR. This represents the internal navigation state machine. The 
+    * system status shows wether the system is currently active or not and if an emergency occured. 
+    *
+    * During the CRITICAL and EMERGENCY states the MAV is still considered to be active, but 
+    * should start emergency procedures autonomously. After a failure occured it should first move 
+    * from active to critical to allow manual intervention and then move to emergency after a 
+    * certain timeout.
+    */
+
+    // According to the doco, batery voltage is in milivolts, which should mean divide by 1000,
+    // strangely the test device is reporting 57v. TODO: test if voltage is reported correctly
+
     if(self.debugSysStatus && self.debugLevel == 1) {
 	console.log('Sys Status');
     } else if (self.debugSysStatus && self.debugLevel > 1) {
@@ -1417,13 +1480,20 @@ this.mavlinkParser.on('SYS_STATUS', function(message) {
 	    ' comm errors: ' + message.errors_com);
     }
 
-    self.vehicleState = _.extend(self.vehicleState, {
-	voltage_battery: message.voltage_battery,
-	current_battery: message.current_battery,
-	battery_remaining: message.battery_remaining,
-	drop_rate_comm: message.drop_rate_comm,
-	errors_comm: message.errors_comm
-    });
+    if(self.batteryVoltage    != message.voltage_battery / 1000 || 
+	self.batteryCurrent   != message.current_battery / 100 ||
+	self.batteryRemaining != message.battery_remaining ||
+	self.commDropRate     != message.drop_rate_comm ||
+	self.commErrors       != message.errors_comm) {
+
+	self.batteryVoltage   = message.voltage_battery / 1000;
+	self.batteryCurrent   = message.current_battery / 100;
+	self.batteryRemaining = message.battery_remaining;
+	self.commDropRate     = message.drop_rate_comm;
+	self.commErrors       = message.errors_comm;
+
+	self.emit('systemStatus', self.batteryVoltage, self.batteryCurrent, self.batteryRemaining, self.commDropRate, self.commErrors);
+    }
 });
 
 this.mavlinkParser.on('ATTITUDE', function(message) {
@@ -1450,14 +1520,27 @@ this.mavlinkParser.on('ATTITUDE', function(message) {
 	    ' yaw speed: ' + message.yawspeed);
     }
 
-    self.vehicleState = _.extend(self.vehicleState, {
-	pitch: message.pitch,
-	roll: message.roll,
-	yaw: message.yaw,
+    // only recognise an attitude change if the change is more than the accuracy of the attitude
+    // console.log('pitch prev: ' + message.pitch + " was: " + self.attitude.pitch + " accuracy: " + self.attitudeAccuracy);
+    if((self.attitude.pitch > message.pitch + self.pitchAccuracy || self.attitude.pitch < message.pitch - self.pitchAccuracy) ||
+       (self.attitude.roll  > message.roll  + self.rollAccuracy  || self.attitude.roll  < message.roll  - self.rollAccuracy) ||
+       (self.attitude.yaw   > message.yaw   + self.yawAccuracy   || self.attitude.yaw   < message.yaw   - self.yawAccuracy)) {
+
+        // update the attitude
+	self.attitude.pitch = message.pitch;
+	self.attitude.roll = message.roll;
+	self.attitude.yaw = message.yaw;
+
+	// TODO; do we need to know the speed of change?
+	/*
 	pitchspeed: message.pitchspeed,
 	rollspeed: message.rollspeed,
 	yawspeed: message.yawspeed
-    });
+	*/
+
+	// fire the event
+	self.emit('attitude', self.attitude);
+    }
 });
 
 this.mavlinkParser.on('VFR_HUD', function(message) {
@@ -1470,9 +1553,9 @@ this.mavlinkParser.on('VFR_HUD', function(message) {
      * alt         Current altitude (MSL), in meters
      * climb       Current climb rate in meters/second
      */
-    if(self.debug && self.debugLevel == 1) {
+    if(self.debugVFR_HUD && self.debugLevel == 1) {
 	console.log('VFR HUD');
-    } else if (self.debug && self.debugLevel > 1) {
+    } else if (self.debugVFR_HUD && self.debugLevel > 1) {
 	console.log('VFR HUD:' + 
 	    ' air speed: ' + message.airspeed + 
 	    ' ground speed: ' + message.groundspeed + 
@@ -1481,6 +1564,8 @@ this.mavlinkParser.on('VFR_HUD', function(message) {
 	    ' climb: ' + message.climb);
     }
 
+    // Appears to be only reported for fixed wing aircraft
+    /*
     self.vehicleState = _.extend(self.vehicleState, {
 	airspeed: message.airspeed,
 	groundspeed: message.groundspeed,
@@ -1488,6 +1573,7 @@ this.mavlinkParser.on('VFR_HUD', function(message) {
 	throttle: message.throttle,
 	climb: message.climb
     });
+    */
 });
 
 this.mavlinkParser.on('GPS_RAW_INT', function(message) {
@@ -1524,21 +1610,99 @@ this.mavlinkParser.on('GPS_RAW_INT', function(message) {
 	    ' cog: ' + message.cog);
     }
 
-    self.vehicleState = _.extend(self.vehicleState, {
-	fix_type: message.fix_type,
-	satellites_visible: message.satellites_visible,
-	lat: message.lat / 10000000,
-	lon: message.lon / 10000000,
-	alt: message.alt / 1000,
-	eph: message.eph,
-	epv: message.epv,
-	vel: message.vel,
-	cog: message.cog
-    });
+    // need tollerance factor here?
+    // self.emit('positionGPSRawInt', message.lat / 10000000, message.lon / 10000000, message.alt / 1000);
+
+    var lat = message.lat / 10000000; 
+    var lng = message.lon / 10000000;
+
+    var reportPos = false;
+
+    switch(self.positionMode) {
+        case MavlinkProtocol.POSITION_MODE_NONE:
+	    reportPos = true;
+	    break;
+
+        case MavlinkProtocol.POSITION_MODE_DISTANCE:
+	    if(measure(self.position.latitude, self.position.longitude, lat, lng) * 1000 > self.positionDiff) {
+		reportPos = true;
+	    }
+	    break;
+
+        case MavlinkProtocol.POSITION_MODE_TIME:
+            var currentTime = new Date().getTime();
+
+	    if(currentTime - self.positionTimer > self.positionDiff * 1000) {
+		reportPos = true;
+		self.positionTimer = currentTime;
+	    }
+	    break;
+    }
+
+
+    if(reportPos) {
+	self.position.latitude  = message.lat / 10000000;
+	self.position.longitude = message.lon / 10000000;
+	self.position.altitude  = message.alt / 1000;
+
+	self.emit('positionGPSRawInt', self.position);
+    }
 });
 
 /* end init listeners for mavlink */
 
+}
+
+/*
+ * measures the distance between to points in kilometers
+ *
+ * params:
+ *    latitude1   latitude of the first point
+ *    longitude1  longitude of the first point
+ *    latitude2   latitude of the second point
+ *    longitude2  longitude of the second point
+ *    radius      radius to be used, defaults to 6371.
+ *      
+ * note that the following code is derived from code sourced from 
+ * http://www.movable-type.co.uk/scripts/latlong.html
+ * copyright belongs to Chris Veness 2002-2012. Chris has licenced the code under creative commons 
+ * by attribution, refer http://creativecommons.org/licenses/by/3.0/
+ */
+function measure(lat1, lon1, lat2, lon2, radius) {  
+    var R = 6371; // km
+
+    /*
+    var dLat = toRad(lat2-lat1);
+    var dLon = toRad(lon2-lon1);
+    var lat1 = toRad(lat1);
+    var lat2 = toRad(lat2);
+    */
+    var dLat = (lat2-lat1) * (Math.PI / 180);
+    var dLon = (lon2-lon1) * (Math.PI / 180);
+
+    var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * (Math.PI / 170)) * Math.cos(lat2 * (Math.PI / 170)) * Math.sin(dLon/2) * Math.sin(dLon/2);
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+    var d = R * c;
+
+    return d;
+    /*
+    double R = 6371; // km
+
+    double dLat = (lat2-lat1)* (PI / 180);
+    double dLon = (lon2-lon1)* (PI / 180);
+
+    double a = sin(dLat/2) * sin(dLat/2) + 
+               cos(lat1 * (PI / 180)) * cos(lat2 * (PI / 180)) * sin(dLon/2) * sin(dLon/2);
+    double c = 2 * atan2(sqrt(a), sqrt(1-a));
+    double d = R * c;
+    return d;
+    */
+}
+
+/* convert from degrees to radians */
+function toRad(v) {
+    return v * Math.PI / 180;
 }
 
 function getNextSequence() {
