@@ -30,19 +30,12 @@ var mavlinkProtocol = new MavlinkProtocol({
     connectionMethod: MavlinkProtocol.CONNECTION_SERIAL,
 });
 
-mavlinkProtocol.on('stateChanged', function(value, text) {
-    console.log("state: " + text);
+mavlinkProtocol.on('attitude', function(attitude) {
+    console.log("test1: attitude pitch: " + attitude.pitch + " roll: " + attitude.roll + " yaw: "  +  attitude.yaw);
 });
 
-mavlinkProtocol.on('modeChanged', function() {
-    console.log("mode: ");
-    console.log("       autonomous:       " + mavlinkProtocol.autonomousMode);
-    console.log("       test mode:        " + mavlinkProtocol.testMode);
-    console.log("       stablized:        " + mavlinkProtocol.stablizedMode);
-    console.log("       hardware in loop: " + mavlinkProtocol.hardwareInLoop);
-    console.log("       remote control:   " + mavlinkProtocol.remoteControl);
-    console.log("       guided:           " + mavlinkProtocol.guided);
-    console.log("       armed:            " + mavlinkProtocol.armed);
+mavlinkProtocol.on('stateChanged', function(value, text) {
+    console.log("state: " + text);
 });
 
 var waypoints = null;
@@ -114,7 +107,7 @@ mavlinkProtocol.on('attitude', function(attitude) {
     console.log("test1: attitude pitch: " + attitude.pitch + " roll: " + attitude.roll + " yaw: "  +  attitude.yaw);
 });
 
-mavlinkProtocol.on('systemStatus', function(batteryVoltage, batteryCurrent, batteryRemaining, commDropRate, commErrors) {
+mavlinkProtocol.on('systemState', function(batteryVoltage, batteryCurrent, batteryRemaining, commDropRate, commErrors) {
     console.log("test1:" + 
 	" battery voltage: " + batteryVoltage + 
 	" current: " + batteryCurrent + 
