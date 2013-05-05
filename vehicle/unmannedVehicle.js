@@ -82,6 +82,10 @@ UnmannedVehicle.prototype._rcvdPayload = function(data) {
     this.emit('payload', data);
 };
 
+UnmannedVehicle.prototype._rcvdPosition = function(data) {
+    this.emit('position', data);
+};
+
 UnmannedVehicle.prototype._connectionState = function(state) {
     this.connectionState = state;
     this.emit('connectionState', this.connectionState);
