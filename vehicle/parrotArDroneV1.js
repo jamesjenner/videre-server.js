@@ -22,6 +22,7 @@ var arDrone         = require('ar-drone');
 var QuadCopter      = require('./quadCopter.js');
 var UnmannedVehicle = require('./unmannedVehicle.js');
 var TransformParrot = require('./transform/transformParrotArDroneV1.js');
+var State           = require('../videre-common/js/state');
 var Attitude        = require('../videre-common/js/attitude');
 var Telemetry       = require('../videre-common/js/telemetry');
 
@@ -49,7 +50,7 @@ function ParrotARDroneV1(options) {
     this.client = null;
     this.debug = ((options.debug != null) ? options.debug : false);
     this.debugLevel = options.debugLevel || 0;
-    this.lastState = -1;
+    this.state = new State();
 }
 
 util.inherits(ParrotARDroneV1, QuadCopter);
@@ -117,12 +118,14 @@ ParrotARDroneV1.prototype._processData = function(navData) {
 		break;            
 	}
 
-	if(newState != this.lastState) {
-	    console.log(
-		(new Date()) + ' ' + this.name + 
-		' state: ' + newState);
-	    this.lastState = newState;
-	    this._rcvdActiveState(newState);
+	if(this.state.state != this.lastState) {
+	    if(this.debug && this.debugLevel > 2) {
+		console.log(
+		    (new Date()) + ' ' + this.name + 
+		    ' state: ' + newState);
+	    }
+	    this.state.state = newState;
+	    this._stateChanged(this.state);
 	}
 
 	var telemetry = new Telemetry({
