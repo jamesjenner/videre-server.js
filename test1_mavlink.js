@@ -15,24 +15,26 @@ console.log("test1: instantiating mavlinkProtocol");
 
 var mavlinkProtocol = new MavlinkProtocol({
     debug: DEBUG,
-    debugWaypoints: true,
+    debugWaypoints: false,
     debugHeartbeat: false,
     debugMessage: false,
+    debugAttitude: false,
+    debugIMU: false,
+    debugGPS: false,
+    debugVFR_HUD: false,
+    debugGPSRaw: false,
+    debugGPSStatus: false,
+    positionMode: MavlinkProtocol.POSITION_MODE_DISTANCE ,
+    positionDiff: 1, 
     debugLevel: DEBUG_LEVEL,
     connectionMethod: MavlinkProtocol.CONNECTION_SERIAL,
-
 });
 
-console.log("***************************************************************");
-console.log("test1: connecting");
-
 mavlinkProtocol.on('stateChanged', function(value, text) {
-    console.log("***************************************************************");
     console.log("state: " + text);
 });
 
 mavlinkProtocol.on('modeChanged', function() {
-    console.log("***************************************************************");
     console.log("mode: ");
     console.log("       autonomous:       " + mavlinkProtocol.autonomousMode);
     console.log("       test mode:        " + mavlinkProtocol.testMode);
@@ -44,6 +46,10 @@ mavlinkProtocol.on('modeChanged', function() {
 });
 
 var waypoints = null;
+
+mavlinkProtocol.on('positionGPSRawInt', function(position) {
+    console.log("test1: gps position, lat: " + position.latitude + ' lng: ' + position.longitude + ' alt: ' + position.altitude);
+});
 
 mavlinkProtocol.on('systemStatusChanged', function(systemStatus, systemStatusText) {
     console.log("test1: system status changed to " + systemStatusText);
@@ -104,6 +110,26 @@ mavlinkProtocol.on('waypointAchieved', function(waypoint) {
     console.log("test1: waypoint acheived: " + waypoint);
 });
 
+mavlinkProtocol.on('attitude', function(attitude) {
+    console.log("test1: attitude pitch: " + attitude.pitch + " roll: " + attitude.roll + " yaw: "  +  attitude.yaw);
+});
+
+mavlinkProtocol.on('systemStatus', function(batteryVoltage, batteryCurrent, batteryRemaining, commDropRate, commErrors) {
+    console.log("test1:" + 
+	" battery voltage: " + batteryVoltage + 
+	" current: " + batteryCurrent + 
+	" remaining: " + batteryRemaining + 
+	" comms drop rate: " + commDropRate + 
+	" errors: " + commErrors);
+});
+
+mavlinkProtocol.on('statusText', function(severity, text) {
+    console.log("test1:" + 
+	" status: " + severity + 
+	" : " + text); 
+});
+
+console.log("test1: connecting");
 mavlinkProtocol.connect();
 
 setTimeout(function() {
@@ -117,7 +143,6 @@ setTimeout(function() {
 
 setTimeout(function() {
     if(waypoints != null) {
-	console.log("***************************************************************");
 	console.log("test1: requesting set waypoints");
 
 	var i = mavlinkProtocol.requestSetWaypoints.call(mavlinkProtocol, waypoints);
@@ -129,7 +154,6 @@ setTimeout(function() {
 }, 10000);
 
 setTimeout(function() {
-    console.log("***************************************************************");
     console.log("test1: set target waypoint");
 
     if(!mavlinkProtocol.requestSetTargetWaypoint.call(mavlinkProtocol, 3)) {
@@ -138,7 +162,6 @@ setTimeout(function() {
 }, 15000);
 
 setTimeout(function() {
-    console.log("***************************************************************");
     console.log("test1: clearing waypoints");
 
     if(!mavlinkProtocol.requestClearWaypoints.call(mavlinkProtocol)) {
