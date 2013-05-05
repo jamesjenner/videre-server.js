@@ -50,16 +50,36 @@ function UnmannedVehicle(options) {
     this.connectionState = UnmannedVehicle.COMMS_DISCONNECTED;
 }
 
+UnmannedVehicle.prototype._stateChanged = function(data) {
+    this.emit('stateChanged', data);
+};
+
+UnmannedVehicle.prototype._waypointsRetrieved = function(data) {
+    this.emit('waypointsRetrieved', data);
+};
+
+UnmannedVehicle.prototype._waypointsSetSuccessful = function() {
+    this.emit('waypointsSetSuccessful');
+};
+
+UnmannedVehicle.prototype._waypointsSetFailed = function(data) {
+    this.emit('waypointsSetFailed', data);
+};
+
+UnmannedVehicle.prototype._waypointTargeted = function(data) {
+    this.emit('waypointTargeted', data);
+};
+
+UnmannedVehicle.prototype._waypointAchieved = function(data) {
+    this.emit('waypointAchieved', data);
+};
+
 UnmannedVehicle.prototype._rcvdTelemetry = function(data) {
     this.emit('telemetry', data);
 };
 
 UnmannedVehicle.prototype._rcvdPayload = function(data) {
     this.emit('payload', data);
-};
-
-UnmannedVehicle.prototype._rcvdActiveState = function(data) {
-    this.emit('activeState', data);
 };
 
 UnmannedVehicle.prototype._connectionState = function(state) {
