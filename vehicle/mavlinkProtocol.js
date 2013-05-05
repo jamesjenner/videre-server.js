@@ -1492,7 +1492,7 @@ this.mavlinkParser.on('SYS_STATUS', function(message) {
 	self.commDropRate     = message.drop_rate_comm;
 	self.commErrors       = message.errors_comm;
 
-	self.emit('systemStatus', self.batteryVoltage, self.batteryCurrent, self.batteryRemaining, self.commDropRate, self.commErrors);
+	self.emit('systemState', self.batteryVoltage, self.batteryCurrent, self.batteryRemaining, self.commDropRate, self.commErrors);
     }
 });
 
