@@ -16,17 +16,17 @@
  * along with this program. If not, see http://www.gnu.org/licenses/
  */
 
-var util            = require('util');
-var arDrone         = require('ar-drone');
+var util               = require('util');
+var arDrone            = require('ar-drone');
 
-var QuadCopter      = require('./quadCopter.js');
-var UnmannedVehicle = require('./unmannedVehicle.js');
-var TransformParrot = require('./transform/transformParrotArDroneV1.js');
-var State           = require('../videre-common/js/state');
-var Attitude        = require('../videre-common/js/attitude');
-var Telemetry       = require('../videre-common/js/telemetry');
+var QuadCopter         = require('./quadCopter.js');
+var UnmannedVehicle    = require('./unmannedVehicle.js');
+var TransformParrotPx4 = require('./transform/transformParrotPx4.js');
+var State              = require('../videre-common/js/state');
+var Attitude           = require('../videre-common/js/attitude');
+var Telemetry          = require('../videre-common/js/telemetry');
 
-var MavlinkProtocol = require('./mavlinkProtocol.js');
+var MavlinkProtocol    = require('./mavlinkProtocol.js');
 
 
 module.exports = ParrotPx4;
@@ -42,7 +42,7 @@ ParrotPx4.CTRL_TRANS_GOTOFIX = "CTRL_TRANS_GOTOFIX";
 ParrotPx4.CTRL_TRANS_LANDING = "CTRL_TRANS_LANDING";
 ParrotPx4.CTRL_TRANS_LOOPING = "CTRL_TRANS_LOOPING";
 
-ParrotARDroneV1._transform = new TransformParrot();
+ParrotPx4._transform = new TransformParrotPx4();
 
 
 function ParrotPx4(options) {
@@ -63,6 +63,7 @@ function ParrotPx4(options) {
     this.batteryCurrent = 0;
     this.commDropRate = 0;
     this.commErrors = 0;
+    this.attitude = new Attitude();
 
     this.mavlinkDevice = new MavlinkProtocol({
 	debug: this.debug,
@@ -72,212 +73,223 @@ function ParrotPx4(options) {
         serialPort: this.serialPort,
         serialBaud: this.serialBaud,
         networkAddress: this.networkAddress,
-        networkPort this.networkPort,
+        networkPort: this.networkPort,
         positionDiff: 1,
     });
+
+    initialiseMavlinkDevice.call(this);
 }
 
 util.inherits(ParrotPx4, QuadCopter);
 
 ParrotPx4.prototype._processData = function(navData) {
     var telemetry = new Telemetry({
-	state: d.controlState,
-	batteryCharge: d.batteryPercentage,
-	attitude: new Attitude({ pitch: d.rotation.pitch, roll: d.rotation.roll, yaw: d.rotation.yaw }),
-	altitude: d.altitude,
-	velocity: {x: d.xVelocity, y: d.yVelocity, z: d.zVelocity},
-	batteryVoltage: = this.batteryVoltage,
-	batteryCharge: = this.batteryRemaining,
-	batteryCurrent: = this.batteryCurrent,
-	commDropRate: = this.commDropRate,
+	attitude: new Attitude({ pitch: this.attitude.pitch, roll: this.attitude.roll, yaw: this.attitude.yaw }),
+// 	velocity: {x: d.xVelocity, y: d.yVelocity, z: d.zVelocity},
+	batteryVoltage: this.batteryVoltage,
+	batteryCharge: this.batteryRemaining,
+	batteryCurrent: this.batteryCurrent,
+	commDropRate: this.commDropRate,
 	commErrors: this.CommErrors,
 	});
+
+    if(this.position != null && this.position.altitude != null) {
+        telemetry.altitude = this.position.altitude;
+    }
 
     this._rcvdTelemetry(telemetry);
 };
 
-mavlinkProtocol.on('attitude', function(attitude) {
-    console.log("test1: attitude pitch: " + attitude.pitch + " roll: " + attitude.roll + " yaw: "  +  attitude.yaw);
-});
+function initialiseMavlinkDevice() {
+    self = this;
 
-mavlinkProtocol.on('positionGPSRawInt', function(position) {
-    this.position = position;
-    this._rcvdPosition(this.position);
-});
+    this.mavlinkDevice.on('attitude', function(attitude) {
+	self.attitude.pitch = attitude.pitch;
+	self.attitude.roll = attitude.roll;
+	self.attitude.yaw = attitude.yaw;
 
-mavlinkProtocol.on('systemState', function(batteryVoltage, batteryCurrent, batteryRemaining, commDropRate, commErrors) {
-    if(this.debug && this.debugLevel > 2) {
-	console.log(
-	    (new Date()) + ' ' + this.name + 
-	    ' battery voltage: ' + batteryVoltage +
-	    ' battery charger: ' + batteryRemaining +
-	    ' battery current: ' + batteryCurrent + 
-	    ' comm drop rate: ' + commDropRate +
-	    ' comm errors: ' + commErrors);
-    }
+        self._processData.call(self);
+    });
 
-    this.batteryVoltage = batteryVoltage;
-    this.batteryCharge = batteryRemaining;
-    this.batteryCurrent = batteryCurrent;
-    this.commDropRate = commDropRate;
-    this.commErrors = CommErrors;
-});
+    this.mavlinkDevice.on('positionGPSRawInt', function(position) {
+	self.position = position;
+	self._rcvdPosition(self.position);
+    });
 
-mavlinkProtocol.on('statusText', function(severity, text) {
-    console.log("test1:" + 
-	" status: " + severity + 
-	" : " + text); 
-    // TODO: figure out how this should be used, if it is used
-});
+    this.mavlinkDevice.on('systemState', function(batteryVoltage, batteryCurrent, batteryRemaining, commDropRate, commErrors) {
+	if(self.debug && self.debugLevel > 2) {
+	    console.log(
+		(new Date()) + ' ' + self.name + 
+		' battery voltage: ' + batteryVoltage +
+		' battery charger: ' + batteryRemaining +
+		' battery current: ' + batteryCurrent + 
+		' comm drop rate: ' + commDropRate +
+		' comm errors: ' + commErrors);
+	}
 
-mavlinkProtocol.on('positionGPSRawInt', function(position) {
-    if(this.debug && this.debugLevel > 2) {
-	console.log(
-	    (new Date()) + ' ' + this.name + 
-            ' gps position lat: ' + position.latitude + ' lng: ' + position.longitude + ' alt: ' + position.altitude);
-    }
+	self.batteryVoltage = batteryVoltage;
+	self.batteryCharge = batteryRemaining;
+	self.batteryCurrent = batteryCurrent;
+	self.commDropRate = commDropRate;
+	self.commErrors = CommErrors;
+    });
 
-    this.position = position;
-    this._position(this.position);
-});
+    this.mavlinkDevice.on('statusText', function(severity, text) {
+	console.log("parrotPx4:" + 
+	    " status: " + severity + 
+	    " : " + text); 
+	// TODO: figure out how this should be used, if it is used
+    });
 
-mavlinkDevice.on('stateChanged', function(value, text) {
-    if(this.debug && this.debugLevel > 2) {
-	console.log(
-	    (new Date()) + ' ' + this.name + 
-	    ' system status changed to: ' + value + ' : ' + text);
-    }
+    this.mavlinkDevice.on('positionGPSRawInt', function(position) {
+	if(self.debug && self.debugLevel > 2) {
+	    console.log(
+		(new Date()) + ' ' + self.name + 
+		' gps position lat: ' + position.latitude + ' lng: ' + position.longitude + ' alt: ' + position.altitude);
+	}
 
-    this.state.state = value;
-    this._stateChanged(this.state);
-});
+	self.position = position;
+	self._position(self.position);
+    });
 
-mavlinkDevice.on('autonomousModeChanged', function(autonomousMode) {
-    if(this.debug && this.debugLevel > 2) {
-	console.log(
-	    (new Date()) + ' ' + this.name + 
-	    ' autonomous mode: ' + systemStatusText);
-    }
+    this.mavlinkDevice.on('stateChanged', function(value, text) {
+	if(self.debug && self.debugLevel > 2) {
+	    console.log(
+		(new Date()) + ' ' + self.name + 
+		' system status changed to: ' + value + ' : ' + text);
+	}
 
-    this.state.autonomous = autonomousMode;
-    this._stateChanged(this.state);
-});
+	self.state.state = value;
+	self._stateChanged(self.state);
+    });
 
-mavlinkDevice.on('testModeChanged', function(testMode) {
-    if(this.debug && this.debugLevel > 2) {
-	console.log(
-	    (new Date()) + ' ' + this.name + 
-	    ' test mode: ' + systemStatusText);
-    }
+    this.mavlinkDevice.on('autonomousModeChanged', function(autonomousMode) {
+	if(self.debug && self.debugLevel > 2) {
+	    console.log(
+		(new Date()) + ' ' + self.name + 
+		' autonomous mode: ' + systemStatusText);
+	}
 
-    this.state.testMode = testMode;
-    this._stateChanged(this.state);
-});
+	self.state.autonomous = autonomousMode;
+	self._stateChanged(self.state);
+    });
 
-mavlinkDevice.on('stabilizedModeChanged', function(stabilizedMode) {
-    if(this.debug && this.debugLevel > 2) {
-	console.log(
-	    (new Date()) + ' ' + this.name + 
-	    ' stabilized mode: ' + systemStatusText);
-    }
+    this.mavlinkDevice.on('testModeChanged', function(testMode) {
+	if(self.debug && self.debugLevel > 2) {
+	    console.log(
+		(new Date()) + ' ' + self.name + 
+		' test mode: ' + systemStatusText);
+	}
 
-    this.state.stabilized = stablizedMode;
-    this._stateChanged(this.state);
-});
+	self.state.testMode = testMode;
+	self._stateChanged(self.state);
+    });
 
-mavlinkDevice.on('hardwareInLoopModeChanged', function(hardwareInLoop) {
-    if(this.debug && this.debugLevel > 2) {
-	console.log(
-	    (new Date()) + ' ' + this.name + 
-	    ' hardware in loop mode: ' + systemStatusText);
-    }
+    this.mavlinkDevice.on('stabilizedModeChanged', function(stabilizedMode) {
+	if(self.debug && self.debugLevel > 2) {
+	    console.log(
+		(new Date()) + ' ' + self.name + 
+		' stabilized mode: ' + systemStatusText);
+	}
 
-    this.state.hardwareInLoop = hardwareInLoop;
-    this._stateChanged(this.state);
-});
+	self.state.stabilized = stablizedMode;
+	self._stateChanged(self.state);
+    });
 
-mavlinkDevice.on('remoteControlModeChanged', function(remoteControl) {
-    if(this.debug && this.debugLevel > 2) {
-	console.log(
-	    (new Date()) + ' ' + this.name + 
-	    ' remote control mode: ' + systemStatusText);
-    }
+    this.mavlinkDevice.on('hardwareInLoopModeChanged', function(hardwareInLoop) {
+	if(self.debug && self.debugLevel > 2) {
+	    console.log(
+		(new Date()) + ' ' + self.name + 
+		' hardware in loop mode: ' + systemStatusText);
+	}
 
-    this.state.remoteControl = remoteControl;
-    this._stateChanged(this.state);
-});
+	self.state.hardwareInLoop = hardwareInLoop;
+	self._stateChanged(self.state);
+    });
 
-mavlinkDevice.on('guidedModeChanged', function(guided) {
-    if(this.debug && this.debugLevel > 2) {
-	console.log(
-	    (new Date()) + ' ' + this.name + 
-	    ' guided mode: ' + systemStatusText);
-    }
+    this.mavlinkDevice.on('remoteControlModeChanged', function(remoteControl) {
+	if(self.debug && self.debugLevel > 2) {
+	    console.log(
+		(new Date()) + ' ' + self.name + 
+		' remote control mode: ' + systemStatusText);
+	}
 
-    this.state.guided = guided;
-    this._stateChanged(this.state);
-});
+	self.state.remoteControl = remoteControl;
+	self._stateChanged(self.state);
+    });
 
-mavlinkDevice.on('armedModeChanged', function(armed) {
-    if(this.debug && this.debugLevel > 2) {
-	console.log(
-	    (new Date()) + ' ' + this.name + 
-	    ' armed mode: ' + systemStatusText);
-    }
+    this.mavlinkDevice.on('guidedModeChanged', function(guided) {
+	if(self.debug && self.debugLevel > 2) {
+	    console.log(
+		(new Date()) + ' ' + self.name + 
+		' guided mode: ' + systemStatusText);
+	}
 
-    this.state.armed = armed;
-    this._stateChanged(this.state);
-});
+	self.state.guided = guided;
+	self._stateChanged(self.state);
+    });
 
-mavlinkDevice.on('retreivedWaypoints', function(data) {
-    if(this.debug && this.debugLevel > 2) {
-	console.log(
-	    (new Date()) + ' ' + this.name + 
-	    ' waypoints retreived.');
-    }
+    this.mavlinkDevice.on('armedModeChanged', function(armed) {
+	if(self.debug && self.debugLevel > 2) {
+	    console.log(
+		(new Date()) + ' ' + self.name + 
+		' armed mode: ' + systemStatusText);
+	}
 
-    this._waypointsRetreived(data);
-});
+	self.state.armed = armed;
+	self._stateChanged(self.state);
+    });
 
-mavlinkDevice.on('setWaypointsError', function(text) {
-    if(this.debug && this.debugLevel > 2) {
-	console.log(
-	    (new Date()) + ' ' + this.name + 
-	    ' waypoints set failed: ' + text);
-    }
+    this.mavlinkDevice.on('retreivedWaypoints', function(data) {
+	if(self.debug && self.debugLevel > 2) {
+	    console.log(
+		(new Date()) + ' ' + self.name + 
+		' waypoints retreived.');
+	}
 
-    this._waypointsSetFailed(text);
-});
+	self._waypointsRetreived(data);
+    });
 
-mavlinkDevice.on('setWaypointsSuccessful', function() {
-    if(this.debug && this.debugLevel > 2) {
-	console.log(
-	    (new Date()) + ' ' + this.name + 
-	    ' waypoints set successful');
-    }
+    this.mavlinkDevice.on('setWaypointsError', function(text) {
+	if(self.debug && self.debugLevel > 2) {
+	    console.log(
+		(new Date()) + ' ' + self.name + 
+		' waypoints set failed: ' + text);
+	}
 
-    this._waypointsSetSuccessful();
-});
+	self._waypointsSetFailed(text);
+    });
 
-mavlinkDevice.on('targetWaypoint', function(waypoint) {
-    if(this.debug && this.debugLevel > 2) {
-	console.log(
-	    (new Date()) + ' ' + this.name + 
-	    ' waypoint targeted: ' + waypoint);
-    }
+    this.mavlinkDevice.on('setWaypointsSuccessful', function() {
+	if(self.debug && self.debugLevel > 2) {
+	    console.log(
+		(new Date()) + ' ' + self.name + 
+		' waypoints set successful');
+	}
 
-    this._waypointTargeted(waypoint);
-});
+	self._waypointsSetSuccessful();
+    });
 
-mavlinkDevice.on('waypointAchieved', function(waypoint) {
-    if(this.debug && this.debugLevel > 2) {
-	console.log(
-	    (new Date()) + ' ' + this.name + 
-	    ' waypoint acheived: ' + waypoint);
-    }
+    this.mavlinkDevice.on('targetWaypoint', function(waypoint) {
+	if(self.debug && self.debugLevel > 2) {
+	    console.log(
+		(new Date()) + ' ' + self.name + 
+		' waypoint targeted: ' + waypoint);
+	}
 
-    this._waypointAchieved(waypoint);
-});
+	self._waypointTargeted(waypoint);
+    });
+
+    this.mavlinkDevice.on('waypointAchieved', function(waypoint) {
+	if(self.debug && self.debugLevel > 2) {
+	    console.log(
+		(new Date()) + ' ' + self.name + 
+		' waypoint acheived: ' + waypoint);
+	}
+
+	self._waypointAchieved(waypoint);
+    });
+}
 
 QuadCopter.prototype.connect = function() {
     if(this.debug && this.debugLevel > 2) {
@@ -398,9 +410,9 @@ QuadCopter.prototype.reset = function() {
     }
 };
 
-parrotPx4.prototype.testRun = function() {
+ParrotPx4.prototype.testRun = function() {
 };
 
-parrotPx4.prototype.transformTelemetry = function(d) {
-    return parrotPx4._transform.transformTelemetry(d);
+ParrotPx4.prototype.transformTelemetry = function(d) {
+    return ParrotPx4._transform.transformTelemetry(d);
 };
