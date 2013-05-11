@@ -728,15 +728,16 @@ function telemetryTimeout() {
  */
 function sendTelemetry() {
     if(config.debug && config.debugLevel > 2) {
-	console.log((new Date()) + ' videre-server: send telemetry, testing for telemetry to send');
+	console.log((new Date()) + ' videre-server: sendTelemetry, testing for telemetry to send');
     }
 
     // iterate through vehicles, 
     for(var i = 0, l = vehicles.length; i < l; i++) {
 	// check if telemetry has been updated since last send
 	if(vehicles[i].telemetry && vehicles[i].telemetry.dirty) {
+
 	    if(config.debug && config.debugLevel > 3) {
-		console.log((new Date()) + ' videre-server: send telemetry, sending: ' + JSON.stringify(vehicles[i].telemetry));
+		console.log((new Date()) + ' videre-server: sendTelemetry, sending: ' + JSON.stringify(vehicles[i].telemetry));
 	    }
 	    var msg = new Object();
 	    msg.id = vehicles[i].id;
