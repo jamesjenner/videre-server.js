@@ -33,7 +33,7 @@ VehicleRegister.prototype.getList = function() {
     return [
         new DeviceType(VehicleRegister.DEVICE_PARROT_V1, "Parrot v1"),
         new DeviceType(VehicleRegister.DEVICE_PARROT_PX4, "Parrot PX4 (mavlink)"),
-        new DeviceType(VehicleRegister.PX4_ROVER_V1, "PX4 Rover v1"),
+        new DeviceType(VehicleRegister.DEVICE_PX4_ROVER_V1, "PX4 Rover v1"),
         new DeviceType(VehicleRegister.DEVICE_DEMO, "Demonstration"),
     ];
 }
@@ -53,7 +53,7 @@ VehicleRegister.prototype.getDriver = function(deviceName) {
             return require('./parrotPx4.js');
 	    break;
 
-	case VehicleRegister.PX4_ROVER_V1:
+	case VehicleRegister.DEVICE_PX4_ROVER_V1:
             return require('./roverPx4V1.js');
 	    break;
 
