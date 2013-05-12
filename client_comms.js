@@ -165,9 +165,12 @@ ClientComms.prototype.sendNavPathUpdated = function(connection, id) {
     connection.send(Message.constructMessage(Message.NAV_PATH_UPDATED, id));
 }
 
-
 ClientComms.prototype.sendTelemetry = function(telemetry) {
     this._constructAndBroadcastMsg(Message.VEHICLE_TELEMETRY, telemetry, 1);
+}
+
+ClientComms.prototype.sendPosition = function(position) {
+    this._constructAndBroadcastMsg(Message.CURRENT_POSITION, position, 1);
 }
 
 ClientComms.prototype.sendPayload = function(payload) {
