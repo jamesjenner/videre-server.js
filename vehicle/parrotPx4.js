@@ -149,7 +149,7 @@ function initialiseMavlinkDevice() {
 	}
 
 	self.position = position;
-	self._position(self.position);
+	self._rcvdPosition(self.position);
     });
 
     this.mavlinkDevice.on('stateChanged', function(value, text) {
