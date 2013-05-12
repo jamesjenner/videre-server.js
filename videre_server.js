@@ -386,6 +386,15 @@ function getRemoteVehicle(id) {
 }
 
 /*
+ * enclosure for call to process position when a position event occurs
+ */
+function makeOnPositionFunction(remoteVehicle, vehicle) {
+    return function(d) {
+	processPosition(remoteVehicle, vehicle, d);
+    };
+}
+
+/*
  * enclosure for call to process active state when an active state event occurs
  */
 function makeOnActiveStateFunction(remoteVehicle, vehicle) {
@@ -457,6 +466,7 @@ function startVehicleComms(vehicles) {
 	    remoteVehicle.on('activeState', makeOnActiveStateFunction(remoteVehicle, vehicles[i]));
 	    remoteVehicle.on('connectionState', makeOnConnectionStateFunction(remoteVehicle, vehicles[i]));
 	    remoteVehicle.on('payload', makeOnPayloadFunction(remoteVehicle, vehicles[i]));
+	    remoteVehicle.on('position', makeOnPositionFunction(remoteVehicle, vehicles[i]));
 
 	    // TODO: what happens if we lose coms? what performs the auto re-connect?
 	    if(config.debug) {
@@ -747,6 +757,24 @@ function sendTelemetry() {
 	    vehicles[i].telemetry.dirty = false;
 	}
     }
+}
+
+/*
+* process position
+*
+* send the position to the clients
+*/
+function processPosition(remoteVehicle, vehicle, d) {
+    if(config.debug && config.debugLevel > 3) {
+	console.log((new Date()) + ' videre-server: processPosition, sending: ' + JSON.stringify(vehicles[i].telemetry));
+    }
+    vehicle.position = d;
+
+    var msg = new Object();
+    msg.id = vehicle.id;
+    msg.name = vehicle.name;
+    msg.position = vehicle.position;
+    clientComms.sendPosition(msg);
 }
 
 /*
