@@ -538,9 +538,8 @@ function addVehicle(msg) {
     }
     // TODO: add logic to check if the vehicle exists, based on name
 
-    // setup the position, relative to this server
+    // setup the id
     var vehicle = new Vehicle(msg);
-    vehicle.position = vehicles.length;
     vehicle.id = uuid.v4({rng: uuid.nodeRNG});
     vehicles.push(vehicle);
 
@@ -559,16 +558,12 @@ function deleteVehicle(msg) {
     }
 
     // find the vehicle
-    var position = findVehicleById(msg.id);
+    var index = findVehicleById(msg.id);
 
     // remove from the array if found
-    if(position >= 0) {
-        vehicles.splice(position, 1);
+    if(index >= 0) {
+        vehicles.splice(index, 1);
 
-	// redo the positions for each vehicle
-	// TODO: this is not very good, maybe position should be replaced with a uuid
-	resetVehiclePositions();
-        
 	saveVehicles(VEHICLES_FILE);
 
 	clientComms.sendDeleteVehicle(vehicle);
@@ -589,15 +584,16 @@ function updateVehicle(msg) {
     }
 
     // find the vehicle
-    var position = findVehicleById(msg.id);
+    var index = findVehicleById(msg.id);
 
-    if(position >= 0) {
-        vehicles[position] = new Vehicle(msg);
+    if(index >= 0) {
+        vehicles[index] = new Vehicle(msg);
 
 	saveVehicles(VEHICLES_FILE);
 
 	clientComms.sendUpdateVehicle(vehicle);
     } else {
+	// TODO: revert to a create if it doesn't exist?
 	if(config.debug) {
 	    console.log((new Date()) + ' Update vehicle failed, vehicle not found for: ' + msg.name);
 	}
@@ -614,14 +610,14 @@ function updateNavPath(msg, connection) {
     }
 
     // find the vehicle
-    var position = findVehicleById(msg.id);
+    var index = findVehicleById(msg.id);
     
     var navPath = new Path(msg.navPath);
 
-    if(position >= 0) {
+    if(index >= 0) {
 	// update the path and the onMap flag
-	vehicles[position].navigationPath = new Path(msg.navPath);
-	vehicles[position].onMap = msg.onMap;
+	vehicles[index].navigationPath = new Path(msg.navPath);
+	vehicles[index].onMap = msg.onMap;
 
 	saveVehicles(VEHICLES_FILE);
 
@@ -794,57 +790,22 @@ function processPayload(remoteVehicle, d) {
 /** 
  * find VehicleById - finds the vehicle based on it's id
  * 
- * returns -1 if not found, otherwise the position in the vehicles array
+ * returns -1 if not found, otherwise the index in the vehicles array
  */
 function findVehicleById(id) {
-    var position = -1;
+    var index = -1;
 
     // if name isn't set then return
     if(!id) {
-	return position;
+	return index;
     }
 
     for(var i = 0, l = vehicles.length; i < l; i++) {
 	if(vehicles[i].id === id) {
-	    position = i;
+	    index = i;
 	    break;
 	}
     }
 
-    return position;
-}
-
-/** 
- * find Vehicle - finds the vehicle based on it's name
- * 
- * returns -1 if not found, otherwise the position in the vehicles array
- */
-function findVehicle(name) {
-    var position = -1;
-
-    // if name isn't set then return
-    if(!name) {
-	return position;
-    }
-
-    for(var i = 0, l = vehicles.length; i < l; i++) {
-	if(vehicles[i].name === name) {
-	    position = i;
-	    break;
-	}
-    }
-
-    return position;
-}
-
-/** 
- * reset vehicle positions - updates the positions for all vehicles
- * 
- * note: this does not save the vehicles, it just updates the vehicles array
- */
-function resetVehiclePositions() {
-    // TODO: this is not very good, maybe position should be replaced with a uuid
-    for(var i = 0, l = vehicles.length; i < l; i++) {
-	vehicles[i].position = i;
-    }
+    return index;
 }
