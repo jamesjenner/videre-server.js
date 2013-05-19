@@ -37,15 +37,32 @@ UnmannedVehicle.COMMS_RECONNECTING = 4;
 
 UnmannedVehicle._transform = new Transform();
 
+UnmannedVehicle.CONNECTION_TYPE_SERIAL = 0;
+UnmannedVehicle.CONNECTION_TYPE_NETWORK = 1;
+
+UnmannedVehicle.POSITION_REPORTING_DISTANCE = 0;
+UnmannedVehicle.POSITION_REPORTING_TIME = 1;
+
+
+
+
 function UnmannedVehicle(options) {
     EventEmitter.call(this);
     options = options || {};
 
-    this.debug = options.debug || false;
-    // TODO: do we add in a uuid/guid as an id or use a singleton to create an incrementing number?
-    // this.id = options.id || -1;
-    this.name = options.name || "Thunderbird 1";
-    this.id = options.id || "unknown";
+    this.id = ((options.id != null) ? options.id : "unknown");
+    this.name = ((options.name != null) ? options.name : "Thunderbird 1");
+
+    this.debug = ((options.debug != null) ? options.debug : false);
+    this.debugLevel = ((options.debugLevel != null) ? options.debugLevel : 0);
+
+    this.connectionType = ((options.connectionType != null) ? options.connectionType : UnmannedVehicle.CONNECTION_TYPE_SERIAL);
+    this.networkAddress = ((options.networkAddress != null) ? options.networkAddress : "localhost");
+    this.networkPort = ((options.networkPort != null) ? options.networkPort : "9001");
+    this.serialPort = ((options.serialPort != null) ? options.serialPort : "/dev/ttyUSB0");
+    this.serialBaud = ((options.baud != null) ? options.baud : 57600);
+    this.positionReportingMode = ((options.positionReportingMode != null) ? options.positionReportingMode : UnmannedVehicle.POSITION_MODE_DISTANCE);
+    this.positionReportingValue = ((options.positionReportingValue != null) ? options.positionReportingValue : 1);
 
     this.connectionState = UnmannedVehicle.COMMS_DISCONNECTED;
 }
