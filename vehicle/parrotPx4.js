@@ -50,13 +50,6 @@ function ParrotPx4(options) {
 
     options = options || {};
 
-    this.networkAddress = ((options.networkAddress != null) ? options.networkAddress : "localhost");
-    this.networkPort = ((options.networkPort != null) ? options.networkPort : "9001");
-    this.serialPort = ((options.serialPort != null) ? options.serialPort : "/dev/ttyUSB0");
-    this.serialBaud = ((options.baud != null) ? options.baud : 57600);
-
-    this.debug = ((options.debug != null) ? options.debug : false);
-    this.debugLevel = options.debugLevel || 0;
     this.state = new State();
     this.batteryVoltage = 0;
     this.batteryCharge = 0;
@@ -66,18 +59,20 @@ function ParrotPx4(options) {
     this.attitude = new Attitude();
 
     this.mavlinkDevice = new MavlinkProtocol({
+	name: this.name,
 	debug: this.debug,
 	debugLevel: this.debugLevel,
+        debugMessage: (this.debugLevel > 5),
 	connectionMethod: MavlinkProtocol.CONNECTION_SERIAL,
-        positionMode: MavlinkProtocol.POSITION_MODE_DISTANCE,
         serialPort: this.serialPort,
         serialBaud: this.serialBaud,
         networkAddress: this.networkAddress,
         networkPort: this.networkPort,
-        positionDiff: 1,
+        positionMode: this.positionReportingMode,
+        positionDiff: this.positionReportingValue,
     });
 
-    initialiseMavlinkDevice.call(this);
+    this.initialiseMavlinkDevice();
 }
 
 util.inherits(ParrotPx4, QuadCopter);
@@ -97,11 +92,11 @@ ParrotPx4.prototype._processData = function(navData) {
         telemetry.altitude = this.position.altitude;
     }
 
-    this._rcvdTelemetry(telemetry);
+    this._rcvdTelemetry.call(this, telemetry);
 };
 
-function initialiseMavlinkDevice() {
-    self = this;
+ParrotPx4.prototype.initialiseMavlinkDevice = function() {
+    var self = this;
 
     this.mavlinkDevice.on('attitude', function(attitude) {
 	self.attitude.pitch = attitude.pitch;
