@@ -129,52 +129,52 @@ ClientComms.prototype.startClientServer = function() {
 }
 
 ClientComms.prototype.sendVehicles = function(connection, vehicles) {
-    if(this.debug) {
+    if(this.debug && this.debugLevel > 4) {
 	console.log((new Date()) + ' Sending id: ' + Message.VEHICLES + ' body: ' + JSON.stringify(vehicles));
     }
     connection.send(Message.constructMessage(Message.VEHICLES, vehicles));
 }
 
 ClientComms.prototype.sendVehicleDeviceTypes = function(connection, vehicleDeviceTypes) {
-    if(this.debug) {
+    if(this.debug && this.debugLevel > 4) {
 	console.log((new Date()) + ' Sending id: ' + Message.VEHICLE_DEVICE_TYPES + ' body: ' + JSON.stringify(vehicleDeviceTypes));
     }
     connection.send(Message.constructMessage(Message.VEHICLE_DEVICE_TYPES, vehicleDeviceTypes));
 }
 
 ClientComms.prototype.sendAddVehicle = function(vehicle) {
-    this._constructAndBroadcastMsg(Message.ADD_VEHICLE, vehicle, 0);
+    this._constructAndBroadcastMsg(Message.ADD_VEHICLE, vehicle, 4);
 }
 
 ClientComms.prototype.sendDeleteVehicle = function(vehicle) {
-    this._constructAndBroadcastMsg(Message.DELETE_VEHICLE, vehicle, 0);
+    this._constructAndBroadcastMsg(Message.DELETE_VEHICLE, vehicle, 4);
 }
 
 ClientComms.prototype.sendUpdateVehicle = function(vehicle) {
-    this._constructAndBroadcastMsg(Message.UPDATE_VEHICLE, vehicle, 0);
+    this._constructAndBroadcastMsg(Message.UPDATE_VEHICLE, vehicle, 4);
 }
 
 ClientComms.prototype.sendUpdateNavPath = function(msgBody) {
-    this._constructAndBroadcastMsg(Message.UPDATE_NAV_PATH, msgBody, 0);
+    this._constructAndBroadcastMsg(Message.UPDATE_NAV_PATH, msgBody, 4);
 }
 
 ClientComms.prototype.sendNavPathUpdated = function(connection, id) {
-    if(this.debug) {
+    if(this.debug && this.debugLevel > 4) {
 	console.log((new Date()) + ' Sending id: ' + Message.NAV_PATH_UPDATED + ' body: ' + JSON.stringify(id));
     }
     connection.send(Message.constructMessage(Message.NAV_PATH_UPDATED, id));
 }
 
 ClientComms.prototype.sendTelemetry = function(telemetry) {
-    this._constructAndBroadcastMsg(Message.VEHICLE_TELEMETRY, telemetry, 1);
+    this._constructAndBroadcastMsg(Message.VEHICLE_TELEMETRY, telemetry, 4);
 }
 
 ClientComms.prototype.sendPosition = function(position) {
-    this._constructAndBroadcastMsg(Message.CURRENT_POSITION, position, 1);
+    this._constructAndBroadcastMsg(Message.CURRENT_POSITION, position, 4);
 }
 
 ClientComms.prototype.sendPayload = function(payload) {
-    this._constructAndBroadcastMsg(Message.VEHICLE_PAYLOAD, payload, 1);
+    this._constructAndBroadcastMsg(Message.VEHICLE_PAYLOAD, payload, 4);
 }
 
 ClientComms.prototype._broadcastMsg = function(msg) {
@@ -196,39 +196,39 @@ ClientComms.prototype._constructAndBroadcastMsg = function(msgId, body, dbgLvl) 
 }
 
 ClientComms.prototype.sendConnecting = function(vehicle) {
-    this._constructAndBroadcastMsg(Message.VEHICLE_CONNECTING, {id: vehicle.id}, 0);
+    this._constructAndBroadcastMsg(Message.VEHICLE_CONNECTING, {id: vehicle.id}, 4);
 }
 
 ClientComms.prototype.sendConnected = function(vehicle) {
-    this._constructAndBroadcastMsg(Message.VEHICLE_CONNECTED, {id: vehicle.id}, 0);
+    this._constructAndBroadcastMsg(Message.VEHICLE_CONNECTED, {id: vehicle.id}, 4);
 }
 
 ClientComms.prototype.sendDisconnecting = function(vehicle) {
-    this._constructAndBroadcastMsg(Message.VEHICLE_DISCONNECTING, {id: vehicle.id}, 0);
+    this._constructAndBroadcastMsg(Message.VEHICLE_DISCONNECTING, {id: vehicle.id}, 4);
 }
 
 ClientComms.prototype.sendDisconnected = function(vehicle) {
-    this._constructAndBroadcastMsg(Message.VEHICLE_DISCONNECTED, {id: vehicle.id}, 0);
+    this._constructAndBroadcastMsg(Message.VEHICLE_DISCONNECTED, {id: vehicle.id}, 4);
 }
 
 ClientComms.prototype.sendReconnecting = function(vehicle) {
-    this._constructAndBroadcastMsg(Message.VEHICLE_RECONNECTING, {id: vehicle.id}, 0);
+    this._constructAndBroadcastMsg(Message.VEHICLE_RECONNECTING, {id: vehicle.id}, 4);
 }
 
 ClientComms.prototype.sendLaunching = function(vehicle) {
-    this._constructAndBroadcastMsg(Message.VEHICLE_LAUNCHING, {id: vehicle.id}, 0);
+    this._constructAndBroadcastMsg(Message.VEHICLE_LAUNCHING, {id: vehicle.id}, 4);
 }
 
 ClientComms.prototype.sendLaunched = function(vehicle) {
-    this._constructAndBroadcastMsg(Message.VEHICLE_LAUNCHED, {id: vehicle.id}, 0);
+    this._constructAndBroadcastMsg(Message.VEHICLE_LAUNCHED, {id: vehicle.id}, 4);
 }
 
 ClientComms.prototype.sendLanding = function(vehicle) {
-    this._constructAndBroadcastMsg(Message.VEHICLE_LANDING, {id: vehicle.id}, 0);
+    this._constructAndBroadcastMsg(Message.VEHICLE_LANDING, {id: vehicle.id}, 4);
 }
 
 ClientComms.prototype.sendLanded = function(vehicle) {
-    this._constructAndBroadcastMsg(Message.VEHICLE_LANDED, {id: vehicle.id}, 0);
+    this._constructAndBroadcastMsg(Message.VEHICLE_LANDED, {id: vehicle.id}, 4);
 }
 
 fireNewConnection = function(self, connection) {
