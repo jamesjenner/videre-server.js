@@ -416,6 +416,8 @@ function makeOnConnectionStateFunction(remoteVehicle, vehicle) {
  * enclosure for call to process telemetry when a telemetry event occurs
  */
 function makeOnTelemetryFunction(remoteVehicle, vehicle) {
+    // TODO: remove this - JGJ
+    console.log('setting up telemetry processing for ' + vehicle.name);
     return function(d) {
 	processTelemetry(remoteVehicle, vehicle, d);
     };
@@ -433,6 +435,8 @@ function makeOnPayloadFunction(remoteVehicle, vehicle) {
 function startVehicleComms(vehicles) {
     var vehicleComms = new Array();
     var remoteVehicle = null;
+    var driver;
+    var Driver;
 
     for(var i = 0, l = vehicles.length; i < l; i++) {
 	if(config.debug) {
@@ -441,7 +445,7 @@ function startVehicleComms(vehicles) {
 
 	remoteVehicle = null;
 
-	var Driver  = vehicleDriverRegister.getDriver(vehicles[i].deviceType);
+	Driver  = vehicleDriverRegister.getDriver(vehicles[i].deviceType);
 
 	if(!Driver) {
 	    if(config.debug) {
@@ -451,29 +455,41 @@ function startVehicleComms(vehicles) {
 	    continue;
 	} 
 
-	remoteVehicle = new Driver({
+	console.log("creating driver for " + vehicles[i].name);
+
+	driver = new Driver({
 	    name: vehicles[i].name, 
 	    id: vehicles[i].id, 
 	    address: vehicles[i].vehicleAddr,
 	    debug: config.debug,
-	    debugLevel: config.debugLevel
+	    debugLevel: config.debugLevel,
+            connectionType: vehicles[i].connectionType,
+            networkAddress: vehicles[i].networkAddress,
+            networkPort: vehicles[i].networkPort,
+            serialPort: vehicles[i].serialPort,
+            serialBaud: vehicles[i].baudRate,
+            positionReportingMode: vehicles[i].positionReportingMode,
+            positionReportingValue: vehicles[i].positionReportingValue,
 	});
 
-	if (remoteVehicle) {
-            vehicleComms.push(remoteVehicle);
+	if (driver) {
+            vehicleComms.push(driver);
 
-	    remoteVehicle.on('telemetry', makeOnTelemetryFunction(remoteVehicle, vehicles[i]));
-	    remoteVehicle.on('activeState', makeOnActiveStateFunction(remoteVehicle, vehicles[i]));
-	    remoteVehicle.on('connectionState', makeOnConnectionStateFunction(remoteVehicle, vehicles[i]));
-	    remoteVehicle.on('payload', makeOnPayloadFunction(remoteVehicle, vehicles[i]));
-	    remoteVehicle.on('position', makeOnPositionFunction(remoteVehicle, vehicles[i]));
+	    console.log("adding listeners on driver for " + driver.name);
+
+	    driver.on('telemetry', makeOnTelemetryFunction(driver, vehicles[i]));
+	    driver.on('activeState', makeOnActiveStateFunction(driver, vehicles[i]));
+	    driver.on('connectionState', makeOnConnectionStateFunction(driver, vehicles[i]));
+	    driver.on('payload', makeOnPayloadFunction(driver, vehicles[i]));
+	    driver.on('position', makeOnPositionFunction(driver, vehicles[i]));
 
 	    // TODO: what happens if we lose coms? what performs the auto re-connect?
 	    if(config.debug) {
 		console.log((new Date()) + " videre-server.js: startVehicleComms: connecting " + vehicles[i].name);
 	    }
 
-	    remoteVehicle.connect();
+	    console.log("connecting to driver for " + vehicles[i].name);
+	    driver.connect();
 	} else {
 	    if(config.debug) {
 		console.log((new Date()) + ' videre-server.js: vehicle device ' + vehicles[i].deviceType + ' not supported for vehicle ' + vehicles[i].name);
@@ -733,7 +749,7 @@ function telemetryTimeout() {
  * note: some devices may pass payload and telemetry together
  */
 function sendTelemetry() {
-    if(config.debug && config.debugLevel > 2) {
+    if(config.debug && config.debugLevel > 5) {
 	console.log((new Date()) + ' videre-server: sendTelemetry, testing for telemetry to send');
     }
 
@@ -742,8 +758,12 @@ function sendTelemetry() {
 	// check if telemetry has been updated since last send
 	if(vehicles[i].telemetry && vehicles[i].telemetry.dirty) {
 
-	    if(config.debug && config.debugLevel > 3) {
-		console.log((new Date()) + ' videre-server: sendTelemetry, sending: ' + JSON.stringify(vehicles[i].telemetry));
+	    if(config.debug) {
+		if(config.debugLevel > 3) {
+		    console.log((new Date()) + ' videre-server: sendTelemetry, sending: ' + JSON.stringify(vehicles[i].telemetry));
+		} else {
+		    console.log((new Date()) + ' videre-server: sendTelemetry, sending for ' + vehicles[i].name);
+		}
 	    }
 	    var msg = new Object();
 	    msg.id = vehicles[i].id;
@@ -761,8 +781,12 @@ function sendTelemetry() {
 * send the position to the clients
 */
 function processPosition(remoteVehicle, vehicle, d) {
-    if(config.debug && config.debugLevel > 3) {
-	console.log((new Date()) + ' videre-server: processPosition, sending: ' + JSON.stringify(vehicles[i].telemetry));
+    if(config.debug) {
+	if(config.debugLevel > 3) {
+	    console.log((new Date()) + ' videre-server: processPosition, sending: ' + JSON.stringify(vehicles[i].telemetry));
+	} else {
+	    console.log((new Date()) + ' videre-server: sending position for ' + vehicles[i].name);
+	}
     }
     vehicle.position = d;
 
