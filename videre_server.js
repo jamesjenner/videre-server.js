@@ -455,8 +455,6 @@ function startVehicleComms(vehicles) {
 	    continue;
 	} 
 
-	console.log("creating driver for " + vehicles[i].name);
-
 	driver = new Driver({
 	    name: vehicles[i].name, 
 	    id: vehicles[i].id, 
@@ -475,8 +473,6 @@ function startVehicleComms(vehicles) {
 	if (driver) {
             vehicleComms.push(driver);
 
-	    console.log("adding listeners on driver for " + driver.name);
-
 	    driver.on('telemetry', makeOnTelemetryFunction(driver, vehicles[i]));
 	    driver.on('activeState', makeOnActiveStateFunction(driver, vehicles[i]));
 	    driver.on('connectionState', makeOnConnectionStateFunction(driver, vehicles[i]));
@@ -488,7 +484,6 @@ function startVehicleComms(vehicles) {
 		console.log((new Date()) + " videre-server.js: startVehicleComms: connecting " + vehicles[i].name);
 	    }
 
-	    console.log("connecting to driver for " + vehicles[i].name);
 	    driver.connect();
 	} else {
 	    if(config.debug) {
