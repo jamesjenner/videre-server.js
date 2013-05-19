@@ -21,7 +21,8 @@
 
 var SerialPort = require("serialport").SerialPort
 var net        = require('net');
-var events     = require('events');
+// var events     = require('events');
+var EventEmitter = require('events').EventEmitter;
 var util       = require('util');
 
 var mavlink    = require('../implementations/mavlink_common_v1.0');
@@ -99,6 +100,9 @@ MavlinkProtocol._MISSION_ITEM_TIMEOUT_ID = 3;
 MavlinkProtocol._MISSION_SET_TARGET_ID = 4;
 MavlinkProtocol._MISSION_CLEAR_ALL = 5;
 
+// setup MavlinkProtocol as an emitter
+util.inherits(MavlinkProtocol, EventEmitter);
+
 /**
  * define a new mavlink protocol 
  *
@@ -112,9 +116,11 @@ MavlinkProtocol._MISSION_CLEAR_ALL = 5;
  *   serialBaud       the baud rate when using serial connection, default is MavlinkProtocol.DEFAULT_BAUD
  */
 function MavlinkProtocol(options) {
-    console.log("MavlinkProtocol(options)");
     options = options || {};
 
+    EventEmitter.call(this);
+
+    this.name = ((options.name != null) ? options.name : 'unnamed');
     this.debug = ((options.debug != null) ? options.debug : false);
     this.debugMessage = ((options.debugMessage != null) ? options.debugMessage : false);
     this.debugAttitude = ((options.debugAttitude != null) ? options.debugAttitude : false);
@@ -178,9 +184,6 @@ function MavlinkProtocol(options) {
     this.guided          = false;
     this.armed           = false;
 }
-
-// setup MavlinkProtocol as an emitter
-MavlinkProtocol.prototype = new events.EventEmitter;
 
 /**
  * connect to the remote mavlink based device
@@ -622,8 +625,8 @@ MavlinkProtocol.prototype._setupMavlinkListeners = function() {
 
 
 this.mavlinkParser.on('message', function(message) {
-    if (self.debugMessage) {
-	console.log(message.name + ' <- received message');
+    if(self.debugMessage) {
+	console.log(message.name + ' <- received message for ' + self.name);
     }
 });
 
