@@ -723,7 +723,7 @@ function updateVehicle(msg) {
 
 	saveVehicles(VEHICLES_FILE);
 
-	clientComms.sendUpdateVehicle(vehicle);
+	clientComms.sendUpdateVehicle(vehicles[index]);
     } else {
 	// TODO: revert to a create if it doesn't exist?
 	if(config.debug) {
