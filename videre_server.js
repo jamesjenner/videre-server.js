@@ -16,23 +16,30 @@
  * along with this program. If not, see http://www.gnu.org/licenses/
  */
 
-var ClientComms       = require('./client_comms.js');
-var fs                = require('fs');
-var path              = require('path');
-var opt               = require('opt').create();
-var uuid              = require('node-uuid');
+var fs                    = require('fs');
+var path                  = require('path');
+var opt                   = require('opt').create();
+var uuid                  = require('node-uuid');
 
-var Vehicle           = require('./videre-common/js/vehicle.js');
-var Message           = require('./videre-common/js/message.js');
+var Vehicle               = require('./videre-common/js/vehicle.js');
+var Message               = require('./videre-common/js/message.js');
+var Drone                 = require('./videre-common/js/drone.js');
+var DroneCapabilities     = require('./videre-common/js/droneCapabilities.js');
+var Path                  = require('./videre-common/js/path.js');
+var Comm                  = require('./videre-common/js/comm.js');
 
-var Drone             = require('./videre-common/js/drone.js');
-var DroneCapabilities = require('./videre-common/js/droneCapabilities.js');
-var Path              = require('./videre-common/js/path.js');
-var VehicleDriverRegister   = require('./vehicle/register.js');
-
-var UnmannedVehicle   = require('./vehicle/unmannedVehicle.js');
+var ClientComms           = require('./client_comms.js');
+var VehicleComms          = require('./vehicleComms.js');
+var VehicleDriverRegister = require('./vehicle/register.js');
+var UnmannedVehicle       = require('./vehicle/unmannedVehicle.js');
 
 var VEHICLES_FILE = 'vehicles.json';
+var VEHICLE_COMMS_FILE = 'vehicle_comms.json';
+
+// load the comms from the file
+var vehicleComms = new VehicleComms({filename: VEHICLE_COMMS_FILE, debug: true});
+vehicleComms.load();
+
 // load the vehicle configs from the file
 var vehicles = loadVehicles(VEHICLES_FILE);
 
@@ -56,6 +63,8 @@ var config = {
     sslCert: 'keys/certificate.pem'
 };
 
+var commsDefinition = new Comm();
+
 var search_paths = [
     "videre-server.conf",
     path.join(process.env.HOME, ".videre-server-rc"),
@@ -64,13 +73,16 @@ var search_paths = [
     "/etc/videre-server.conf" 
 ];
 
+var addingComms = false;
+var deletingComms = false;
+
 opt.configSync(config, search_paths);
 
 opt.optionHelp("USAGE node " + path.basename(process.argv[1]),
     "SYNOPSIS: Videre server provides connecitvity between videre clients and drones.\n\n\t\t node " 
 	 + path.basename(process.argv[1]) + " --help",
     "OPTIONS:",
-    "Copyright (c) 2012 James G Jenner, all rights reserved\n" + 
+    "Copyright (c) 2012-2013 James G Jenner, all rights reserved\n" + 
     " Released under GNU General Public License, version 3.\n" +
     " See: http://www.gnu.org/licenses/\n");
 
@@ -117,6 +129,64 @@ opt.option(["-t", "--telemetry-time"], function (param) {
     }
 }, "Set the timer for sending telemetry to clients, in milliseconds");
 
+// vehicle comms configuration options
+opt.option(["-ca", "--comms-add"], function (param) {
+    addingComms = true;
+}, "Add a comms definition");
+
+opt.option(["-cd", "--comms-add"], function (param) {
+    deletingComms = true;
+}, "Delete a comms definition");
+
+opt.option(["-cad", "--comms-auto-discover"], function (param) {
+    commsDefinition.autoDiscover = true;
+}, "comms auto discovery");
+opt.option(["-cm", "--comms-multi-vehicle"], function (param) {
+    commsDefinition.multiVehicle = true;
+}, "comms multi-vehicle capable");
+opt.option(["-cc", "--comms-connection-type"], function (param) {
+    commsDefinition.connectionType = ((param != null) ? param.trim() : null);
+    
+    if(commsDefinition.connectionType != Comm.TYPE_SERIAL && commsDefinition.connectionType != Comm.TYPE_TCP) {
+	opt.usage("Connection type must be either Serial or Tcp", 1);
+    } else {
+	opt.consume(param);
+    }
+}, "comms connection type (Serial | Tcp)");
+opt.option(["-cna", "--comms-network-address"], function (param) {
+    commsDefinition.networkAddress = ((param != null) ? param.trim() : null);
+    if(commsDefinition.networkAddress === null) {
+	opt.usage("Network address must be specified when the network address option is used", 1);
+    } else {
+	opt.consume(param);
+    }
+}, "comms network address");
+opt.option(["-cnp", "--comms-network-port"], function (param) {
+    commsDefinition.networkPort = ((param != null) ? param.trim() : null);
+    if(commsDefinition.networkPort === null) {
+	opt.usage("Network port must be specified when the network port option is used", 1);
+    } else {
+	opt.consume(param);
+    }
+}, "comms network port");
+opt.option(["-csp", "--comms-serial-port"], function (param) {
+    commsDefinition.serialPort = ((param != null) ? param.trim() : null);
+    if(commsDefinition.serialPort === null) {
+	opt.usage("Serial port must be specified when the network port option is used", 1);
+    } else {
+	opt.consume(param);
+    }
+}, "comms serial port");
+opt.option(["-csb", "--comms-serial-baud"], function (param) {
+    if (Number(param).toFixed(0) > 0) {
+	commsDefinition.baudRate = Number(param).toFixed(0);
+	opt.consume(param);
+    } else {
+	opt.usage("Baud rate must be a number greater then 0.", 1);
+    }
+}, "comms serial baud rate");
+
+// server comms settings
 opt.option(["-p", "--port"], function (param) {
     if (Number(param).toFixed(0) > 0) {
 	config.port = Number(param).toFixed(0);
@@ -180,6 +250,57 @@ opt.option(["-h", "--help"], function () {
 }, "This help document.");
 
 opt.optionWith(process.argv);
+
+// load existing definitions
+
+// check if it was requested to add comms
+if(addingComms) {
+    var commDefTxt = "";
+    if(commsDefinition.connectionType === Comm.TYPE_SERIAL) {
+	commDefTxt = "port: " + commsDefinition.serialPort;
+    } else {
+	commDefTxt = commsDefinition.networkAddress + ":" + commsDefinition.networkPort;
+    }
+
+    console.error("Adding new comm definition for " + commDefTxt);
+
+    // check if it exists
+    if(vehicleComms.exists(commsDefinition)) {
+	console.log("ERROR: comm definition exists, cannot add the requested comm definition");
+    } else {
+	// add the comms definition
+        commsDefinition.id = uuid.v4({rng: uuid.nodeRNG});
+	vehicleComms.add(commsDefinition);
+	vehicleComms.save();
+	console.log("Comm definition added, now exiting");
+    }
+
+    process.exit(1);
+} else if(deletingComms) {
+    var commDefTxt = "";
+    if(commsDefinition.connectionType === Comm.TYPE_SERIAL) {
+	commDefTxt = "port: " + commsDefinition.serialPort;
+    } else {
+	commDefTxt = commsDefinition.networkAddress + ":" + commsDefinition.networkPort;
+    }
+
+    console.error("Deleting comm definition for " + commDefTxt);
+
+    // check if it exists
+    if(vehicleComms.exists(commsDefinition)) {
+	// delete the comms definition
+	if(vehicleComms.remove(commsDefinition)) {
+	    vehicleComms.save();
+	    console.log("Comm definition removed, now exiting");
+	} else {
+	    console.log("ERROR: comm definition doesn't exist, cannot delete the requested comm definition");
+	}
+    } else {
+	console.log("ERROR: comm definition doesn't exist, cannot delete the requested comm definition");
+    }
+
+    process.exit(1);
+}
 
 // setup the client communications
 clientComms = new ClientComms({
