@@ -772,6 +772,9 @@ function newConnection(connection) {
 
     // on a new connection send the valid devices to the client
     clientComms.sendVehicleDeviceTypes(connection, vehicleDriverRegister.getList());
+
+    // on a new connection send the comms to the client
+    clientComms.sendVehicleComms(connection, vehicleComms.getList());
 }
 
 /*
