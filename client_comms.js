@@ -142,6 +142,13 @@ ClientComms.prototype.sendVehicleDeviceTypes = function(connection, vehicleDevic
     connection.send(Message.constructMessage(Message.VEHICLE_DEVICE_TYPES, vehicleDeviceTypes));
 }
 
+ClientComms.prototype.sendVehicleComms = function(connection, vehicleComms) {
+    if(this.debug && this.debugLevel > 4) {
+	console.log((new Date()) + ' Sending id: ' + Message.VEHICLE_COMMS + ' body: ' + JSON.stringify(vehicleComms));
+    }
+    connection.send(Message.constructMessage(Message.VEHICLE_COMMS, vehicleComms));
+}
+
 ClientComms.prototype.sendAddVehicle = function(vehicle) {
     this._constructAndBroadcastMsg(Message.ADD_VEHICLE, vehicle, 4);
 }
