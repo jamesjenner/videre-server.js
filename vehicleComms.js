@@ -40,6 +40,10 @@ VehicleComms.prototype.getById = function(id) {
     }
 }
 
+VehicleComms.prototype.getList = function() {
+    return this.list;
+}
+
 VehicleComms.prototype.exists = function(comm) {
     if(comm === null) {
 	return false;
