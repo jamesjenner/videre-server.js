@@ -113,6 +113,16 @@ VehicleComms.prototype.save = function() {
     fs.writeFileSync(this.filename, JSON.stringify(this.list, null, '\t'));
 }
 
+VehicleComms.prototype.toText = function() {
+    var txt = '';
+
+    for(var i = 0, l = this.list.length; i < l; i++) {
+	txt += this.list[i].toText() + "\n";
+    }
+
+    return txt;
+}
+
 /** 
  *  find object by id - finds an object based on it's id
  *
