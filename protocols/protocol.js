@@ -63,13 +63,16 @@ function Protocol(options) {
 
     EventEmitter.call(this);
 
-    this.name = ((options.name != null) ? options.name : 'unnamed');
     this.debug = ((options.debug != null) ? options.debug : false);
     this.debugLevel = ((options.debugLevel != null) ? options.debugLevel : 0);
 
-    this.pitchAccuracy = ((options.pitchAccuracy != null) ? options.pitchAccuracy : 0.001);
-    this.rollAccuracy = ((options.rollAccuracy != null) ? options.rollAccuracy : 0.001);
-    this.yawAccuracy = ((options.yawAccuracy != null) ? options.yawAccuracy : 0.001);
+    /*
+    this.autoDiscover = ((options.autoDiscover != null) ? options.autoDiscover : false);
+    this.multiVehicle = ((options.multiVehicle != null) ? options.multiVehicle : false);
+    */
+
+    this.getDeviceIdFunction = ((options.getDeviceIdFunction != null) ? options.getDeviceIdFunction : function() {});
+    this.getDeviceOptionsFunction = ((options.getDeviceOptionsFunction != null) ? options.getDeviceOptionsFunction : function() {});
 
     this.connectionMethod = ((options.connectionMethod != null) ? options.connectionMethod : Protocol.CONNECTION_SERIAL);
 
@@ -79,30 +82,8 @@ function Protocol(options) {
     this.serialPort = ((options.serialPort != null) ? options.serialPort : Protocol.DEFAULT_COMPORT);
     this.serialBaud = ((options.baud != null) ? options.baud : Protocol.DEFAULT_BAUD);
 
-    this.positionMode = ((options.positionMode != null) ? options.positionMode : Protocol.POSITION_MODE_NONE);
-    this.positionDiff = ((options.Diff != null) ? options.Diff : 1);
-
-    // a negative id means that it is currently not known, it is set by the heartbeat message
-    this.timeoutIds = [null, null];
-
-    // TODO: the following are possibly not required here, need to think about this
-    this.telemetry = new Telemetry();
-    this.attitude = new Attitude();
-    this.position = new Position();
-    this.positionTimer = new Date().getTime();
-    this.batteryVoltage   = 0;
-    this.batteryCurrent   = 0;
-    this.batteryRemaining = 0;
-    this.commDropRate     = 0;
-    this.commErrors       = 0;
-
-    this.autonomousMode  = false;
-    this.testMode        = false;
-    this.stabilizedMode  = false;
-    this.hardwareInLoop  = false;
-    this.remoteControl   = false;
-    this.guided          = false;
-    this.armed           = false;
+    // define the devices
+    this.devices = [null, null];
 }
 
 /**
@@ -242,7 +223,7 @@ Protocol.prototype.requestClearWaypoints = function() { }
 Protocol.prototype._writeWithTimeout = function(options) {
     var self = this;
 
-    self.timeoutIds[options.timeoutId] = setTimeout(function() {
+    self.devices[options.sysId].timeoutIds[options.timeoutId] = setTimeout(function() {
 	options.attempts++;
 
 	if(options.attempts > 3) {
@@ -265,15 +246,22 @@ Protocol.prototype._writeWithTimeout = function(options) {
     self._writeMessage(options.message);
 }
 
-Protocol.prototype._reportAttitude = function(pitch, roll, yaw) {
-    if((this.attitude.pitch > pitch + this.pitchAccuracy || this.attitude.pitch < pitch - this.pitchAccuracy) ||
-       (this.attitude.roll  > roll  + this.rollAccuracy  || this.attitude.roll  < roll  - this.rollAccuracy) ||
-       (this.attitude.yaw   > yaw   + this.yawAccuracy   || this.attitude.yaw   < yaw   - this.yawAccuracy)) {
+Protocol.prototype._reportAttitude = function(id, pitch, roll, yaw) {
+    // don't report if the device is undefined
+    if(this.devices[id] === undefined) {
+	return;
+    }
+
+    var attitude = this.devices[id].attitude;
+
+    if((attitude.pitch > pitch + this.devices[id].pitchAccuracy || attitude.pitch < pitch - this.devices[id].pitchAccuracy) ||
+       (attitude.roll  > roll  + this.devices[id].rollAccuracy  || attitude.roll  < roll  - this.devices[id].rollAccuracy) ||
+       (attitude.yaw   > yaw   + this.devices[id].yawAccuracy   || attitude.yaw   < yaw   - this.devices[id].yawAccuracy)) {
 
         // update the attitude
-	this.attitude.pitch = pitch;
-	this.attitude.roll = roll;
-	this.attitude.yaw = yaw;
+	this.devices[id].attitude.pitch = pitch;
+	this.devices[id].attitude.roll = roll;
+	this.devices[id].attitude.yaw = yaw;
 
 	// TODO; do we need to know the speed of change?
 	/*
@@ -283,20 +271,29 @@ Protocol.prototype._reportAttitude = function(pitch, roll, yaw) {
 	*/
 
 	// fire the event
-	this.emit('attitude', this.attitude);
+	this.emit('attitude', id, this.devices[id].attitude);
     }
 }
 
-Protocol.prototype._reportPosition = function(lat, lng, alt) {
+Protocol.prototype._reportPosition = function(id, lat, lng, alt) {
     var reportPos = false;
 
-    switch(this.positionMode) {
+    // don't report if the device is undefined
+    if(this.devices[id] === undefined) {
+	return;
+    }
+
+    var position = this.devices[id].position;
+
+    switch(this.devices[id].positionMode) {
         case Protocol.POSITION_MODE_NONE:
 	    reportPos = true;
 	    break;
 
         case Protocol.POSITION_MODE_DISTANCE:
-	    if(this.measurePoints(this.position.latitude, this.position.longitude, lat, lng) * 1000 > this.positionDiff) {
+	    var diff = this.measurePoints(position.latitude, position.longitude, lat, lng) * 1000;
+	    
+	    if(this.measurePoints(position.latitude, position.longitude, lat, lng) * 1000 > this.devices[id].positionDiff) {
 		reportPos = true;
 	    }
 	    break;
@@ -304,19 +301,19 @@ Protocol.prototype._reportPosition = function(lat, lng, alt) {
         case Protocol.POSITION_MODE_TIME:
             var currentTime = new Date().getTime();
 
-	    if(currentTime - this.positionTimer > this.positionDiff * 1000) {
+	    if(currentTime - this.devices[id].positionTimer > this.devices[id].positionDiff * 1000) {
 		reportPos = true;
-		this.positionTimer = currentTime;
+		this.devices[id].positionTimer = currentTime;
 	    }
 	    break;
     }
 
     if(reportPos) {
-	this.position.latitude  = lat;
-	this.position.longitude = lng;
-	this.position.altitude  = alt;
+	this.devices[id].position.latitude  = lat;
+	this.devices[id].position.longitude = lng;
+	this.devices[id].position.altitude  = alt;
 
-	this.emit('positionGPSRawInt', this.position);
+	this.emit('positionGPSRawInt', id, this.devices[id].position);
     }
 }
 

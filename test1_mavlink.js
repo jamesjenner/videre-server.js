@@ -11,13 +11,15 @@ var DEBUG = true;
 var DEBUG_LEVEL = 4;
 
 var MavlinkProtocol = require('./protocols/mavlinkProtocol.js');
-var Protocol = require('./protocols/protocol.js');
+var Protocol        = require('./protocols/protocol.js');
+var uuid            = require('node-uuid');
 
 console.log("test1: instantiating mavlinkProtocol");
 
 var mavlinkProtocol1 = new MavlinkProtocol({
-    name: 'Minion 1',
     debug: DEBUG,
+    getDeviceIdFunction: getId,
+    getDeviceOptionsFunction: getOptions,
     debugWaypoints: false,
     debugHeartbeat: false,
     debugMessage: false,
@@ -39,9 +41,14 @@ var mavlinkProtocol1 = new MavlinkProtocol({
 });
 
 // setListeners(mavlinkProtocol1);
-mavlinkProtocol1.on('attitude', function(attitude) {
-    console.log("test1: " + mavlinkProtocol1.name + " attitude pitch: " + attitude.pitch + " roll: " + attitude.roll + " yaw: "  +  attitude.yaw);
+mavlinkProtocol1.on('attitude', function(id, attitude) {
+    console.log("test1: " + id + " attitude pitch: " + attitude.pitch + " roll: " + attitude.roll + " yaw: "  +  attitude.yaw);
 });
+
+mavlinkProtocol1.on('positionGPSRawInt', function(id, position) {
+    console.log("test1: " + id + " lat "  + position.latitude + " lng " + position.longitude + " alt " + position.altitude);
+});
+
 mavlinkProtocol1.connect();
 
 var mavlinkProtocol2 = new MavlinkProtocol({
@@ -75,6 +82,28 @@ function makeListener() {
     }
 }
 
+var vehicles = [null, null];
+
+function getId(id) {
+    // lookup to see if id exists
+    if(vehicles[id] === null) {
+	// doesn't exist so create it
+        vehicles[id] = uuid.v4({rng: uuid.nodeRNG});
+    }
+
+    // exists so return it
+    return vehicles[id];
+}
+
+function getOptions(id) {
+    return {
+	pitchAccuracy: 0.001,
+	rollAccuracy: 0.001,
+	yawAccuracy: 0.03,
+	positionMode: Protocol.POSITION_MODE_POSITION,
+	positionDiff: 1,
+    };
+}
 function setListeners(mavlinkProtocol) {
     /*
     mavlinkProtocol.on('attitude', function(attitude) {
