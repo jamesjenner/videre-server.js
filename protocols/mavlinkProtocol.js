@@ -19,14 +19,14 @@
  */
 
 
-var SerialPort = require("serialport").SerialPort
-var net        = require('net');
 // var events     = require('events');
 var EventEmitter = require('events').EventEmitter;
 var util       = require('util');
 
+
 var mavlink    = require('../implementations/mavlink_common_v1.0');
 
+var Protocol   = require('./protocol.js');
 var MavlinkCnv = require('./mavlinkCnv.js');
 
 // TODO: should be able to remove these, telemetry is refered to in the code but it's not doing anything afaict
@@ -35,26 +35,7 @@ var Point      = require('../videre-common/js/point');
 var Position   = require('../videre-common/js/position');
 var Telemetry  = require('../videre-common/js/telemetry');
 
-/*
-connection = net.createConnection(5760, '127.0.0.1');
-connection.on('data', function(data) {
-            mavlink.parseBuffer(data);
-});
-*/
-
 module.exports = MavlinkProtocol;
-
-MavlinkProtocol.DEFAULT_COMPORT = "/dev/ttyUSB0";
-MavlinkProtocol.DEFAULT_BAUD = 57600;
-MavlinkProtocol.LOCAL_HOST = "127.0.0.1";
-MavlinkProtocol.DEFAULT_PORT = "5760";
-
-MavlinkProtocol.CONNECTION_SERIAL = "serial";
-MavlinkProtocol.CONNECTION_NETWORK = "network";
-
-MavlinkProtocol.POSITION_MODE_NONE = 0;
-MavlinkProtocol.POSITION_MODE_DISTANCE = 1;
-MavlinkProtocol.POSITION_MODE_TIME = 2;
 
     /*
      * Base Mode
@@ -100,28 +81,19 @@ MavlinkProtocol._MISSION_ITEM_TIMEOUT_ID = 3;
 MavlinkProtocol._MISSION_SET_TARGET_ID = 4;
 MavlinkProtocol._MISSION_CLEAR_ALL = 5;
 
-// setup MavlinkProtocol as an emitter
-util.inherits(MavlinkProtocol, EventEmitter);
+// setup MavlinkProtocol as a protocol
+util.inherits(MavlinkProtocol, Protocol);
 
 /**
  * define a new mavlink protocol 
  *
- * options            named array of options for the mavlink protocol instance, values available are as follows:
- *   debug            true debugging enabled, otherwise debugging is disabled, false is default
- *   debugLevel       the level of debuging that will be performed, higher the value means more details
- *   connectionMethod MavlinkProtocol.CONNECTION_SERIAL or MavlinkProtocol.CONNECTION_NETWORK, serial is default
- *   networkAddress   the network address if using network connection, default is local host.
- *   networkPort      the port used when using network connection, default is MavlinkProtocol.DEFAULT_PORT
- *   serialPort       the serial port to connect when using serial connection, default is MavlinkProtocol.DEFUALT_COMPORT
- *   serialBaud       the baud rate when using serial connection, default is MavlinkProtocol.DEFAULT_BAUD
+ * extends protocol
  */
 function MavlinkProtocol(options) {
+    MavlinkProtocol.super_.call(this, options);  // call the super constructr
+
     options = options || {};
 
-    EventEmitter.call(this);
-
-    this.name = ((options.name != null) ? options.name : 'unnamed');
-    this.debug = ((options.debug != null) ? options.debug : false);
     this.debugMessage = ((options.debugMessage != null) ? options.debugMessage : false);
     this.debugAttitude = ((options.debugAttitude != null) ? options.debugAttitude : false);
     this.debugSysStatus = ((options.debugSysStatus != null) ? options.debugSysStatus : false);
@@ -131,27 +103,16 @@ function MavlinkProtocol(options) {
     this.debugGPS = ((options.debugGPS != null) ? options.debugGPS : false);
     this.debugGPSRaw = ((options.debugGPSRaw != null) ? options.debugGPSRaw : false);
     this.debugGPSStatus = ((options.debugGPSStatus != null) ? options.debugGPSStatus : false);
-    this.debugLevel = ((options.debugLevel != null) ? options.debugLevel : 0);
 
     // the default for attitude accuracy is 0.05 radians, approx. 2.86 of a degree, 
     // the default for attitude accuracy is 0.02 radians, approx. 1.15 of a degree, 
     // the default for attitude accuracy is 0.002 radians, approx. 0.11 of a degree, 
     // the default for attitude accuracy is 0.003 radians, approx. 0.17 of a degree, 
     // note that attiude is represented in radians of 2pi, but split into -pi and +pi to make up the 2pi
-    this.pitchAccuracy = ((options.pitchAccuracy != null) ? options.pitchAccuracy : 0.003);
-    this.rollAccuracy = ((options.rollAccuracy != null) ? options.rollAccuracy : 0.003);
-    this.yawAccuracy = ((options.yawAccuracy != null) ? options.yawAccuracy : 0.05);
+    // this.pitchAccuracy = ((options.pitchAccuracy != null) ? options.pitchAccuracy : 0.003);
+    // this.rollAccuracy = ((options.rollAccuracy != null) ? options.rollAccuracy : 0.003);
+    // this.yawAccuracy = ((options.yawAccuracy != null) ? options.yawAccuracy : 0.05);
 
-    this.connectionMethod = ((options.connectionMethod != null) ? options.connectionMethod : MavlinkProtocol.CONNECTION_SERIAL);
-
-    this.networkAddress = ((options.networkAddress != null) ? options.networkAddress : MavlinkProtocol.LOCAL_HOST);
-    this.networkPort = ((options.networkPort != null) ? options.networkPort : MavlinkProtocol.DEFAULT_PORT);
-
-    this.serialPort = ((options.serialPort != null) ? options.serialPort : MavlinkProtocol.DEFAULT_COMPORT);
-    this.serialBaud = ((options.baud != null) ? options.baud : MavlinkProtocol.DEFAULT_BAUD);
-
-    this.positionMode = ((options.positionMode != null) ? options.positionMode : MavlinkProtocol.POSITION_MODE_NONE);
-    this.positionDiff = ((options.Diff != null) ? options.Diff : 1);
     this.vehicleState = {};
 
     this.telemetry = new Telemetry();
@@ -163,6 +124,7 @@ function MavlinkProtocol(options) {
     this.batteryRemaining = 0;
     this.commDropRate     = 0;
     this.commErrors       = 0;
+
     // a negative id means that it is currently not known, it is set by the heartbeat message
     this.systemId = -1;
     this.systemStatus = -1;
@@ -183,83 +145,14 @@ function MavlinkProtocol(options) {
     this.remoteControl   = false;
     this.guided          = false;
     this.armed           = false;
-}
-
-/**
- * connect to the remote mavlink based device
- */
-MavlinkProtocol.prototype.connect = function() {
-    if(this.connectionMethod === MavlinkProtocol.CONNECTION_SERIAL) {
-	this._initSerialPort();
-    } else {
-	this._initNetwork();
-    }
-}
-
-/**
- * disconnect from the remote mavlink based device
- */
-MavlinkProtocol.prototype.disconnect = function() {
-    if(this.connectionMethod === MavlinkProtocol.CONNECTION_SERIAL) {
-	this._closeSerialPort();
-    } else {
-	this._closeNetworkConnection();
-    }
-}
-
-MavlinkProtocol.prototype._initSerialPort = function() {
-    if(this.debug && this.debugLevel > 0) {
-	console.log("Opening serial port " + this.serialPort + " baud: " + this.serialBaud);
-    }
-
-    this.serialDevice = new SerialPort(this.serialPort, {
-	baudrate: this.serialBaud
-    });
 
     this.mavlinkParser = new MAVLink();
 
-    this._setupMavlinkListeners();
-
-    var self = this;
-
-    this.serialDevice.on("data", function (data) {
-	if(self.debug && self.debugLevel > 9) {
-	    console.log("Serial port, received data: " + data);
-	}
-	self.mavlinkParser.parseBuffer(data);
-    });
+    this._setupListeners();
 }
 
-MavlinkProtocol.prototype._closeSerialPort = function() {
-    if(this.debug && this.debugLevel > 0) {
-	console.log("Closing serial port " + this.serialPort);
-    }
-
-    if(this.serialDevice) {
-	this.serialDevice.close();
-	this.serialDevice = null;
-    }
-}
-
-MavlinkProtocol.prototype._initNetwork = function() {
-    this.netConnection = net.createConnection(this.networkPort, this.networkAddress);
-
-    this.mavlinkParser = new MAVLink();
-
-    this._setupMavlinkListeners();
-
-    var self = this;
-
-    this.netConnection.on('data', function(data) {
-	self.mavlinkParser.parseBuffer(data);
-    });
-}
-
-MavlinkProtocol.prototype._closeNetworkConnection = function() {
-    if(this.netConnection) {
-	this.netConnection.end();
-	this.netConnection = null;
-    }
+MavlinkProtocol.prototype.processData = function(data) {
+    this.mavlinkParser.parseBuffer(data);
 }
 
 /**
@@ -277,18 +170,7 @@ MavlinkProtocol.prototype._writeMessage = function(data) {
 
     p = new Buffer(data.pack());
 
-    if(this.connectionMethod === MavlinkProtocol.CONNECTION_SERIAL) {
-	if(this.debug && this.debugLevel > 9) {
-	    console.log("write: calling serialDevice.write: " + p);
-	}
-	this.serialDevice.write(p);
-    } else {
-	// TODO: set this up for network, need to check if below is correct...
-	if(this.debug && this.debugLevel > 9) {
-	    console.log("write: calling netConnection.write: " + p);
-	}
-        this.netConnection.write(p);
-    }
+    MavlinkProtocol.super_.prototype._writeMessage.call(this, p);
 }
 
 /**
@@ -594,7 +476,7 @@ MavlinkProtocol.prototype._writeWithTimeout = function(options) {
     self._writeMessage(options.message);
 }
 
-MavlinkProtocol.prototype._setupMavlinkListeners = function() {
+MavlinkProtocol.prototype._setupListeners = function() {
 
     var self = this;
 /*
@@ -1424,6 +1306,7 @@ this.mavlinkParser.on('HIGHRES_IMU', function(message) {
 
 this.mavlinkParser.on('GPS_STATUS', function(message) {
     // TODO: consider how to handle this
+    /*
     self.vehicleState = _.extend(self.vehicleState, {
 	satellites_visible: message.satellites_visible,
 	satellite_prn: new Uint8Array(message.satellite_prn),
@@ -1432,6 +1315,7 @@ this.mavlinkParser.on('GPS_STATUS', function(message) {
 	satellite_azimuth: new Uint8Array(message.satellite_azimuth),
 	satellite_snr: new Uint8Array(message.satellite_snr)
     });
+    */
     
     if(self.debugGPSStatus && self.debugLevel == 1) {
         console.log('GPS Status');
@@ -1525,25 +1409,7 @@ this.mavlinkParser.on('ATTITUDE', function(message) {
 
     // only recognise an attitude change if the change is more than the accuracy of the attitude
     // console.log('pitch prev: ' + message.pitch + " was: " + self.attitude.pitch + " accuracy: " + self.attitudeAccuracy);
-    if((self.attitude.pitch > message.pitch + self.pitchAccuracy || self.attitude.pitch < message.pitch - self.pitchAccuracy) ||
-       (self.attitude.roll  > message.roll  + self.rollAccuracy  || self.attitude.roll  < message.roll  - self.rollAccuracy) ||
-       (self.attitude.yaw   > message.yaw   + self.yawAccuracy   || self.attitude.yaw   < message.yaw   - self.yawAccuracy)) {
-
-        // update the attitude
-	self.attitude.pitch = message.pitch;
-	self.attitude.roll = message.roll;
-	self.attitude.yaw = message.yaw;
-
-	// TODO; do we need to know the speed of change?
-	/*
-	pitchspeed: message.pitchspeed,
-	rollspeed: message.rollspeed,
-	yawspeed: message.yawspeed
-	*/
-
-	// fire the event
-	self.emit('attitude', self.attitude);
-    }
+    self._reportAttitude(message.pitch, message.roll, message.yaw);
 });
 
 this.mavlinkParser.on('VFR_HUD', function(message) {
@@ -1613,99 +1479,15 @@ this.mavlinkParser.on('GPS_RAW_INT', function(message) {
 	    ' cog: ' + message.cog);
     }
 
-    // need tollerance factor here?
-    // self.emit('positionGPSRawInt', message.lat / 10000000, message.lon / 10000000, message.alt / 1000);
-
     var lat = message.lat / 10000000; 
     var lng = message.lon / 10000000;
+    var alt = message.alt / 1000;
 
-    var reportPos = false;
-
-    switch(self.positionMode) {
-        case MavlinkProtocol.POSITION_MODE_NONE:
-	    reportPos = true;
-	    break;
-
-        case MavlinkProtocol.POSITION_MODE_DISTANCE:
-	    if(measure(self.position.latitude, self.position.longitude, lat, lng) * 1000 > self.positionDiff) {
-		reportPos = true;
-	    }
-	    break;
-
-        case MavlinkProtocol.POSITION_MODE_TIME:
-            var currentTime = new Date().getTime();
-
-	    if(currentTime - self.positionTimer > self.positionDiff * 1000) {
-		reportPos = true;
-		self.positionTimer = currentTime;
-	    }
-	    break;
-    }
-
-
-    if(reportPos) {
-	self.position.latitude  = message.lat / 10000000;
-	self.position.longitude = message.lon / 10000000;
-	self.position.altitude  = message.alt / 1000;
-
-	self.emit('positionGPSRawInt', self.position);
-    }
+    self._reportPosition(message.lat / 10000000, message.lon / 10000000, message.alt / 1000);
 });
 
 /* end init listeners for mavlink */
 
-}
-
-/*
- * measures the distance between to points in kilometers
- *
- * params:
- *    latitude1   latitude of the first point
- *    longitude1  longitude of the first point
- *    latitude2   latitude of the second point
- *    longitude2  longitude of the second point
- *    radius      radius to be used, defaults to 6371.
- *      
- * note that the following code is derived from code sourced from 
- * http://www.movable-type.co.uk/scripts/latlong.html
- * copyright belongs to Chris Veness 2002-2012. Chris has licenced the code under creative commons 
- * by attribution, refer http://creativecommons.org/licenses/by/3.0/
- */
-function measure(lat1, lon1, lat2, lon2, radius) {  
-    var R = 6371; // km
-
-    /*
-    var dLat = toRad(lat2-lat1);
-    var dLon = toRad(lon2-lon1);
-    var lat1 = toRad(lat1);
-    var lat2 = toRad(lat2);
-    */
-    var dLat = (lat2-lat1) * (Math.PI / 180);
-    var dLon = (lon2-lon1) * (Math.PI / 180);
-
-    var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(lat1 * (Math.PI / 170)) * Math.cos(lat2 * (Math.PI / 170)) * Math.sin(dLon/2) * Math.sin(dLon/2);
-    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-    var d = R * c;
-
-    return d;
-    /*
-    double R = 6371; // km
-
-    double dLat = (lat2-lat1)* (PI / 180);
-    double dLon = (lon2-lon1)* (PI / 180);
-
-    double a = sin(dLat/2) * sin(dLat/2) + 
-               cos(lat1 * (PI / 180)) * cos(lat2 * (PI / 180)) * sin(dLon/2) * sin(dLon/2);
-    double c = 2 * atan2(sqrt(a), sqrt(1-a));
-    double d = R * c;
-    return d;
-    */
-}
-
-/* convert from degrees to radians */
-function toRad(v) {
-    return v * Math.PI / 180;
 }
 
 function getNextSequence() {
