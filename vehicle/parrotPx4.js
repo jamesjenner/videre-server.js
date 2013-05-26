@@ -27,7 +27,7 @@ var Attitude           = require('../videre-common/js/attitude');
 var Telemetry          = require('../videre-common/js/telemetry');
 var Vehicle            = require('../videre-common/js/vehicle');
 
-var MavlinkProtocol    = require('./mavlinkProtocol.js');
+var MavlinkProtocol    = require('../protocols/mavlinkProtocol.js');
 
 
 module.exports = ParrotPx4;
@@ -74,7 +74,6 @@ function ParrotPx4(options) {
 	    positionMode = MavlinkProtocol.POSITION_MODE_NONE;
     }
 
-    console.log(" position mode: " + positionMode + " diff: " + this.positionReportingValue);
     this.mavlinkDevice = new MavlinkProtocol({
 	name: this.name,
 	debug: this.debug,

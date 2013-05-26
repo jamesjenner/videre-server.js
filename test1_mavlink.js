@@ -10,7 +10,7 @@ var BAUD = 57600;
 var DEBUG = true;
 var DEBUG_LEVEL = 3;
 
-var MavlinkProtocol = require('./vehicle/mavlinkProtocol.js');
+var MavlinkProtocol = require('./protocols/mavlinkProtocol.js');
 
 console.log("test1: instantiating mavlinkProtocol");
 
