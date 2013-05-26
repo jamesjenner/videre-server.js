@@ -8,9 +8,10 @@ var COMPORT2 = "/dev/ttyUSB1";
 var BAUD = 57600;
 
 var DEBUG = true;
-var DEBUG_LEVEL = 3;
+var DEBUG_LEVEL = 4;
 
 var MavlinkProtocol = require('./protocols/mavlinkProtocol.js');
+var Protocol = require('./protocols/protocol.js');
 
 console.log("test1: instantiating mavlinkProtocol");
 
@@ -28,10 +29,13 @@ var mavlinkProtocol1 = new MavlinkProtocol({
     debugGPSStatus: false,
     serialPort: COMPORT1,
     serialBaud: BAUD,
-    positionMode: MavlinkProtocol.POSITION_MODE_DISTANCE ,
+    positionMode: Protocol.POSITION_MODE_DISTANCE ,
     positionDiff: 1, 
     debugLevel: DEBUG_LEVEL,
-    connectionMethod: MavlinkProtocol.CONNECTION_SERIAL,
+    connectionMethod: Protocol.CONNECTION_SERIAL,
+    pitchAccuracy: 0.003,
+    rollAccuracy: 0.003,
+    yawAccuracy: 0.05,
 });
 
 // setListeners(mavlinkProtocol1);

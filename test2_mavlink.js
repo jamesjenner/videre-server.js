@@ -92,7 +92,7 @@ driver2.connect();
  */
 function makeOnPositionFunction(remoteVehicle, vehicle) {
     return function(d) {
-	console.log("processing position");
+	console.log("processing position for " + remoteVehicle.name);
     };
 }
 
@@ -119,7 +119,7 @@ function makeOnConnectionStateFunction(remoteVehicle, vehicle) {
  */
 function makeOnTelemetryFunction(remoteVehicle, vehicle) {
     return function(d) {
-	console.log("\tprocessing telemetry for " + remoteVehicle.name);
+	console.log("processing telemetry for " + remoteVehicle.name);
     };
 }
 
