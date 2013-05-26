@@ -33,6 +33,8 @@ var VehicleComms          = require('./vehicleComms.js');
 var VehicleDriverRegister = require('./vehicle/register.js');
 var UnmannedVehicle       = require('./vehicle/unmannedVehicle.js');
 
+var ProtocolRegister = require('./protocols/register.js');
+
 var VEHICLES_FILE = 'vehicles.json';
 var VEHICLE_COMMS_FILE = 'vehicle_comms.json';
 
@@ -44,6 +46,8 @@ vehicleComms.load();
 var vehicles = loadVehicles(VEHICLES_FILE);
 
 var vehicleDriverRegister = new VehicleDriverRegister();
+
+var protocolRegister = new ProtocolRegister();
 
 /* options handling */
 // TODO: look at replacing or extending opt, would like error on invalid arg, exclusivity of args, better formatting of help, etc
@@ -75,6 +79,7 @@ var search_paths = [
 
 var addingComms = false;
 var deletingComms = false;
+var listingComms = false;
 
 opt.configSync(config, search_paths);
 
@@ -144,6 +149,19 @@ opt.option(["-cad", "--comms-auto-discover"], function (param) {
 opt.option(["-cm", "--comms-multi-vehicle"], function (param) {
     commsDefinition.multiVehicle = true;
 }, "comms multi-vehicle capable");
+opt.option(["-cl", "--comms-list"], function (param) {
+    listingComms = true;
+}, "comms listing, lists all defined comms");
+opt.option(["-cp", "--comms-protocol"], function (param) {
+    commsDefinition.commsProtocol = ((param != null) ? param.trim() : '');
+    
+    // validate the comms protocl
+    if(!protocolRegister.validateProtocolId(commsDefinition.commsProtocol)) {
+	opt.usage("Specified protocol is not a valid protocol", 1);
+    } else {
+	opt.consume(param);
+    }
+}, "comms protocol (" + protocolRegister.getText() + ")");
 opt.option(["-cc", "--comms-connection-type"], function (param) {
     commsDefinition.connectionType = ((param != null) ? param.trim() : null);
     
@@ -299,6 +317,10 @@ if(addingComms) {
 	console.log("ERROR: comm definition doesn't exist, cannot delete the requested comm definition");
     }
 
+    process.exit(1);
+} else if(listingComms) {
+    // output all the defined comms and then exit
+    console.log(vehicleComms.toText());
     process.exit(1);
 }
 
