@@ -223,7 +223,7 @@ Protocol.prototype.requestClearWaypoints = function() { }
 Protocol.prototype._writeWithTimeout = function(options) {
     var self = this;
 
-    self.devices[options.sysId].timeoutIds[options.timeoutId] = setTimeout(function() {
+    self.devices[options.deviceId].timeoutIds[options.timeoutId] = setTimeout(function() {
 	options.attempts++;
 
 	if(options.attempts > 3) {
