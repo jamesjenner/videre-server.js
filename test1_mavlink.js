@@ -8,7 +8,7 @@ var COMPORT2 = "/dev/ttyUSB1";
 var BAUD = 57600;
 
 var DEBUG = true;
-var DEBUG_LEVEL = 4;
+var DEBUG_LEVEL = 3;
 
 var MavlinkProtocol = require('./protocols/mavlinkProtocol.js');
 var Protocol        = require('./protocols/protocol.js');
@@ -20,7 +20,7 @@ var mavlinkProtocol1 = new MavlinkProtocol({
     debug: DEBUG,
     getDeviceIdFunction: getId,
     getDeviceOptionsFunction: getOptions,
-    debugWaypoints: false,
+    debugWaypoints: true,
     debugHeartbeat: false,
     debugMessage: false,
     debugAttitude: false,
@@ -40,47 +40,51 @@ var mavlinkProtocol1 = new MavlinkProtocol({
     yawAccuracy: 0.05,
 });
 
-// setListeners(mavlinkProtocol1);
-mavlinkProtocol1.on('attitude', function(id, attitude) {
-    console.log("test1: " + id + " attitude pitch: " + attitude.pitch + " roll: " + attitude.roll + " yaw: "  +  attitude.yaw);
+mavlinkProtocol1.on('attitude', function(deviceId, attitude) {
+    console.log("test1: " + deviceId + " attitude pitch: " + attitude.pitch + " roll: " + attitude.roll + " yaw: "  +  attitude.yaw);
+});
+mavlinkProtocol1.on('positionGPSRawInt', function(deviceId, position) {
+    console.log("test1: " + deviceId + " gps lat "  + position.latitude + " lng " + position.longitude + " alt " + position.altitude);
+});
+mavlinkProtocol1.on('retreivedNoWaypoints', function(deviceId, waypoints) {
+    console.log("test1: " + deviceId + " retreived no waypoints");
+    waypoints = waypoints;
+});
+mavlinkProtocol1.on('retreivedWaypoints', function(deviceId, waypoints) {
+    console.log("test1: " + deviceId + " retreived waypoints: " + JSON.stringify(waypoints, null, '\t'));
+    waypoints = waypoints;
+});
+mavlinkProtocol1.on('setWaypointsSuccessful', function(deviceId) {
+    console.log("test1: " + deviceId + " set waypoints successful");
+});
+mavlinkProtocol1.on('setWaypointsError', function(deviceId, text) {
+    console.log("test1: " + deviceId + " set waypoints error: " + text);
+});
+mavlinkProtocol1.on('targetWaypoint', function(deviceId, sequence) {
+    console.log("test1: " + deviceId + " targeted waypoint: " + sequence);
+});
+mavlinkProtocol1.on('waypointAchieved', function(deviceId, sequence) {
+    console.log("test1: " + deviceId + " waypoint achieved: " + sequence);
+});
+mavlinkProtocol1.on('statusText', function(deviceId, severity, text) {
+    console.log("test1: " + deviceId + " status text: " + severity + " : " + text);
 });
 
-mavlinkProtocol1.on('positionGPSRawInt', function(id, position) {
-    console.log("test1: " + id + " lat "  + position.latitude + " lng " + position.longitude + " alt " + position.altitude);
+mavlinkProtocol1.on('systemState', function(deviceId, batteryVoltage, batteryCurrent, batteryRemaining, commDropRate, commErrors) {
+    console.log("test1: " + deviceId + " system state: " + 
+	" battery voltage: " + batteryVoltage +
+	" battery current: " + batteryCurrent +
+	" battery remaining: " + batteryRemaining +
+	" comm drop rate: " + commDropRate +
+	" comm errors: " + commErrors);
+});
+
+mavlinkProtocol1.on('systemStatusChanged', function(deviceId, systemStatus, systemStatusText) {
+    console.log("test1: " + deviceId + " system status changed: " + systemStatus + " : " + systemStatusText);
 });
 
 mavlinkProtocol1.connect();
 
-var mavlinkProtocol2 = new MavlinkProtocol({
-    name: 'Drone 2',
-    debug: DEBUG,
-    debugWaypoints: false,
-    debugHeartbeat: false,
-    debugMessage: false,
-    debugAttitude: false,
-    debugIMU: false,
-    debugGPS: false,
-    debugVFR_HUD: false,
-    debugGPSRaw: false,
-    debugGPSStatus: false,
-    serialPort: COMPORT2,
-    serialBaud: BAUD,
-    positionMode: MavlinkProtocol.POSITION_MODE_DISTANCE ,
-    positionDiff: 1, 
-    debugLevel: DEBUG_LEVEL,
-    connectionMethod: MavlinkProtocol.CONNECTION_SERIAL,
-});
-
-// setListeners(mavlinkProtocol2);
-mavlinkProtocol2.on('attitude', makeListener.call(mavlinkProtocol2));
-mavlinkProtocol2.connect();
-
-function makeListener() {
-    var self = this;
-    return function(attitude) {
-	console.log("test1: " + self.name + " attitude pitch: " + attitude.pitch + " roll: " + attitude.roll + " yaw: "  +  attitude.yaw);
-    }
-}
 
 var vehicles = [null, null];
 
@@ -104,76 +108,16 @@ function getOptions(id) {
 	positionDiff: 1,
     };
 }
-function setListeners(mavlinkProtocol) {
-    /*
-    mavlinkProtocol.on('attitude', function(attitude) {
-	console.log("test1: " + mavlinkProtocol.name + " attitude pitch: " + attitude.pitch + " roll: " + attitude.roll + " yaw: "  +  attitude.yaw);
-    });
-    */
-    mavlinkProtocol.on('attitude', makeListener.call(mavlinkProtocol));
 
-    /*
-    mavlinkProtocol.on('stateChanged', function(value, text) {
-    });
+var sysId = vehicles['1'];
+var waypoints = null;
 
-    mavlinkProtocol.on('positionGPSRawInt', function(position) {
-    });
-
-    mavlinkProtocol.on('systemStatusChanged', function(systemStatus, systemStatusText) {
-    });
-
-    mavlinkProtocol.on('autonomousModeChanged', function(autonomousMode) {
-    });
-
-    mavlinkProtocol.on('testModeChanged', function(testMode) {
-    });
-
-    mavlinkProtocol.on('stabilizedModeChanged', function(stabilizedMode) {
-    });
-
-    mavlinkProtocol.on('hardwareInLoopModeChanged', function(hardwareInLoop) {
-    });
-
-    mavlinkProtocol.on('remoteControlModeChanged', function(remoteControl) {
-    });
-
-    mavlinkProtocol.on('guidedModeChanged', function(guided) {
-    });
-
-    mavlinkProtocol.on('armedModeChanged', function(armed) {
-    });
-
-    mavlinkProtocol.on('retreivedWaypoints', function(data) {
-    });
-
-    mavlinkProtocol.on('setWaypointsError', function(text) {
-    });
-
-    mavlinkProtocol.on('setWaypointsSuccessful', function() {
-    });
-
-    mavlinkProtocol.on('setWaypointAcheived', function(waypoint) {
-    });
-
-    mavlinkProtocol.on('targetWaypoint', function(waypoint) {
-    });
-
-    mavlinkProtocol.on('waypointAchieved', function(waypoint) {
-    });
-
-    mavlinkProtocol.on('systemState', function(batteryVoltage, batteryCurrent, batteryRemaining, commDropRate, commErrors) {
-    });
-
-    mavlinkProtocol.on('statusText', function(severity, text) {
-    });
-    */
-}
-
-/*
 setTimeout(function() {
-    console.log("test1: requesting waypoints");
 
-    var i = mavlinkProtocol.requestWaypoints.call(mavlinkProtocol);
+    deviceId = vehicles['1'];
+    console.log("test1: requesting waypoints for " + deviceId);
+
+    var i = mavlinkProtocol1.requestWaypoints.call(mavlinkProtocol1, deviceId);
     if(!i) {
 	console.log("error " + i + " requesting waypoints");
     }
@@ -181,9 +125,10 @@ setTimeout(function() {
 
 setTimeout(function() {
     if(waypoints != null) {
-	console.log("test1: requesting set waypoints");
+	deviceId = vehicles['1'];
+	console.log("test1: requesting to set waypoints for " + deviceId);
 
-	var i = mavlinkProtocol.requestSetWaypoints.call(mavlinkProtocol, waypoints);
+	var i = mavlinkProtocol1.requestSetWaypoints.call(mavlinkProtocol1, deviceId, waypoints);
 
 	if(!i) {
 	    console.log("error " + i + " requesting to set waypoints");
@@ -192,19 +137,22 @@ setTimeout(function() {
 }, 10000);
 
 setTimeout(function() {
-    console.log("test1: set target waypoint");
-
-    if(!mavlinkProtocol.requestSetTargetWaypoint.call(mavlinkProtocol, 3)) {
-	console.log("error requesting set target waypoint");
+    var targetedWaypoint = 3;
+    deviceId = vehicles['1'];
+    console.log("test1: set target waypoint " + targetedWaypoint + " for " + deviceId);
+    var rtnVal = mavlinkProtocol1.requestSetTargetWaypoint.call(mavlinkProtocol1, deviceId, targetedWaypoint) 
+    if(rtnVal !== 1) {
+	console.log("error requesting set target waypoint: " + rtnVal);
     }
 }, 15000);
 
+/*
 setTimeout(function() {
     console.log("test1: clearing waypoints");
 
-    if(!mavlinkProtocol.requestClearWaypoints.call(mavlinkProtocol)) {
+    deviceId = vehicles['1'];
+    if(!mavlinkProtocol1.requestClearWaypoints.call(mavlinkProtocol1, deviceId)) {
 	console.log("error requesting clear waypoints");
     }
 }, 20000);
-
 */
