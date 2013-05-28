@@ -31,13 +31,8 @@ var mavlinkProtocol1 = new MavlinkProtocol({
     debugGPSStatus: false,
     serialPort: COMPORT1,
     serialBaud: BAUD,
-    positionMode: Protocol.POSITION_MODE_DISTANCE ,
-    positionDiff: 1, 
     debugLevel: DEBUG_LEVEL,
     connectionMethod: Protocol.CONNECTION_SERIAL,
-    pitchAccuracy: 0.003,
-    rollAccuracy: 0.003,
-    yawAccuracy: 0.05,
 });
 
 mavlinkProtocol1.on('attitude', function(deviceId, attitude) {
