@@ -411,8 +411,8 @@ MavlinkProtocol.prototype._setupListeners = function() {
 
 this.mavlinkParser.on('message', function(message) {
     if(self.debugMessage) {
-	var deviceId = self.getDeviceIdFunction(message.header.srcSystem);
-	console.log(message.name + ' <- received message for ' + deviceId);
+	var deviceId = self.getDeviceIdFunction(message.header.srcSystem, self.name);
+	console.log(message.name + ' <- received message for ' + deviceId + " protocol " + self.name);
     }
 });
 
@@ -455,7 +455,7 @@ this.mavlinkParser.on('HEARTBEAT', function(message) {
 	self.systemType = message.type;
     }
     */
-    var deviceId = self.getDeviceIdFunction(message.header.srcSystem);
+    var deviceId = self.getDeviceIdFunction(message.header.srcSystem, self.name);
 
     if(self.devices[deviceId] === undefined) {
 	self.devices[deviceId] = new _Device(message.header.srcSystem);
@@ -694,7 +694,7 @@ this.mavlinkParser.on('MISSION_COUNT', function(message) {
 	}
     }
 
-    var deviceId = self.getDeviceIdFunction(message.header.srcSystem);
+    var deviceId = self.getDeviceIdFunction(message.header.srcSystem, self.name);
 
     // it not requested and we receiving waypoints then that's okay, treat it like we requested it
     // clear the timeout as we received the mission count
@@ -760,7 +760,7 @@ this.mavlinkParser.on('MISSION_ITEM', function(message) {
 	    ' z: ' + message.z)
     }
 
-    var deviceId = self.getDeviceIdFunction(message.header.srcSystem);
+    var deviceId = self.getDeviceIdFunction(message.header.srcSystem, self.name);
 
     // clear the timeout as we received a mission item 
     clearTimeout(self.devices[deviceId].timeoutIds[MavlinkProtocol._MISSION_REQUEST_TIMEOUT_ID]);
@@ -854,7 +854,7 @@ this.mavlinkParser.on('MISSION_REQUEST', function(message) {
 	console.log('Mission Request for item: ' + message.seq);
     }
 
-    var deviceId = self.getDeviceIdFunction(message.header.srcSystem);
+    var deviceId = self.getDeviceIdFunction(message.header.srcSystem, self.name);
 
     // clear the timeout that created the requst, if the first item
     clearTimeout(self.devices[deviceId].timeoutIds[MavlinkProtocol._MISSION_COUNT_TIMEOUT_ID]);
@@ -944,7 +944,7 @@ this.mavlinkParser.on('MISSION_ACK', function(message) {
 	console.log('Mission Ack ' + message.type);
     }
 
-    var deviceId = self.getDeviceIdFunction(message.header.srcSystem);
+    var deviceId = self.getDeviceIdFunction(message.header.srcSystem, self.name);
 
     // clear timers
     clearTimeout(self.devices[deviceId].timeoutIds[MavlinkProtocol._MISSION_COUNT_TIMEOUT_ID]);
@@ -1062,7 +1062,7 @@ this.mavlinkParser.on('MISSION_CURRENT', function(message) {
 	console.log('Mission set to current: ' + message.seq);
     }
 
-    var deviceId = self.getDeviceIdFunction(message.header.srcSystem);
+    var deviceId = self.getDeviceIdFunction(message.header.srcSystem, self.name);
 
     if(self.devices[deviceId]._waypointMode === MavlinkProtocol.WAYPOINT_SETTING_TARGET) {
 	// clear out the timeout in case is still was set
@@ -1076,7 +1076,7 @@ this.mavlinkParser.on('MISSION_CURRENT', function(message) {
 this.mavlinkParser.on('MISSION_ITEM_REACHED', function(message) {
     console.log('Mission item reached ' + message.seq);
 
-    self.emit('waypointAchieved', self.getDeviceIdFunction(message.header.srcSystem), message.seq);
+    self.emit('waypointAchieved', self.getDeviceIdFunction(message.header.srcSystem, self.name), message.seq);
 });
 
 this.mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
@@ -1144,7 +1144,7 @@ this.mavlinkParser.on('STATUS_TEXT', function(message) {
 	    ' text: ' + message.text);
     }
 
-    self.emit('statusText', self.getDeviceIdFunction(message.header.srcSystem), message.severity, message.text);
+    self.emit('statusText', self.getDeviceIdFunction(message.header.srcSystem, self.name), message.severity, message.text);
 });
 
 this.mavlinkParser.on('PARAM_VALUE', function(message) {
@@ -1300,7 +1300,7 @@ this.mavlinkParser.on('SYS_STATUS', function(message) {
 	    ' comm errors: ' + message.errors_com);
     }
 
-    var deviceId = self.getDeviceIdFunction(message.header.srcSystem);
+    var deviceId = self.getDeviceIdFunction(message.header.srcSystem, self.name);
 
     if(self.devices[deviceId].batteryVoltage    != message.voltage_battery / 1000 || 
 	self.devices[deviceId].batteryCurrent   != message.current_battery / 100 ||
@@ -1315,7 +1315,7 @@ this.mavlinkParser.on('SYS_STATUS', function(message) {
 	self.devices[deviceId].commErrors       = message.errors_comm;
 
 	self.emit('systemState', 
-	    self.getDeviceIdFunction(message.header.srcSystem), 
+	    self.getDeviceIdFunction(message.header.srcSystem, self.name), 
 	    self.devices[deviceId].batteryVoltage, 
 	    self.devices[deviceId].batteryCurrent, 
 	    self.devices[deviceId].batteryRemaining, 
@@ -1350,7 +1350,7 @@ this.mavlinkParser.on('ATTITUDE', function(message) {
 
     // only recognise an attitude change if the change is more than the accuracy of the attitude
     // console.log('pitch prev: ' + message.pitch + " was: " + self.attitude.pitch + " accuracy: " + self.attitudeAccuracy);
-    self._reportAttitude(self.getDeviceIdFunction(message.header.srcSystem), message.pitch, message.roll, message.yaw);
+    self._reportAttitude(self.getDeviceIdFunction(message.header.srcSystem, self.name), message.pitch, message.roll, message.yaw);
 });
 
 this.mavlinkParser.on('VFR_HUD', function(message) {
@@ -1424,7 +1424,7 @@ this.mavlinkParser.on('GPS_RAW_INT', function(message) {
     var lng = message.lon / 10000000;
     var alt = message.alt / 1000;
 
-    self._reportPosition(self.getDeviceIdFunction(message.header.srcSystem), 
+    self._reportPosition(self.getDeviceIdFunction(message.header.srcSystem, self.name), 
         message.lat / 10000000, 
 	message.lon / 10000000, 
 	message.alt / 1000);
