@@ -65,4 +65,5 @@ ProtocolRegister.prototype.getProtocol = function(protocolId) {
 
 	/* insert new hardware defs here */
     }
+    return "";
 }
