@@ -172,16 +172,24 @@ ClientComms.prototype.sendNavPathUpdated = function(connection, id) {
     connection.send(Message.constructMessage(Message.NAV_PATH_UPDATED, id));
 }
 
-ClientComms.prototype.sendTelemetry = function(telemetry) {
-    this._constructAndBroadcastMsg(Message.VEHICLE_TELEMETRY, telemetry, 4);
+ClientComms.prototype.sendTelemetry = function(id, telemetry) {
+    this._constructAndBroadcastMsg(Message.VEHICLE_TELEMETRY, {id: id, telemetry: telemetry}, 4);
 }
 
-ClientComms.prototype.sendPosition = function(position) {
-    this._constructAndBroadcastMsg(Message.CURRENT_POSITION, position, 4);
+ClientComms.prototype.sendPosition = function(id, position) {
+    this._constructAndBroadcastMsg(Message.CURRENT_POSITION, {id: id, position: position}, 4);
 }
 
-ClientComms.prototype.sendPayload = function(payload) {
-    this._constructAndBroadcastMsg(Message.VEHICLE_PAYLOAD, payload, 4);
+ClientComms.prototype.sendPayload = function(id, payload) {
+    this._constructAndBroadcastMsg(Message.VEHICLE_PAYLOAD, {id: id, payload: payload}, 4);
+}
+
+ClientComms.prototype.sendState = function(id, state) {
+    this._constructAndBroadcastMsg(Message.VEHICLE_STATE, {id: id, state: state}, 4);
+}
+
+ClientComms.prototype.sendStatusMsg = function(id, severity, text) {
+    this._constructAndBroadcastMsg(Message.VEHICLE_STATUS_MSG, {id: id, severity: severity, text: text}, 4);
 }
 
 ClientComms.prototype._broadcastMsg = function(msg) {
