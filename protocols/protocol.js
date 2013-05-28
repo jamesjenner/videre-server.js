@@ -36,8 +36,8 @@ Protocol.DEFAULT_BAUD = 57600;
 Protocol.LOCAL_HOST = "127.0.0.1";
 Protocol.DEFAULT_PORT = "5760";
 
-Protocol.CONNECTION_SERIAL = "serial";
-Protocol.CONNECTION_NETWORK = "network";
+Protocol.CONNECTION_SERIAL = "Serial";
+Protocol.CONNECTION_NETWORK = "Network";
 
 Protocol.POSITION_MODE_NONE = 0;
 Protocol.POSITION_MODE_DISTANCE = 1;
@@ -63,6 +63,8 @@ function Protocol(options) {
 
     EventEmitter.call(this);
 
+    console.log("new protocol for " + options.name);
+    this.name = options.name;
     this.debug = ((options.debug != null) ? options.debug : false);
     this.debugLevel = ((options.debugLevel != null) ? options.debugLevel : 0);
 
@@ -220,6 +222,7 @@ Protocol.prototype.requestSetTargetWaypoint = function(waypoint) { }
  */
 Protocol.prototype.requestClearWaypoints = function() { }
 
+// TODO: sort out debug options for the console.logs
 Protocol.prototype._writeWithTimeout = function(options) {
     var self = this;
 
