@@ -17,17 +17,16 @@
  */
 
 
-var SerialPort = require("serialport").SerialPort
-var net        = require('net');
-// var events     = require('events');
+var SerialPort   = require("serialport").SerialPort
+var net          = require('net');
 var EventEmitter = require('events').EventEmitter;
-var util       = require('util');
+var util         = require('util');
+var uuid         = require('node-uuid');
 
-
-var Attitude   = require('../videre-common/js/attitude');
-var Point      = require('../videre-common/js/point');
-var Position   = require('../videre-common/js/position');
-var Telemetry  = require('../videre-common/js/telemetry');
+var Attitude     = require('../videre-common/js/attitude');
+var Point        = require('../videre-common/js/point');
+var Position     = require('../videre-common/js/position');
+var Telemetry    = require('../videre-common/js/telemetry');
 
 module.exports = Protocol;
 
@@ -63,7 +62,6 @@ function Protocol(options) {
 
     EventEmitter.call(this);
 
-    console.log("new protocol for " + options.name);
     this.name = options.name;
     this.debug = ((options.debug != null) ? options.debug : false);
     this.debugLevel = ((options.debugLevel != null) ? options.debugLevel : 0);
@@ -73,7 +71,7 @@ function Protocol(options) {
     this.multiVehicle = ((options.multiVehicle != null) ? options.multiVehicle : false);
     */
 
-    this.getDeviceIdFunction = ((options.getDeviceIdFunction != null) ? options.getDeviceIdFunction : function() {});
+    this.getVehicleIdFunction = ((options.getVehicleIdFunction != null) ? options.getVehicleIdFunction : function() {});
     this.getDeviceOptionsFunction = ((options.getDeviceOptionsFunction != null) ? options.getDeviceOptionsFunction : function() {});
 
     this.connectionMethod = ((options.connectionMethod != null) ? options.connectionMethod : Protocol.CONNECTION_SERIAL);
@@ -83,6 +81,12 @@ function Protocol(options) {
 
     this.serialPort = ((options.serialPort != null) ? options.serialPort : Protocol.DEFAULT_COMPORT);
     this.serialBaud = ((options.baud != null) ? options.baud : Protocol.DEFAULT_BAUD);
+
+    if(this.connectionMethod === Protocol.CONNECTION_SERIAL) {
+	this.id = this.serialPort;
+    } else {
+	this.id = this.networkAddress + ":" + networkPort;
+    }
 
     // define the devices
     this.devices = [null, null];
@@ -249,7 +253,7 @@ Protocol.prototype._writeWithTimeout = function(options) {
     self._writeMessage(options.message);
 }
 
-Protocol.prototype._reportAttitude = function(id, pitch, roll, yaw) {
+Protocol.prototype._reportAttitude = function(id, att, heading) {
     // don't report if the device is undefined
     if(this.devices[id] === undefined) {
 	return;
@@ -257,14 +261,18 @@ Protocol.prototype._reportAttitude = function(id, pitch, roll, yaw) {
 
     var attitude = this.devices[id].attitude;
 
-    if((attitude.pitch > pitch + this.devices[id].pitchAccuracy || attitude.pitch < pitch - this.devices[id].pitchAccuracy) ||
-       (attitude.roll  > roll  + this.devices[id].rollAccuracy  || attitude.roll  < roll  - this.devices[id].rollAccuracy) ||
-       (attitude.yaw   > yaw   + this.devices[id].yawAccuracy   || attitude.yaw   < yaw   - this.devices[id].yawAccuracy)) {
+    if((attitude.pitch > att.pitch + this.devices[id].pitchAccuracy || attitude.pitch < att.pitch - this.devices[id].pitchAccuracy) ||
+       (attitude.roll  > att.roll  + this.devices[id].rollAccuracy  || attitude.roll  < att.roll  - this.devices[id].rollAccuracy) ||
+       (attitude.yaw   > att.yaw   + this.devices[id].yawAccuracy   || attitude.yaw   < att.yaw   - this.devices[id].yawAccuracy)) {
 
         // update the attitude
-	this.devices[id].attitude.pitch = pitch;
-	this.devices[id].attitude.roll = roll;
-	this.devices[id].attitude.yaw = yaw;
+	this.devices[id].attitude.pitch = att.pitch;
+	this.devices[id].attitude.roll = att.roll;
+	this.devices[id].attitude.yaw = att.yaw;
+	this.devices[id].attitude.x = att.x;
+	this.devices[id].attitude.y = att.y;
+	this.devices[id].attitude.z = att.z;
+	this.devices[id].heading = heading;
 
 	// TODO; do we need to know the speed of change?
 	/*
@@ -274,7 +282,7 @@ Protocol.prototype._reportAttitude = function(id, pitch, roll, yaw) {
 	*/
 
 	// fire the event
-	this.emit('attitude', id, this.devices[id].attitude);
+	this.emit('attitude', this.id, id, this.devices[id].attitude, heading);
     }
 }
 
@@ -316,7 +324,7 @@ Protocol.prototype._reportPosition = function(id, lat, lng, alt) {
 	this.devices[id].position.longitude = lng;
 	this.devices[id].position.altitude  = alt;
 
-	this.emit('positionGPSRawInt', id, this.devices[id].position);
+	this.emit('positionGPSRawInt', self.id, id, this.devices[id].position);
     }
 }
 
