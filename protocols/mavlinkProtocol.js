@@ -115,7 +115,7 @@ function MavlinkProtocol(options) {
 
     // a negative id means that it is currently not known, it is set by the heartbeat message
 
-    this.devices = [null, null];
+    this.devices = new Object();
     this.mavlinkParser = new MAVLink();
 
     this._setupListeners();
@@ -154,7 +154,7 @@ MavlinkProtocol.prototype._writeMessage = function(data) {
  *             -2 if currently processing waypoints
  *             -3 no waypoints specified
  */
-MavlinkProtocol.prototype.requestSetWaypoints = function(deviceId, waypoints) {
+MavlinkProtocol.prototype.requestSetWaypoints = function(vehicleId, waypoints) {
     var request = false;
 
     if(this.debugWaypoints) {
@@ -166,7 +166,7 @@ MavlinkProtocol.prototype.requestSetWaypoints = function(deviceId, waypoints) {
     }
 
     // convert the videre id to the mavlink id
-    var sysId = this.getMavlinkId(deviceId);
+    var deviceId = this.getMavlinkId(vehicleId);
 
     if(!this.waypoints || this.waypoints.length === 0) {
 	if(this.debugWaypoints) {
@@ -223,7 +223,7 @@ MavlinkProtocol.prototype.requestSetWaypoints = function(deviceId, waypoints) {
  *         -1 if the system id is unknown
  *         -2 if currently processing waypoints
  */
-MavlinkProtocol.prototype.requestWaypoints = function(deviceId) {
+MavlinkProtocol.prototype.requestWaypoints = function(vehicleId) {
     var request = false;
 
     if(this.debugWaypoints) {
@@ -231,7 +231,7 @@ MavlinkProtocol.prototype.requestWaypoints = function(deviceId) {
     }
 
     // convert the videre id to the mavlink id
-    var sysId = this.getMavlinkId(deviceId);
+    var deviceId = this.getMavlinkId(vehicleId);
 
     if(this.devices[deviceId]._waypointMode === MavlinkProtocol.WAYPOINT_NO_ACTION || 
        this.devices[deviceId]._waypointMode ===  MavlinkProtocol.WAYPOINT_REQUESTED) {
@@ -282,13 +282,13 @@ MavlinkProtocol.prototype.requestWaypoints = function(deviceId) {
  *             -1 if the system id is unknown
  *             -2 if currently busy
  */
-MavlinkProtocol.prototype.requestSetTargetWaypoint = function(deviceId, waypoint) {
+MavlinkProtocol.prototype.requestSetTargetWaypoint = function(vehicleId, waypoint) {
     if(this.debugWaypoints) {
 	console.log("setting target waypoint: " + waypoint);
     }
 
     // convert the videre id to the mavlink id
-    var sysId = this.getMavlinkId(deviceId);
+    var deviceId = this.getMavlinkId(vehicleId);
 
     if(this.devices[deviceId]._waypointMode === MavlinkProtocol.WAYPOINT_NO_ACTION) {
 	// set mode to setting target
@@ -330,13 +330,13 @@ MavlinkProtocol.prototype.requestSetTargetWaypoint = function(deviceId, waypoint
  *             -1 if the system id is unknown
  *             -2 if currently busy
  */
-MavlinkProtocol.prototype.requestClearWaypoints = function(deviceId) {
+MavlinkProtocol.prototype.requestClearWaypoints = function(vehicleId) {
     if(this.debugWaypoints) {
 	console.log("clearing waypoints");
     }
 
     // convert the videre id to the mavlink id
-    var sysId = this.getMavlinkId(deviceId);
+    var deviceId = this.getMavlinkId(vehicleId);
 
     if(this.devices[deviceId]._waypointMode === MavlinkProtocol.WAYPOINT_NO_ACTION) {
 	// request to clear all waypoints 
@@ -411,8 +411,7 @@ MavlinkProtocol.prototype._setupListeners = function() {
 
 this.mavlinkParser.on('message', function(message) {
     if(self.debugMessage) {
-	var deviceId = self.getDeviceIdFunction(message.header.srcSystem, self.name);
-	console.log(message.name + ' <- received message for ' + deviceId + " protocol " + self.name);
+	console.log(message.name + ' <- received message for ' + this.id + ":" + message.header.srcSystem + ", protocol " + self.name);
     }
 });
 
@@ -455,10 +454,12 @@ this.mavlinkParser.on('HEARTBEAT', function(message) {
 	self.systemType = message.type;
     }
     */
-    var deviceId = self.getDeviceIdFunction(message.header.srcSystem, self.name);
+    var deviceId = message.header.srcSystem;
 
     if(self.devices[deviceId] === undefined) {
-	self.devices[deviceId] = new _Device(message.header.srcSystem);
+        var vehicleId = self.getVehicleIdFunction(self.id, deviceId, self.name);
+
+	self.devices[deviceId] = new _Device(deviceId, vehicleId);
     }
 
     // if the system status has changed then update it
@@ -494,7 +495,7 @@ this.mavlinkParser.on('HEARTBEAT', function(message) {
 
 	// fire the stateChanged event
 
-	self.emit('systemStatusChanged', deviceId, self.devices[deviceId].systemStatus, self.devices[deviceId].systemStatusText);
+	self.emit('systemStatusChanged', self.id, deviceId, self.devices[deviceId].systemStatus, self.devices[deviceId].systemStatusText);
     }
        
     // if the base mode has changed then update it
@@ -694,7 +695,7 @@ this.mavlinkParser.on('MISSION_COUNT', function(message) {
 	}
     }
 
-    var deviceId = self.getDeviceIdFunction(message.header.srcSystem, self.name);
+    var deviceId = message.header.srcSystem;
 
     // it not requested and we receiving waypoints then that's okay, treat it like we requested it
     // clear the timeout as we received the mission count
@@ -730,7 +731,7 @@ this.mavlinkParser.on('MISSION_COUNT', function(message) {
         self.devices[deviceId]._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
 
 	// call the waypoint callback, passing the waypoints
-	self.emit('retreivedNoWaypoints', deviceId);
+	self.emit('retreivedNoWaypoints', self.id, deviceId);
 
     }
 });
@@ -760,7 +761,7 @@ this.mavlinkParser.on('MISSION_ITEM', function(message) {
 	    ' z: ' + message.z)
     }
 
-    var deviceId = self.getDeviceIdFunction(message.header.srcSystem, self.name);
+    var deviceId = message.header.srcSystem;
 
     // clear the timeout as we received a mission item 
     clearTimeout(self.devices[deviceId].timeoutIds[MavlinkProtocol._MISSION_REQUEST_TIMEOUT_ID]);
@@ -810,7 +811,7 @@ this.mavlinkParser.on('MISSION_ITEM', function(message) {
 		var waypoints = MavlinkCnv.waypointsMtoV(self.devices[deviceId]._waypoints);
 
 		// call the waypoint callback, passing the waypoints
-		self.emit('retreivedWaypoints', deviceId, waypoints);
+		self.emit('retreivedWaypoints', self.id, deviceId, waypoints);
 
 		// reset waypoints
 		self.devices[deviceId]._waypoints = new Array();
@@ -854,7 +855,7 @@ this.mavlinkParser.on('MISSION_REQUEST', function(message) {
 	console.log('Mission Request for item: ' + message.seq);
     }
 
-    var deviceId = self.getDeviceIdFunction(message.header.srcSystem, self.name);
+    var deviceId = message.header.srcSystem;
 
     // clear the timeout that created the requst, if the first item
     clearTimeout(self.devices[deviceId].timeoutIds[MavlinkProtocol._MISSION_COUNT_TIMEOUT_ID]);
@@ -944,7 +945,7 @@ this.mavlinkParser.on('MISSION_ACK', function(message) {
 	console.log('Mission Ack ' + message.type);
     }
 
-    var deviceId = self.getDeviceIdFunction(message.header.srcSystem, self.name);
+    var deviceId = message.header.srcSystem;
 
     // clear timers
     clearTimeout(self.devices[deviceId].timeoutIds[MavlinkProtocol._MISSION_COUNT_TIMEOUT_ID]);
@@ -976,7 +977,7 @@ this.mavlinkParser.on('MISSION_ACK', function(message) {
 		    }
 
 		    // call the success listener
-		    self.emit('setWaypointsSuccessful', deviceId);
+		    self.emit('setWaypointsSuccessful', self.id, deviceId);
 		}
 
 		self.devices[deviceId]._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
@@ -1049,7 +1050,7 @@ this.mavlinkParser.on('MISSION_ACK', function(message) {
 	}
 
 	// fire error event
-	self.emit('setWaypointsError', deviceId, text + "" + self._waypointSequence);
+	self.emit('setWaypointsError', self.id, deviceId, text + "" + self._waypointSequence);
 
         if(self.debugWaypoints) {
 	    console.log(text);
@@ -1062,7 +1063,7 @@ this.mavlinkParser.on('MISSION_CURRENT', function(message) {
 	console.log('Mission set to current: ' + message.seq);
     }
 
-    var deviceId = self.getDeviceIdFunction(message.header.srcSystem, self.name);
+    var deviceId = message.header.srcSystem;
 
     if(self.devices[deviceId]._waypointMode === MavlinkProtocol.WAYPOINT_SETTING_TARGET) {
 	// clear out the timeout in case is still was set
@@ -1070,13 +1071,13 @@ this.mavlinkParser.on('MISSION_CURRENT', function(message) {
 	self.devices[deviceId]._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
     }
 
-    self.emit('targetWaypoint', deviceId, message.seq);
+    self.emit('targetWaypoint', self.id, deviceId, message.seq);
 });
 
 this.mavlinkParser.on('MISSION_ITEM_REACHED', function(message) {
     console.log('Mission item reached ' + message.seq);
 
-    self.emit('waypointAchieved', self.getDeviceIdFunction(message.header.srcSystem, self.name), message.seq);
+    self.emit('waypointAchieved', self.id, deviceId, message.seq);
 });
 
 this.mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
@@ -1144,7 +1145,7 @@ this.mavlinkParser.on('STATUS_TEXT', function(message) {
 	    ' text: ' + message.text);
     }
 
-    self.emit('statusText', self.getDeviceIdFunction(message.header.srcSystem, self.name), message.severity, message.text);
+    self.emit('statusText', self.id, message.header.srcSystem, message.severity, message.text);
 });
 
 this.mavlinkParser.on('PARAM_VALUE', function(message) {
@@ -1300,7 +1301,7 @@ this.mavlinkParser.on('SYS_STATUS', function(message) {
 	    ' comm errors: ' + message.errors_com);
     }
 
-    var deviceId = self.getDeviceIdFunction(message.header.srcSystem, self.name);
+    var deviceId = message.header.srcSystem;
 
     if(self.devices[deviceId].batteryVoltage    != message.voltage_battery / 1000 || 
 	self.devices[deviceId].batteryCurrent   != message.current_battery / 100 ||
@@ -1315,7 +1316,8 @@ this.mavlinkParser.on('SYS_STATUS', function(message) {
 	self.devices[deviceId].commErrors       = message.errors_comm;
 
 	self.emit('systemState', 
-	    self.getDeviceIdFunction(message.header.srcSystem, self.name), 
+	    self.id, 
+	    deviceId,
 	    self.devices[deviceId].batteryVoltage, 
 	    self.devices[deviceId].batteryCurrent, 
 	    self.devices[deviceId].batteryRemaining, 
@@ -1348,9 +1350,20 @@ this.mavlinkParser.on('ATTITUDE', function(message) {
 	    ' yaw speed: ' + message.yawspeed);
     }
 
+    var attitude = new Attitude();
+    attitude.pitch = rToP(message.pitch);
+    attitude.roll = rToP(message.roll);
+    attitude.yaw = rToP(message.yaw);
+
+    attitude.x = attitude.pitch;
+    attitude.y = attitude.roll;
+    attitude.z = attitude.yaw;
+
+    var heading = attitude.yaw < 0 ? attitude.yaw * -2 : attitude.yaw;
+
     // only recognise an attitude change if the change is more than the accuracy of the attitude
     // console.log('pitch prev: ' + message.pitch + " was: " + self.attitude.pitch + " accuracy: " + self.attitudeAccuracy);
-    self._reportAttitude(self.getDeviceIdFunction(message.header.srcSystem, self.name), message.pitch, message.roll, message.yaw);
+    self._reportAttitude.call(self, message.header.srcSystem, attitude, heading);
 });
 
 this.mavlinkParser.on('VFR_HUD', function(message) {
@@ -1424,10 +1437,7 @@ this.mavlinkParser.on('GPS_RAW_INT', function(message) {
     var lng = message.lon / 10000000;
     var alt = message.alt / 1000;
 
-    self._reportPosition(self.getDeviceIdFunction(message.header.srcSystem, self.name), 
-        message.lat / 10000000, 
-	message.lon / 10000000, 
-	message.alt / 1000);
+    self._reportPosition(self.id, message.header.srcSystem, message.lat / 10000000, message.lon / 10000000, message.alt / 1000);
 });
 
 /* end init listeners for mavlink */
@@ -1444,20 +1454,25 @@ MavlinkProtocol.prototype.getNextSequence = function() {
     return this._msgSequence;
 }
 
-MavlinkProtocol.prototype.getMavlinkId = function(deviceId) {
-    if(this.devices === undefined || this.devices[deviceId] === undefined) {
-	console.log("no device defined for deviceId: " + deviceId);
-	console.log("devices: " + JSON.stringify(this.devices));
+MavlinkProtocol.prototype.getMavlinkId = function(vehicleId) {
+    if(this.devices === undefined) {
+	console.log("no device defined for vehicle: " + vehicleId);
+	console.log("devices: " + JSON.stringify(this.devices, null, '  '));
 	return null;
     } else {
-	return this.devices[deviceId].systemId;
+	for(var i in this.devices) {
+	    if(this.devices[i].vehicleId === vehicleId) {
+		return this.devices[i].systemId;
+	    }
+	}
     }
 }
 
-function _Device(systemId, options) {
+function _Device(systemId, vehicleId, options) {
     options = options || {};
 
     this.systemId = systemId;
+    this.vehicleId = vehicleId;
 
     this.attitude = new Attitude();
     this.position = new Position();
@@ -1531,3 +1546,6 @@ _Device.prototype._getWaypointState = function() {
     return currentStateText;
 }
 
+function rToP(v) {
+    return v * (180/Math.PI);
+}
