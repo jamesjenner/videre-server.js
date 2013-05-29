@@ -337,10 +337,9 @@ clientComms = new ClientComms({
     debugLevel: config.debugLevel
 });
 
+// TODO: cannot delete vehicle, however vehicle deletion should be handled when comms are deleted
+
 // listen for the events from clients
-// TODO: these should be removed, no longer supported, or maybe?
-// clientComms.on('addVehicle', function(d) {addVehicle(d);});
-// clientComms.on('deleteVehicle', function(d) {deleteVehicle(d);});
 clientComms.on('updateVehicle', function(d) {updateVehicle(d);});
 clientComms.on('updateNavPath', function(d, c) {updateNavPath(d, c);});
 clientComms.on('sendVehicles', function(c) {sendVehicles(c);});
@@ -572,7 +571,7 @@ function startDeviceComms(comms) {
 	    networkAddress: comms[i].networkAddress,
 	    networkPort: comms[i].networkPort,
 
-	    getDeviceIdFunction: getVehicleId,
+	    getVehicleIdFunction: getVehicleId,
 	    getDeviceOptionsFunction: getVehicleOptions,
 
 	    debugWaypoints: false,
@@ -613,7 +612,7 @@ function startDeviceComms(comms) {
 
 	    // TODO: what happens if we lose coms? what performs the auto re-connect?
 	    if(config.debug) {
-		console.log((new Date()) + " videre-server.js: startVehicleComms: connecting " + vehicles[i].name);
+		console.log((new Date()) + " videre-server.js: connecting to " + comms[i].name);
 	    }
 
 	    protocol.connect();
@@ -627,36 +626,43 @@ function startDeviceComms(comms) {
     return deviceComms;
 }
 
-var vehicleMap = [null, null];
+var vehicleMap = new Object();
 
-function getVehicleId(commId, protocolId) {
+function getVehicleId(protocolId, deviceId, protocolName) {
     // lookup to see if id exists
-    if(vehicleMap[commId] === null) {
-        var index = findVehicleByCommId(commId);
+    if(vehicleMap[protocolId] === undefined) {
+	vehicleMap[protocolId] = new Object();
+    }
+
+    if(vehicleMap[protocolId][deviceId] === undefined) {
+        var index = findVehicleByDeviceId(protocolId, deviceId);
 
 	if(index > -1) {
 	    if(config.debug) {
-		console.log((new Date()) + " videre-server.js: getVehicleId: vehicle map empty, vehicle found for commId " + commId);
+		console.log((new Date()) + 
+	            " videre-server.js: getVehicleId: vehicle found for protocolId " + protocolId + " deviceId " + deviceId);
 	    }
 	    // exist so use it
-	    vehicleMap[commId] = vehicles[index];
+	    vehicleMap[protocolId][deviceId] = vehicles[protocolId][index];
 	} else {
 	    // doesn't exist so create it
 	    if(config.debug) {
-		console.log((new Date()) + " videre-server.js: getVehicleId: vehicle map empty, no vehicle for commId " + commId + " adding vehicle");
+		console.log((new Date()) + 
+	            " videre-server.js: getVehicleId: no vehicle for protocolId " + 
+		    protocolId + " deviceId " + deviceId + " adding vehicle");
 	    }
-	    vehicleMap[commId] = new Vehicle();
-	    vehicleMap[commId].id = uuid.v4({rng: uuid.nodeRNG});
+	    vehicleMap[protocolId][deviceId] = new Vehicle();
+	    vehicleMap[protocolId][deviceId].id = uuid.v4({rng: uuid.nodeRNG});
 
-            addVehicle(vehicleMap[commId].id, commId, protocolId, new Vehicle()); 
+            addVehicle(protocolId, deviceId, vehicleMap[protocolId][deviceId]); 
 	}
     }
 
-    return vehicleMap[commId].id;
+    return vehicleMap[protocolId][deviceId].id;
 }
 
-function getVehicleOptions(commId) {
-    if(vehicleMap[commId] === null) {
+function getVehicleOptions(protocolId, deviceId) {
+    if(vehicleMap[deviceId] === undefined || vehicleMap[deviceId][protocolId] === undefined) {
 	// doesn't exist so just use defaults
 	return {
 	    pitchAccuracy: 0.001,
@@ -667,11 +673,11 @@ function getVehicleOptions(commId) {
 	};
     } else {
 	return {
-	    pitchAccuracy: vehicleMap[commId].pitchAccuracy,
-	    rollAccuracy: vehicleMap[commId].rollAccuracy,
-	    yawAccuracy: vehicleMap[commId].yawAccuracy,
-	    positionMode: vehicleMap[commId].positionMode,
-	    positionDiff: vehicleMap[commId].positionDiff,
+	    pitchAccuracy: vehicleMap[protocolId][deviceId].pitchAccuracy,
+	    rollAccuracy: vehicleMap[protocolId][deviceId].rollAccuracy,
+	    yawAccuracy: vehicleMap[protocolId][deviceId].yawAccuracy,
+	    positionMode: vehicleMap[protocolId][deviceId].positionMode,
+	    positionDiff: vehicleMap[protocolId][deviceId].positionDiff,
 	};
     }
 }
@@ -698,9 +704,10 @@ function loadVehicles(filename) {
     }
 
     if(vehicles) {
-	vehicles.sort(compareName);
+	// TODO: add sorting for new structure of vehicles... not sure if possible
+	// vehicles.sort(compareName);
     } else {
-        vehicles = new Array();
+        vehicles = new Object();
     }
 
     return vehicles;
@@ -721,53 +728,36 @@ function compareName(a, b) {
  * save vehicles
  */
 function saveVehicles(filename) {
+    console.log("saving vehicles to " + filename + " contents: " + JSON.stringify(vehicles));
     fs.writeFileSync(filename, JSON.stringify(vehicles, null, '\t'));
 }
 
 // add a watchdog to check if vehicles get add
-function addVehicle(uuid, commId, commProtocolId, vehicle) {
+function addVehicle(protocolId, deviceId, vehicle) {
     if(config.debug) {
-	console.log((new Date()) + ' Adding vehicle ' + vehicle.name + ' ' + uuid + ' ' + commId + ' ' + commProtocolId);
+	console.log((new Date()) + ' Adding vehicle ' + vehicle.name + ' ' + deviceId + ' ' + protocolId);
     }
     // TODO: add logic to check if the vehicle exists, based on name
 
     // setup the id
     // var vehicle = new Vehicle(msg);
-    vehicle.id = uuid;
-    vehicle.commId = commId;
-    vehicle.commProtocolId = commProtocolId;
-    vehicles.push(vehicle);
+    vehicle.deviceId = deviceId;
 
-    console.log((new Date()) + ' saving vehicle ' + vehicle.name + ' ' + uuid + ' ' + commId + ' ' + commProtocolId);
+    console.log("vehicles: " + JSON.stringify(vehicles));
+    console.log("vehicles[" + protocolId + "] : " + vehicles[protocolId]);
+    if(vehicles[protocolId] === undefined) {
+	console.log("setting up vehicles[" + protocolId + "]");
+	vehicles[protocolId] = new Array();
+    }
+
+    console.log("vehicles[" + protocolId + "] : " + vehicles[protocolId]);
+    vehicles[protocolId].push(vehicle);
+    console.log("vehicles (post push): " + JSON.stringify(vehicles));
+
+    console.log((new Date()) + ' saving vehicle ' + vehicle.name + ' ' + vehicle.deviceId + ' ' + protocolId);
     saveVehicles(VEHICLES_FILE);
 
     clientComms.sendAddVehicle(vehicle);
-}
-
-function deleteVehicle(msg) {
-    // if the message isn't set and the id isn't set then do nothing
-    if(!msg && !msg.id) {
-	if(config.debug) {
-	    console.log((new Date()) + ' Delete vehicle failed, msg.id is not specififed.');
-	}
-	return;
-    }
-
-    // find the vehicle
-    var index = findVehicleById(msg.id);
-
-    // remove from the array if found
-    if(index >= 0) {
-        vehicles.splice(index, 1);
-
-	saveVehicles(VEHICLES_FILE);
-
-	clientComms.sendDeleteVehicle(vehicle);
-    } else {
-	if(config.debug) {
-	    console.log((new Date()) + ' Delete vehicle failed, vehicle not found for: ' + msg.name);
-	}
-    }
 }
 
 function updateVehicle(msg) {
@@ -780,18 +770,18 @@ function updateVehicle(msg) {
     }
 
     // find the vehicle
-    var index = findVehicleById(msg.id);
+    var vehicle = findVehicleById(msg.id);
 
-    if(index >= 0) {
-        vehicles[index] = new Vehicle(msg);
+    if(vehicle != null) {
+	// TODO: merge the info?
+        vehicle = new Vehicle(msg);
 
 	saveVehicles(VEHICLES_FILE);
 
-	clientComms.sendUpdateVehicle(vehicles[index]);
+	clientComms.sendUpdateVehicle(vehicle);
     } else {
-	// TODO: revert to a create if it doesn't exist?
 	if(config.debug) {
-	    console.log((new Date()) + ' Update vehicle failed, vehicle not found for: ' + msg.name);
+	    console.log((new Date()) + ' Update vehicle failed, vehicle not found: ' + msg.id + " : " + msg.name);
 	}
     }
 }
@@ -806,14 +796,14 @@ function updateNavPath(msg, connection) {
     }
 
     // find the vehicle
-    var index = findVehicleById(msg.id);
+    var vehicle = findVehicleById(msg.id);
     
     var navPath = new Path(msg.navPath);
 
-    if(index >= 0) {
+    if(vehicle != null) {
 	// update the path and the onMap flag
-	vehicles[index].navigationPath = new Path(msg.navPath);
-	vehicles[index].onMap = msg.onMap;
+	vehicle.navigationPath = new Path(msg.navPath);
+	vehicle.onMap = msg.onMap;
 
 	saveVehicles(VEHICLES_FILE);
 
@@ -821,7 +811,7 @@ function updateNavPath(msg, connection) {
 	clientComms.sendUpdateNavPath(msg);
     } else {
 	if(config.debug) {
-	    console.log((new Date()) + ' Update nav path of vehicle failed, vehicle not found for: ' + msg.id);
+	    console.log((new Date()) + ' Update nav path of vehicle failed, vehicle not found: ' + msg.id);
 	}
     }
 }
@@ -844,45 +834,20 @@ function newConnection(connection) {
  * capture attitude and pass to the clients
  *
  */
-function processAttitude(commId, attitude) {
-    if(config.debug) {
-	console.log((new Date()) + ' processAttitude ' + commId + " " + JSON.stringify(attitude));
-    }
-
-	console.log("i " + commId);
+function processAttitude(protocolId, deviceId, attitude, heading) {
     // lookup vehicle based on device id
-    if(vehicleMap[commId] !== undefined && vehicleMap[commId] !== null) {
-	console.log("ii");
-	console.log("ii " + (vehicleMap[commId] !== null));
-	console.log("ii " + (vehicleMap[commId] !== undefined));
-	console.log("ii " + (vehicleMap[commId].telemetry !== undefined));
-	console.log("ii " + (vehicleMap[commId].telemetry !== null));
-	// console.log((new Date()) + ' setting attitude ' + commId + " " + JSON.stringify(attitude));
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
 	// update telemetry for vehicle with attitude info
-	if(vehicleMap[commId].telemetry === undefined) {
-	    console.log("ii.i");
-	    vehicleMap[commId].telemetry = new Telemetry();
-	    console.log("ii.ii");
+	if(vehicleMap[protocolId][deviceId].telemetry === undefined) {
+	    vehicleMap[protocolId][deviceId].telemetry = new Telemetry();
 	}
-	vehicleMap[commId].telemetry.attitude = attitude;
 
-	console.log("iii");
+	vehicleMap[protocolId][deviceId].telemetry.attitude = attitude;
+	vehicleMap[protocolId][deviceId].telemetry.heading = heading;
+
 	// set telemetry to dirty
-	vehicleMap[commId].telemetry.dirty = true;
-	console.log("iv");
-	console.log("iv: " + vehicleMap[commId].id + " : " + JSON.stringify(vehicleMap[i].telemetry.attitude));
+	vehicleMap[protocolId][deviceId].telemetry.dirty = true;
     }
-
-    console.log("v");
-    for(var i = 0, l = vehicleMap.length; i < l; i++) {
-	if(vehicleMap[i] !== undefined && 
-	    vehicleMap[i] !== null) {
-	    console.log(">> " + (vehicleMap[i].id === commId));
-	    console.log(">> " + JSON.stringify(vehicleMap, null, '\t'));
-	    console.log(">> " + vehicleMap[i].id + " : " + JSON.stringify(vehicleMap[i].telemetry.attitude));
-	}
-    }
-	console.log("vi");
 }
 
 /*
@@ -891,18 +856,18 @@ function processAttitude(commId, attitude) {
  * capture system state and update telemetry
  *
  */
-function processSystemState(commId, batteryVoltage, batteryCurrent, batteryRemaining, commDropRate, commErrors) {
+function processSystemState(protocolId, deviceId, batteryVoltage, batteryCurrent, batteryRemaining, commDropRate, commErrors) {
     // lookup vehicle based on device id
-    if(vehicleMap[commId] !== null) {
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
 	// update telemetry for vehicle with attitude info
-	vehicleMap[commId].telemetry.batteryVoltage = batteryVoltage;
-	vehicleMap[commId].telemetry.batteryCurrent = batteryCurrent;
-	vehicleMap[commId].telemetry.batteryRemaining = batteryRemaining;
-	vehicleMap[commId].telemetry.commDropRate = commDropRate;
-	vehicleMap[commId].telemetry.commErrors = commErrors;
+	vehicleMap[protocolId][deviceId].telemetry.batteryVoltage = batteryVoltage;
+	vehicleMap[protocolId][deviceId].telemetry.batteryCurrent = batteryCurrent;
+	vehicleMap[protocolId][deviceId].telemetry.batteryRemaining = batteryRemaining;
+	vehicleMap[protocolId][deviceId].telemetry.commDropRate = commDropRate;
+	vehicleMap[protocolId][deviceId].telemetry.commErrors = commErrors;
 
 	// set telemetry to dirty
-	vehicleMap[commId].telemetry.dirty = true;
+	vehicleMap[protocolId][deviceId].telemetry.dirty = true;
     }
 }
 
@@ -912,22 +877,22 @@ function processSystemState(commId, batteryVoltage, batteryCurrent, batteryRemai
  * sends the position to the clients
  *
  */
-function processPosition(commId, position) {
+function processPosition(protocolId, deviceId, position) {
     // lookup vehicle based on device id
-    if(vehicleMap[commId] !== null) {
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
         if(config.debug) {
 	    if(config.debugLevel > 3) {
 		console.log((new Date()) + ' videre-server: processPosition, sending: ' + JSON.stringify(position));
 	    } else {
-		console.log((new Date()) + ' videre-server: sending position for ' + vehicleMap[commId].name);
+		console.log((new Date()) + ' videre-server: sending position for ' + vehicleMap[protocolId][deviceId].name);
 	    }
 	}
 
 	// update position for vehicle
-	vehicleMap[commId].position = position;
+	vehicleMap[protocolId][deviceId].position = position;
 
 	// send the message
-	clientComms.sendPosition(vehicleMap[commId].id, vehicleMap[commId].position);
+	clientComms.sendPosition(vehicleMap[protocolId][deviceId].id, vehicleMap[protocolId][deviceId].position);
     }
 }
 
@@ -949,172 +914,172 @@ function processTargetWaypoint(deviceId, sequence) {
 function processWaypointAchieved(deviceId, sequence) {
 }
 
-function processStatusText(commId, severity, text) {
+function processStatusText(protocolId, deviceId, severity, text) {
     // lookup vehicle based on device id
-    if(vehicleMap[commId] !== null) {
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
         if(config.debug) {
 	    if(config.debugLevel > 3) {
 		console.log((new Date()) + ' videre-server: processStatusText, sending: ' + severity + " : " + text);
 	    } else {
-		console.log((new Date()) + ' videre-server: sending status for ' + vehicleMap[commId].name);
+		console.log((new Date()) + ' videre-server: sending status for ' + vehicleMap[protocolId][deviceId].name);
 	    }
 	}
 
 	// update state for vehicle
 	// TODO: sort out how to persist this if required
-	// vehicleMap[commId].state.severity = severity;
-	// vehicleMap[commId].state.text = text;
+	// vehicleMap[protocolId][deviceId].state.severity = severity;
+	// vehicleMap[protocolId][deviceId].state.text = text;
 
 	// send state changed message to clients
-	clientComms.sendStatusMsg(vehicleMap[commId].id, severity, text);
+	clientComms.sendStatusMsg(vehicleMap[protocolId][deviceId].id, severity, text);
     }
 }
 
 /* TODO: figure out this one
 function processSystemStateChanged(deviceId, systemStatus, systemStatusText) {
     // lookup vehicle based on device id
-    if(vehicleMap[commId] !== null) {
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
         if(config.debug) {
 	    if(config.debugLevel > 3) {
 		console.log((new Date()) + ' videre-server: processSystemStateChanged, sending: ' + systemStatus + " : " + systemStatusText);
 	    } else {
-		console.log((new Date()) + ' videre-server: sending system state for ' + vehicleMap[commId].name);
+		console.log((new Date()) + ' videre-server: sending system state for ' + vehicleMap[protocolId][deviceId].name);
 	    }
 	}
     }
 }
 */
 
-function processAutonomousModeChanged(commId, enabled) {
+function processAutonomousModeChanged(protocolId, deviceId, enabled) {
     // lookup vehicle based on device id
-    if(vehicleMap[commId] !== null) {
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
         if(config.debug) {
 	    if(config.debugLevel > 3) {
 		console.log((new Date()) + ' videre-server: processAutonomousModeChanged, sending: ' + enabled);
 	    } else {
-		console.log((new Date()) + ' videre-server: sending autonomous mode for ' + vehicleMap[commId].name);
+		console.log((new Date()) + ' videre-server: sending autonomous mode for ' + vehicleMap[protocolId][deviceId].name);
 	    }
 	}
 
 	// update state for vehicle
-	vehicleMap[commId].state.autonomous = enabled;
+	vehicleMap[protocolId][deviceId].state.autonomous = enabled;
 
 	// send state changed message to clients
-	clientComms.sendState(vehicleMap[commId].id, vehicleMap[commId].state);
+	clientComms.sendState(vehicleMap[protocolId][deviceId].id, vehicleMap[protocolId][deviceId].state);
     }
 }
 
-function processTestModeChanged(commId, enabled) {
+function processTestModeChanged(protocolId, deviceId, enabled) {
     // lookup vehicle based on device id
-    if(vehicleMap[commId] !== null) {
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
         if(config.debug) {
 	    if(config.debugLevel > 3) {
 		console.log((new Date()) + ' videre-server: processTestModeChanged, sending: ' + enabled);
 	    } else {
-		console.log((new Date()) + ' videre-server: sending test mode state for ' + vehicleMap[commId].name);
+		console.log((new Date()) + ' videre-server: sending test mode state for ' + vehicleMap[protocolId][deviceId].name);
 	    }
 	}
 
 	// update state for vehicle
-	vehicleMap[commId].state.testMode = enabled;
+	vehicleMap[protocolId][deviceId].state.testMode = enabled;
 
 	// send state changed message to clients
-	clientComms.sendState(vehicleMap[commId].id, vehicleMap[commId].state);
+	clientComms.sendState(vehicleMap[protocolId][deviceId].id, vehicleMap[protocolId][deviceId].state);
     }
 }
 
-function processStabilizedModeChanged(commId, enabled) {
+function processStabilizedModeChanged(protocolId, deviceId, enabled) {
     // lookup vehicle based on device id
-    if(vehicleMap[commId] !== null) {
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
         if(config.debug) {
 	    if(config.debugLevel > 3) {
 		console.log((new Date()) + ' videre-server: processStabilizedModeChanged, sending: ' + enabled);
 	    } else {
-		console.log((new Date()) + ' videre-server: sending stabilized mode for ' + vehicleMap[commId].name);
+		console.log((new Date()) + ' videre-server: sending stabilized mode for ' + vehicleMap[protocolId][deviceId].name);
 	    }
 	}
 
 	// update state for vehicle
-	vehicleMap[commId].state.stabilised = enabled;
+	vehicleMap[protocolId][deviceId].state.stabilised = enabled;
 
 	// send state changed message to clients
-	clientComms.sendState(vehicleMap[commId].id, vehicleMap[commId].state);
+	clientComms.sendState(vehicleMap[protocolId][deviceId].id, vehicleMap[protocolId][deviceId].state);
     }
 }
 
-function processHardwareInLoopModeChanged(commId, enabled) {
+function processHardwareInLoopModeChanged(protocolId, deviceId, enabled) {
     // lookup vehicle based on device id
-    if(vehicleMap[commId] !== null) {
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
         if(config.debug) {
 	    if(config.debugLevel > 3) {
 		console.log((new Date()) + ' videre-server: processHardwareInLoopModeChanged, sending: ' + enabled);
 	    } else {
-		console.log((new Date()) + ' videre-server: sending hardware in loop for ' + vehicleMap[commId].name);
+		console.log((new Date()) + ' videre-server: sending hardware in loop for ' + vehicleMap[protocolId][deviceId].name);
 	    }
 	}
 
 	// update state for vehicle
-	vehicleMap[commId].state.hardwareInLoop = enabled;
+	vehicleMap[protocolId][deviceId].state.hardwareInLoop = enabled;
 
 	// send state changed message to clients
-	clientComms.sendState(vehicleMap[commId].id, vehicleMap[commId].state);
+	clientComms.sendState(vehicleMap[protocolId][deviceId].id, vehicleMap[protocolId][deviceId].state);
     }
 }
 
-function processRemoteControlModeChanged(commId, enabled) {
+function processRemoteControlModeChanged(protocolId, deviceId, enabled) {
     // lookup vehicle based on device id
-    if(vehicleMap[commId] !== null) {
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
         if(config.debug) {
 	    if(config.debugLevel > 3) {
 		console.log((new Date()) + ' videre-server: processRemoteControlModeChanged, sending: ' + enabled);
 	    } else {
-		console.log((new Date()) + ' videre-server: sending remote control mode for ' + vehicleMap[commId].name);
+		console.log((new Date()) + ' videre-server: sending remote control mode for ' + vehicleMap[protocolId][deviceId].name);
 	    }
 	}
 
 	// update state for vehicle
-	vehicleMap[commId].state.remoteControl = enabled;
+	vehicleMap[protocolId][deviceId].state.remoteControl = enabled;
 
 	// send state changed message to clients
-	clientComms.sendState(vehicleMap[commId].id, vehicleMap[commId].state);
+	clientComms.sendState(vehicleMap[protocolId][deviceId].id, vehicleMap[protocolId][deviceId].state);
     }
 }
 
-function processGuidedModeChanged(commId, enabled) {
+function processGuidedModeChanged(protocolId, deviceId, enabled) {
     // lookup vehicle based on device id
-    if(vehicleMap[commId] !== null) {
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
         if(config.debug) {
 	    if(config.debugLevel > 3) {
 		console.log((new Date()) + ' videre-server: processGuidedModeChanged, sending: ' + enabled);
 	    } else {
-		console.log((new Date()) + ' videre-server: sending guided mode for ' + vehicleMap[commId].name);
+		console.log((new Date()) + ' videre-server: sending guided mode for ' + vehicleMap[protocolId][deviceId].name);
 	    }
 	}
 
 	// update state for vehicle
-	vehicleMap[commId].state.guided = enabled;
+	vehicleMap[protocolId][deviceId].state.guided = enabled;
 
 	// send state changed message to clients
-	clientComms.sendState(vehicleMap[commId].id, vehicleMap[commId].state);
+	clientComms.sendState(vehicleMap[protocolId][deviceId].id, vehicleMap[protocolId][deviceId].state);
     }
 }
 
-function processArmedModeChanged(commId, enabled) {
+function processArmedModeChanged(protocolId, deviceId, enabled) {
     // lookup vehicle based on device id
-    if(vehicleMap[commId] !== null) {
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
         if(config.debug) {
 	    if(config.debugLevel > 3) {
 		console.log((new Date()) + ' videre-server: processAutonomousModeChanged, sending: ' + enabled);
 	    } else {
-		console.log((new Date()) + ' videre-server: sending system state for ' + vehicleMap[commId].name);
+		console.log((new Date()) + ' videre-server: sending system state for ' + vehicleMap[protocolId][deviceId].name);
 	    }
 	}
 
 	// update state for vehicle
-	vehicleMap[commId].state.autonomous = enabled;
+	vehicleMap[protocolId][deviceId].state.autonomous = enabled;
 
 	// send state changed message to clients
-	clientComms.sendState(vehicleMap[commId].id, vehicleMap[commId].state);
+	clientComms.sendState(vehicleMap[protocolId][deviceId].id, vehicleMap[protocolId][deviceId].state);
     }
 }
 
@@ -1159,33 +1124,28 @@ function checkSendTelemetry() {
     }
 
     // iterate through vehicles, 
-    for(var i = 0, l = vehicleMap.length; i < l; i++) {
-	//console.log(" tele not undef: " + (vehicleMap[i].telemetry !== undefined));
-	// check if telemetry has been updated since last send
-	if(vehicleMap[i] !== undefined && 
-	    vehicleMap[i] !== null) {
-	    console.log(": " + vehicleMap[i].id + " : " + JSON.stringify(vehicleMap[i].telemetry.attitude));
-	}
-	if(vehicleMap[i] !== undefined && 
-	    vehicleMap[i] !== null &&
-	    vehicleMap[i].telemetry !== undefined && 
-	    vehicleMap[i].telemetry.dirty) {
-	    console.log("a");
+    for(var i in vehicleMap) {
+	for(var j in vehicleMap[i]) {
 
-	    if(config.debug) {
-		if(config.debugLevel > 3) {
-		    console.log((new Date()) + ' videre-server: checkSendTelemetry, sending: ' + JSON.stringify(
-			vehicleMap[i].telemetry
-		    ));
-		} else {
-		    console.log((new Date()) + ' videre-server: checkSendTelemetry, sending for ' + vehicles[i].name);
+	    //console.log(" tele not undef: " + (vehicleMap[i].telemetry !== undefined));
+	    // check if telemetry has been updated since last send
+	    if(vehicleMap[i][j] !== undefined && 
+		vehicleMap[i][j] !== null &&
+		vehicleMap[i][j].telemetry !== undefined && 
+		vehicleMap[i][j].telemetry.dirty) {
+
+		if(config.debug) {
+		    if(config.debugLevel > 3) {
+			console.log((new Date()) + ' videre-server: checkSendTelemetry, sending: ' + JSON.stringify(
+			    vehicleMap[i][j].telemetry
+			));
+		    } else {
+			console.log((new Date()) + ' videre-server: checkSendTelemetry, sending for ' + vehicleMap[i][j].name);
+		    }
 		}
+		clientComms.sendTelemetry(vehicleMap[i][j].id, vehicleMap[i][j].telemetry);
+		vehicleMap[i][j].telemetry.dirty = false;
 	    }
-	    console.log("b");
-	    clientComms.sendTelemetry(vehicleMap[i], vehicleMap[i].telemetry);
-	    console.log("c");
-	    vehicleMap[i].telemetry.dirty = false;
-	    console.log("d");
 	}
     }
 }
@@ -1196,38 +1156,41 @@ function checkSendTelemetry() {
  * returns -1 if not found, otherwise the index in the vehicles array
  */
 function findVehicleById(id) {
-    var index = -1;
+    var vehicle = null;
 
     // if id isn't set then return
     if(!id) {
-	return index;
+	return vehicle;
     }
 
-    for(var i = 0, l = vehicles.length; i < l; i++) {
-	if(vehicles[i].id === id) {
-	    index = i;
-	    break;
+    scan:
+    for(var i in vehicles) {
+	for(var j = 0, l = vehicles[i].length; j < l; j++) {
+	    if(vehicles[i][j].id === id) {
+		vehicle = vehicles[i][j];
+		break scan;
+	    }
 	}
     }
 
-    return index;
+    return vehicle;
 }
 
 /** 
- * find VehicleByCommId - finds the vehicle based on the comm id
+ * find VehicleByDeviceId - finds the vehicle based on the device id
  * 
  * returns -1 if not found, otherwise the index in the vehicles array
  */
-function findVehicleByCommId(commId) {
+function findVehicleByDeviceId(protocolId, deviceId) {
     var index = -1;
 
     // if id isn't set then return
-    if(commId === undefined) {
+    if(deviceId === undefined || vehicles[protocolId] === undefined) {
 	return index;
     }
 
-    for(var i = 0, l = vehicles.length; i < l; i++) {
-	if(vehicles[i].commId !== undefined && vehicles[i].commId == commId) {
+    for(var i = 0, l = vehicles[protocolId].length; i < l; i++) {
+	if(vehicles[protocolId][i].deviceId !== undefined && vehicles[protocolId][i].deviceId === deviceId) {
 	    index = i;
 	    break;
 	}
