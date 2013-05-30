@@ -340,7 +340,8 @@ clientComms = new ClientComms({
 // TODO: cannot delete vehicle, however vehicle deletion should be handled when comms are deleted
 
 // listen for the events from clients
-clientComms.on('updateVehicle', function(d) {updateVehicle(d);});
+// clientComms.on('updateVehicle', function(d) {updateVehicle(d);});
+clientComms.on('updateVehicle', updateVehicle);
 clientComms.on('updateNavPath', function(d, c) {updateNavPath(d, c);});
 clientComms.on('sendVehicles', function(c) {sendVehicles(c);});
 clientComms.on('newConnectionAccepted', function(c) {newConnection(c);});
@@ -728,7 +729,6 @@ function compareName(a, b) {
  * save vehicles
  */
 function saveVehicles(filename) {
-    console.log("saving vehicles to " + filename + " contents: " + JSON.stringify(vehicles));
     fs.writeFileSync(filename, JSON.stringify(vehicles, null, '\t'));
 }
 
@@ -743,18 +743,12 @@ function addVehicle(protocolId, deviceId, vehicle) {
     // var vehicle = new Vehicle(msg);
     vehicle.deviceId = deviceId;
 
-    console.log("vehicles: " + JSON.stringify(vehicles));
-    console.log("vehicles[" + protocolId + "] : " + vehicles[protocolId]);
     if(vehicles[protocolId] === undefined) {
-	console.log("setting up vehicles[" + protocolId + "]");
 	vehicles[protocolId] = new Array();
     }
 
-    console.log("vehicles[" + protocolId + "] : " + vehicles[protocolId]);
     vehicles[protocolId].push(vehicle);
-    console.log("vehicles (post push): " + JSON.stringify(vehicles));
 
-    console.log((new Date()) + ' saving vehicle ' + vehicle.name + ' ' + vehicle.deviceId + ' ' + protocolId);
     saveVehicles(VEHICLES_FILE);
 
     clientComms.sendAddVehicle(vehicle);
@@ -773,11 +767,13 @@ function updateVehicle(msg) {
     var vehicle = findVehicleById(msg.id);
 
     if(vehicle != null) {
-	// TODO: merge the info?
-        vehicle = new Vehicle(msg);
+	// merge the data from the msg into the vehicle
+        Vehicle.merge(vehicle, msg);
 
+	// save the vehicles
 	saveVehicles(VEHICLES_FILE);
 
+	// send the update back to the host
 	clientComms.sendUpdateVehicle(vehicle);
     } else {
 	if(config.debug) {
@@ -1163,12 +1159,10 @@ function findVehicleById(id) {
 	return vehicle;
     }
 
-    scan:
     for(var i in vehicles) {
 	for(var j = 0, l = vehicles[i].length; j < l; j++) {
 	    if(vehicles[i][j].id === id) {
-		vehicle = vehicles[i][j];
-		break scan;
+		return vehicles[i][j];
 	    }
 	}
     }
