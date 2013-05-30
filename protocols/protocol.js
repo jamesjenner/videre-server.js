@@ -161,6 +161,22 @@ Protocol.prototype._initNetwork = function() {
     });
 }
 
+Protocol.prototype.setOptions = function(vehicleId, options) {
+    if(options === undefined || options === null) {
+	return;
+    } 
+
+    var deviceId = this.getMavlinkId(vehicleId);
+
+    if(deviceId !== null) {
+	this.devices[deviceId].pitchAccuracy = ((options.pitchAccuracy != null) ? options.pitchAccuracy : this.devices[deviceId].pitchAccuracy);
+	this.devices[deviceId].rollAccuracy = ((options.rollAccuracy != null) ? options.rollAccuracy : this.devices[deviceId].rollAccuracy);
+	this.devices[deviceId].yawAccuracy = ((options.yawAccuracy != null) ? options.yawAccuracy : this.devices[deviceId].yawAccuracy);
+	this.devices[deviceId].positionMode = ((options.positionMode != null) ? options.positionMode : this.devices[deviceId].positionMode);
+	this.devices[deviceId].positionDiff = ((options.positionDiff != null) ? options.positionDiff : this.devices[deviceId].positionDiff);
+    }
+}
+
 Protocol.prototype.processData = function(data) { }
 
 Protocol.prototype._setupListeners = function() { }
