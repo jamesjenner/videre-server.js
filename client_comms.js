@@ -421,7 +421,7 @@ function processConnectionClosed(connection, reasonCode, description) {
 
 function processRawMessage(self, con, message) {
     if (message.type === 'utf8') {
-	if(self.debug) {
+	if(self.debug && self.debugLevel > 3) {
 	    console.log((new Date()) + ' Received message: ' + message.utf8Data);
 	}
 
