@@ -408,7 +408,6 @@ MavlinkProtocol.prototype._setupListeners = function() {
  *
  */
 
-
 this.mavlinkParser.on('message', function(message) {
     if(self.debugMessage) {
 	console.log(message.name + ' <- received message for ' + this.id + ":" + message.header.srcSystem + ", protocol " + self.name);
@@ -459,7 +458,8 @@ this.mavlinkParser.on('HEARTBEAT', function(message) {
     if(self.devices[deviceId] === undefined) {
         var vehicleId = self.getVehicleIdFunction(self.id, deviceId, self.name);
 
-	self.devices[deviceId] = new _Device(deviceId, vehicleId);
+	var options = self.getDeviceOptionsFunction(self.id, deviceId);
+	self.devices[deviceId] = new _Device(deviceId, vehicleId, options);
     }
 
     // if the system status has changed then update it
