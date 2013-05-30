@@ -1437,7 +1437,7 @@ this.mavlinkParser.on('GPS_RAW_INT', function(message) {
     var lng = message.lon / 10000000;
     var alt = message.alt / 1000;
 
-    self._reportPosition(self.id, message.header.srcSystem, message.lat / 10000000, message.lon / 10000000, message.alt / 1000);
+    self._reportPosition.call(self, message.header.srcSystem, lat, lng, alt);
 });
 
 /* end init listeners for mavlink */
@@ -1507,8 +1507,8 @@ function _Device(systemId, vehicleId, options) {
     this.pitchAccuracy = ((options.pitchAccuracy != null) ? options.pitchAccuracy : 0.03);
     this.rollAccuracy = ((options.rollAccuracy != null) ? options.rollAccuracy : 0.03);
     this.yawAccuracy = ((options.yawAccuracy != null) ? options.yawAccuracy : 0.03);
-    this.positionMode = ((options.positionMode != null) ? options.positionMode : Protocol.POSITION_MODE_DISTANCE);
-    this.positionDiff = ((options.positionDiff != null) ? options.positionDiff : 5);
+    this.positionReportingMode = ((options.positionReportingMode != null) ? options.positionReportingMode : Protocol.POSITION_MODE_DISTANCE);
+    this.positionReportingValue = ((options.positionReportingValue != null) ? options.positionReportingValue : 5);
 
     // this is set by the heartbeat message
     this.timeoutIds = [null, null];
