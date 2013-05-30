@@ -668,16 +668,16 @@ function getVehicleOptions(protocolId, deviceId) {
 	    pitchAccuracy: 0.001,
 	    rollAccuracy: 0.001,
 	    yawAccuracy: 0.03,
-	    positionMode: Protocol.POSITION_MODE_POSITION,
-	    positionDiff: 1,
+	    positionReportingMode: Protocol.POSITION_MODE_POSITION,
+	    positionReportingValue: 1,
 	};
     } else {
 	return {
 	    pitchAccuracy: vehicleMap[protocolId][deviceId].pitchAccuracy,
 	    rollAccuracy: vehicleMap[protocolId][deviceId].rollAccuracy,
 	    yawAccuracy: vehicleMap[protocolId][deviceId].yawAccuracy,
-	    positionMode: vehicleMap[protocolId][deviceId].positionMode,
-	    positionDiff: vehicleMap[protocolId][deviceId].positionDiff,
+	    positionReportingMode: vehicleMap[protocolId][deviceId].positionReportingMode,
+	    positionReportingValue: vehicleMap[protocolId][deviceId].positionReportingValue,
 	};
     }
 }
