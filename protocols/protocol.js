@@ -38,9 +38,9 @@ Protocol.DEFAULT_PORT = "5760";
 Protocol.CONNECTION_SERIAL = "Serial";
 Protocol.CONNECTION_NETWORK = "Network";
 
-Protocol.POSITION_MODE_NONE = 0;
-Protocol.POSITION_MODE_DISTANCE = 1;
-Protocol.POSITION_MODE_TIME = 2;
+Protocol.POSITION_MODE_NONE = "None";
+Protocol.POSITION_MODE_DISTANCE = "Distance";
+Protocol.POSITION_MODE_TIME = "Time";
 
 // setup Protocol as an emitter
 util.inherits(Protocol, EventEmitter);
@@ -172,8 +172,8 @@ Protocol.prototype.setOptions = function(vehicleId, options) {
 	this.devices[deviceId].pitchAccuracy = ((options.pitchAccuracy != null) ? options.pitchAccuracy : this.devices[deviceId].pitchAccuracy);
 	this.devices[deviceId].rollAccuracy = ((options.rollAccuracy != null) ? options.rollAccuracy : this.devices[deviceId].rollAccuracy);
 	this.devices[deviceId].yawAccuracy = ((options.yawAccuracy != null) ? options.yawAccuracy : this.devices[deviceId].yawAccuracy);
-	this.devices[deviceId].positionMode = ((options.positionMode != null) ? options.positionMode : this.devices[deviceId].positionMode);
-	this.devices[deviceId].positionDiff = ((options.positionDiff != null) ? options.positionDiff : this.devices[deviceId].positionDiff);
+	this.devices[deviceId].positionReportingMode = ((options.positionReportingMode != null) ? options.positionReportingMode : this.devices[deviceId].positionReportingMode);
+	this.devices[deviceId].positionReportingValue = ((options.positionReportingValue != null) ? options.positionReportingValue : this.devices[deviceId].positionReportingValue);
     }
 }
 
@@ -312,7 +312,7 @@ Protocol.prototype._reportPosition = function(id, lat, lng, alt) {
 
     var position = this.devices[id].position;
 
-    switch(this.devices[id].positionMode) {
+    switch(this.devices[id].positionReportingMode) {
         case Protocol.POSITION_MODE_NONE:
 	    reportPos = true;
 	    break;
@@ -320,7 +320,7 @@ Protocol.prototype._reportPosition = function(id, lat, lng, alt) {
         case Protocol.POSITION_MODE_DISTANCE:
 	    var diff = this.measurePoints(position.latitude, position.longitude, lat, lng) * 1000;
 	    
-	    if(this.measurePoints(position.latitude, position.longitude, lat, lng) * 1000 > this.devices[id].positionDiff) {
+	    if(this.measurePoints(position.latitude, position.longitude, lat, lng) * 1000 > this.devices[id].positionReportingValue) {
 		reportPos = true;
 	    }
 	    break;
@@ -328,7 +328,7 @@ Protocol.prototype._reportPosition = function(id, lat, lng, alt) {
         case Protocol.POSITION_MODE_TIME:
             var currentTime = new Date().getTime();
 
-	    if(currentTime - this.devices[id].positionTimer > this.devices[id].positionDiff * 1000) {
+	    if(currentTime - this.devices[id].positionTimer > this.devices[id].positionReportingValue * 1000) {
 		reportPos = true;
 		this.devices[id].positionTimer = currentTime;
 	    }
@@ -340,7 +340,7 @@ Protocol.prototype._reportPosition = function(id, lat, lng, alt) {
 	this.devices[id].position.longitude = lng;
 	this.devices[id].position.altitude  = alt;
 
-	this.emit('positionGPSRawInt', self.id, id, this.devices[id].position);
+	this.emit('positionGPSRawInt', this.id, id, this.devices[id].position);
     }
 }
 
