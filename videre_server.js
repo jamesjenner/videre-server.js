@@ -379,7 +379,7 @@ clientComms.startClientServer();
 if(config.debug) {
     console.log((new Date()) + " videre-server.js: starting device comms");
 }
-var comms = startDeviceComms(vehicleComms.getList());
+var deviceComms = startDeviceComms(vehicleComms.getList());
 
 // start up telemetry timeout loop
 if(config.debug) {
@@ -540,7 +540,7 @@ function getRemoteVehicle(id) {
 }
 
 function startDeviceComms(comms) {
-    var deviceComms = new Array();
+    var devComms = new Object();
     var protocol;
     var Protocol;
 
@@ -587,7 +587,7 @@ function startDeviceComms(comms) {
 	});
 
 	if(protocol) {
-            deviceComms.push(protocol);
+            devComms[protocol.id] = protocol;
 
 	    protocol.on('attitude', processAttitude);
 	    // TODO: change name to gps
@@ -624,7 +624,7 @@ function startDeviceComms(comms) {
 	}
     }
 
-    return deviceComms;
+    return devComms;
 }
 
 var vehicleMap = new Object();
@@ -663,8 +663,7 @@ function getVehicleId(protocolId, deviceId, protocolName) {
 }
 
 function getVehicleOptions(protocolId, deviceId) {
-    if(vehicleMap[deviceId] === undefined || vehicleMap[deviceId][protocolId] === undefined) {
-	// doesn't exist so just use defaults
+    if(vehicleMap[protocolId] === undefined || vehicleMap[protocolId][deviceId] === undefined) {
 	return {
 	    pitchAccuracy: 0.001,
 	    rollAccuracy: 0.001,
@@ -772,6 +771,13 @@ function updateVehicle(msg) {
 
 	// save the vehicles
 	saveVehicles(VEHICLES_FILE);
+
+        var protocol = findDeviceCommsByVehicleId(vehicle.id);
+
+	if(protocol !== null) {
+	    // TODO: resolve why setOptions is not available on protocol
+	    // protocol.setOptions(vehicle);
+	}
 
 	// send the update back to the host
 	clientComms.sendUpdateVehicle(vehicle);
@@ -1191,4 +1197,30 @@ function findVehicleByDeviceId(protocolId, deviceId) {
     }
 
     return index;
+}
+
+function findDeviceCommsByVehicleId(vehicleId) {
+    var protocolId = null;
+
+    // if id isn't set then return
+    if(vehicleId === undefined) {
+	return protocol;
+    }
+
+    // search for the protocol id via vehicle id
+    search:
+    for(var i in vehicles) {
+	for(var j = 0, l = vehicles[i].length; j < l; j++) {
+	    if(vehicles[i][j].id === vehicleId) {
+		protocolId = j;
+		break search;
+	    }
+	}
+    }
+
+    if(protocolId !== null) {
+	return deviceComms[protocolId];
+    } else {
+	return null;
+    }
 }
