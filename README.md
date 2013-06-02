@@ -16,33 +16,53 @@ SYNOPSIS: Videre server provides connecitvity between videre clients and drones.
 
 OPTIONS:
 
--d, --debug             Generate debugging messages, level is optional. 0 - informational, 1 - detailed (includes telemetry)
+-d, --debug                   Generate debugging messages, level is optional. 0 - informational, 1 - detailed (includes telemetry)
 
--va, --add-vehicles     Allow clients to add vehicles
+ca, --comms-add               Add a comms definition
 
--vd, --delete-vehicles  Allow clients to delete vehicles
+-cd, --comms-delete           Delete a comms definition
 
--vu, --update-vehicles  Allow clients to update vehicles
+-cl, --comms-list             List all defined comms
 
--u, --update-vehicles   Allow clients to update vehicles
+-cad, --comms-auto-discover   Perform auto discovery of available comms (currently not implemented)
 
--so, --secure-only      Set communications to only accept secure connections
+-cp, --comms-protocol         Comms protocol (mavlink.generic | ...)
 
--m, --mixed             Set communications to accept secure and unsecure connections
+-cc, --comms-connection-type  Comms connection type (Serial | Tcp)
 
--u1, --uuid-v1          Set uuid generation for session keys to uuid v1, default is v4
+-cna, --comms-network-address Comms network address
 
--p, --port              Set the port parameter
+-cnp, --comms-network-port    Comms network port
 
--s, --ssl-port          Set the ssl port parameter
+-csp, --comms-serial-port     Comms serial port
 
--sk, --ssl-key          Set the ssl private key file parameter
+-csb, --comms-serial-baud     Comms serial baud rate
 
--sc, --ssl-cert         Set the ssl certificate parameter
+-va, --add-vehicles           Allow clients to add vehicles
 
--g, --generate          Generate a configuration file
+-vd, --delete-vehicles        Allow clients to delete vehicles
 
--h, --help              This help document.
+-vu, --update-vehicles        Allow clients to update vehicles
+
+-u, --update-vehicles         Allow clients to update vehicles
+
+-so, --secure-only            Set communications to only accept secure connections
+
+-m, --mixed                   Set communications to accept secure and unsecure connections
+
+-u1, --uuid-v1                Set uuid generation for session keys to uuid v1, default is v4
+
+-p, --port                    Set the port parameter
+
+-s, --ssl-port                Set the ssl port parameter
+
+-sk, --ssl-key                Set the ssl private key file parameter
+
+-sc, --ssl-cert               Set the ssl certificate parameter
+
+-g, --generate                Generate a configuration file
+
+-h, --help                    This help document.
 
 
 Dependancies
