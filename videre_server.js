@@ -35,6 +35,7 @@ var UnmannedVehicle       = require('./vehicle/unmannedVehicle.js');
 var ProtocolRegister = require('./protocols/register.js');
 
 var VEHICLES_FILE = 'vehicles.json';
+var NAV_PATH_FILE = 'waypoints.json';
 var VEHICLE_COMMS_FILE = 'vehicle_comms.json';
 
 // load the comms from the file
@@ -43,8 +44,15 @@ vehicleComms.load();
 
 // load the vehicle configs from the file
 var vehicles = loadVehicles(VEHICLES_FILE);
+var navPaths = loadNavPaths(NAV_PATH_FILE);
 
 var protocolRegister = new ProtocolRegister();
+
+// the vehicle map is [protocolId][deviceId] where 
+//    protocolId is the unique id for the protocol 
+//    deviceId is the id of the device, unique for the protocol only
+// the vehicle map holds instances of Vehicle
+var vehicleMap = new Object();
 
 /* options handling */
 // TODO: look at replacing or extending opt, would like error on invalid arg, exclusivity of args, better formatting of help, etc
@@ -613,7 +621,7 @@ function startDeviceComms(comms) {
 
 	    // TODO: what happens if we lose coms? what performs the auto re-connect?
 	    if(config.debug) {
-		console.log((new Date()) + " videre-server.js: connecting to " + comms[i].name);
+		console.log((new Date()) + " videre-server.js: connecting to " + comms[i].toText());
 	    }
 
 	    protocol.connect();
@@ -626,8 +634,6 @@ function startDeviceComms(comms) {
 
     return devComms;
 }
-
-var vehicleMap = new Object();
 
 function getVehicleId(protocolId, deviceId, protocolName) {
     // lookup to see if id exists
@@ -657,6 +663,12 @@ function getVehicleId(protocolId, deviceId, protocolName) {
 
             addVehicle(protocolId, deviceId, vehicleMap[protocolId][deviceId]); 
 	}
+
+	// as we are registering the device as a vehicle, request the waypoints
+	// this is delayed for a couple of seconds as on return of this function is when the device map is set in the protocol
+	setTimeout(function() {
+	    deviceComms[protocolId].requestWaypoints.call(deviceComms[protocolId], vehicleMap[protocolId][deviceId].id);
+	}, 2000);
     }
 
     return vehicleMap[protocolId][deviceId].id;
@@ -713,6 +725,40 @@ function loadVehicles(filename) {
     return vehicles;
 }
 
+/* 
+ * save json file
+ */
+function saveJSON(filename, data) {
+    fs.writeFileSync(filename, JSON.stringify(data, null, '\t'));
+}
+
+/* 
+ * load navpaths
+ *
+ * note that the returned array contains an array of objects, not an array of Paths.
+ * we can do this because we do not use the methods on the path objects on the server (at this time).
+ */
+function loadNavPaths(filename) {
+    var navPaths = null;
+    
+    try {
+	navPaths = JSON.parse(fs.readFileSync(filename));
+    } catch(e) {
+	if(e.code === 'ENOENT') {
+	    // ENOENT is file not found, that is okay, just means no records
+	} else {
+	    // unknown error, lets throw
+	    throw e;
+	}
+    }
+
+    if(!navPaths) {
+        navPaths = new Object();
+    }
+
+    return navPaths;
+}
+
 function compareName(a, b) {
     if(a.name < b.name) {
 	return -1;
@@ -722,13 +768,6 @@ function compareName(a, b) {
     }
 
     return 0;
-}
-
-/* 
- * save vehicles
- */
-function saveVehicles(filename) {
-    fs.writeFileSync(filename, JSON.stringify(vehicles, null, '\t'));
 }
 
 // add a watchdog to check if vehicles get add
@@ -748,7 +787,7 @@ function addVehicle(protocolId, deviceId, vehicle) {
 
     vehicles[protocolId].push(vehicle);
 
-    saveVehicles(VEHICLES_FILE);
+    saveJSON(VEHICLES_FILE, vehicles);
 
     clientComms.sendAddVehicle(vehicle);
 }
@@ -770,13 +809,12 @@ function updateVehicle(msg) {
         Vehicle.merge(vehicle, msg);
 
 	// save the vehicles
-	saveVehicles(VEHICLES_FILE);
+	saveJSON(VEHICLES_FILE, vehicles);
 
         var protocol = findDeviceCommsByVehicleId(vehicle.id);
 
 	if(protocol !== null) {
-	    // TODO: resolve why setOptions is not available on protocol
-	    // protocol.setOptions(vehicle);
+	    protocol.setOptions(vehicle);
 	}
 
 	// send the update back to the host
@@ -790,30 +828,26 @@ function updateVehicle(msg) {
 
 function updateNavPath(msg, connection) {
     // if the message isn't set and the id isn't set then do nothing
-    if(!msg && !msg.id) {
+    if(!msg && !msg.vehicleId) {
 	if(config.debug) {
-	    console.log((new Date()) + ' Update nav path failed, msg.id is not specififed.');
+	    console.log((new Date()) + ' Update nav path failed, vehicleId is not specififed.');
 	}
 	return;
     }
 
     // find the vehicle
-    var vehicle = findVehicleById(msg.id);
+    // var vehicle = findVehicleById(msg.id);
+    var protocol = findDeviceCommsByVehicleId(msg.vehicleId);
     
-    var navPath = new Path(msg.navPath);
+    if(protocol != null) {
+	// note that the persistance of waypoints is only performed when retrieved from the vehicle
+	// this way the persisted values have been confirmed as set at the vehicle
 
-    if(vehicle != null) {
-	// update the path and the onMap flag
-	vehicle.navigationPath = new Path(msg.navPath);
-	vehicle.onMap = msg.onMap;
-
-	saveVehicles(VEHICLES_FILE);
-
-	clientComms.sendNavPathUpdated(connection, msg.id);
-	clientComms.sendUpdateNavPath(msg);
+	// set the waypoints for the vehicle
+	protocol.requestSetWaypoints(msg.vehicleId, msg.navigationPath.points);
     } else {
 	if(config.debug) {
-	    console.log((new Date()) + ' Update nav path of vehicle failed, vehicle not found: ' + msg.id);
+	    console.log((new Date()) + ' Update nav path of vehicle failed, vehicle not found: ' + msg.vehicleId);
 	}
     }
 }
@@ -823,11 +857,24 @@ function sendVehicles(connection) {
 }
 
 function newConnection(connection) {
+    if(config.debug) {
+	console.log((new Date()) + ' New connection accepted');
+    }
+    console.log((new Date()) + ' sending vehicles');
     // on a new connection send the vehicles to the client
     clientComms.sendVehicles(connection, vehicles);
 
+    console.log((new Date()) + ' sending comms');
     // on a new connection send the comms to the client
     clientComms.sendVehicleComms(connection, vehicleComms.getList());
+
+    console.log((new Date()) + ' sending sending nav paths');
+    // iterate through the waypoints and send them
+    for(var i in navPaths) {
+	console.log((new Date()) + ' sending sending nav path for ' + i);
+	clientComms.sendUpdateNavPath(i, navPaths[i]);
+    }
+    console.log((new Date()) + ' sending done');
 }
 
 /*
@@ -898,13 +945,64 @@ function processPosition(protocolId, deviceId, position) {
     }
 }
 
-function processNoWaypoints(deviceId) {
+function processNoWaypoints(protocolId, deviceId) {
+    // TODO: check if there are waypoints stored for the device, if so then send them to the device..
+
+    // lookup vehicle based on device id
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
+        if(config.debug) {
+	    console.log((new Date()) + ' videre-server: no waypoints for ' + vehicleMap[protocolId][deviceId].name);
+	}
+
+	// check if the waypoints are defined for the vehicle
+	if(navPaths[vehicleMap[protocolId][deviceId].id] !== undefined) {
+	    // we have persisted waypoints so lets request the vehicle to use them
+	    deviceComms[protocolId].requestSetWaypoints.call(deviceComms[protocolId], 
+	        vehicleMap[protocolId][deviceId].id, 
+	        navPaths[vehicleMap[protocolId][deviceId].id]);
+	}
+    }
 }
 
-function processWaypoints(deviceId, waypoints) {
+function processWaypoints(protocolId, deviceId, waypoints) {
+    // lookup vehicle based on device id
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
+        if(config.debug) {
+	    if(config.debugLevel > 3) {
+		console.log((new Date()) + ' videre-server: waypoints retrieved: ' + JSON.stringify(waypoints));
+	    } else {
+		console.log((new Date()) + ' videre-server: waypoints retrieved for ' + vehicleMap[protocolId][deviceId].name);
+	    }
+	}
+
+	if(navPaths[vehicleMap[protocolId][deviceId].id] === undefined) {
+	    navPaths[vehicleMap[protocolId][deviceId].id] = new Array();
+	}
+
+	// add the waypoints to the navPaths 
+	navPaths[vehicleMap[protocolId][deviceId].id] = waypoints;
+
+	// persist the nav path
+        saveJSON(NAV_PATH_FILE, navPaths);
+
+	// disribute them
+	clientComms.sendUpdateNavPath(vehicleMap[protocolId][deviceId].id, waypoints);
+    }
 }
 
-function processSetWaypointsSuccess(deviceId) {
+function processSetWaypointsSuccess(protocolId, deviceId) {
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
+        if(config.debug) {
+	    if(config.debugLevel > 3) {
+		console.log((new Date()) + ' videre-server: processSetWaypointsSuccess, sending: ' + JSON.stringify(waypoints));
+	    } else {
+		console.log((new Date()) + ' videre-server: sending waypoints for ' + vehicleMap[protocolId][deviceId].name);
+	    }
+	}
+
+	// retrieve waypoints, this will result in them being redistributed and confirms that the set worked
+	deviceComms[protocolId].requestWaypoints.call(deviceComms[protocolId], vehicleMap[protocolId][deviceId].id);
+    }
 }
 
 function processSetWaypointsError(deviceId, text) {
@@ -1200,27 +1298,21 @@ function findVehicleByDeviceId(protocolId, deviceId) {
 }
 
 function findDeviceCommsByVehicleId(vehicleId) {
-    var protocolId = null;
-
     // if id isn't set then return
     if(vehicleId === undefined) {
-	return protocol;
+	return null;
     }
 
-    // search for the protocol id via vehicle id
-    search:
-    for(var i in vehicles) {
-	for(var j = 0, l = vehicles[i].length; j < l; j++) {
-	    if(vehicles[i][j].id === vehicleId) {
-		protocolId = j;
-		break search;
+    for(var i in deviceComms) {
+	if(deviceComms[i].devices === undefined) {
+	    continue;
+	}
+	for(var j in deviceComms[i].devices) {
+	    if(deviceComms[i].devices[j].vehicleId === vehicleId) {
+		return deviceComms[i];
 	    }
 	}
     }
 
-    if(protocolId !== null) {
-	return deviceComms[protocolId];
-    } else {
-	return null;
-    }
+    return null;
 }
