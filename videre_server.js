@@ -583,7 +583,7 @@ function startDeviceComms(comms) {
 	    getVehicleIdFunction: getVehicleId,
 	    getDeviceOptionsFunction: getVehicleOptions,
 
-	    debugWaypoints: false,
+	    debugWaypoints: true,
 	    debugHeartbeat: false,
 	    debugMessage: false,
 	    debugAttitude: false,
@@ -1005,13 +1005,34 @@ function processSetWaypointsSuccess(protocolId, deviceId) {
     }
 }
 
-function processSetWaypointsError(deviceId, text) {
+function processSetWaypointsError(protoclId, deviceId, text) {
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
+        if(config.debug) {
+	    console.log((new Date()) + ' videre-server: error setting waypoints ' + text);
+	}
+
+	clientComms.sendWaypointSetError(vehicleMap[protocolId][deviceId].id, text);
+    }
 }
 
-function processTargetWaypoint(deviceId, sequence) {
+function processTargetWaypoint(protoclId, deviceId, sequence) {
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
+        if(config.debug) {
+	    console.log((new Date()) + ' videre-server: waypoint targeted ' + sequence);
+	}
+
+	clientComms.sendWaypointTargeted(vehicleMap[protocolId][deviceId].id, sequence);
+    }
 }
 
-function processWaypointAchieved(deviceId, sequence) {
+function processWaypointAchieved(protoclId, deviceId, sequence) {
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
+        if(config.debug) {
+	    console.log((new Date()) + ' videre-server: waypoint achieved ' + sequence);
+	}
+
+	clientComms.sendWaypointAchieved(vehicleMap[protocolId][deviceId].id, sequence);
+    }
 }
 
 function processStatusText(protocolId, deviceId, severity, text) {
