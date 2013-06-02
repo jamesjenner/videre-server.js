@@ -933,6 +933,7 @@ this.mavlinkParser.on('MISSION_ACK', function(message) {
 	console.log('Mission Ack ' + message.type);
     }
 
+
     var deviceId = message.header.srcSystem;
 
     // clear timers
@@ -966,6 +967,10 @@ this.mavlinkParser.on('MISSION_ACK', function(message) {
 
 		    // call the success listener
 		    self.emit('setWaypointsSuccessful', self.id, deviceId);
+		} else {
+		    if(self.debugWaypoints && self.debugLevel > 0) {
+			console.log('Mission update unsucessful, received ack before it was expected');
+		    }
 		}
 		break;
 	}
