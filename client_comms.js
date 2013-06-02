@@ -161,10 +161,11 @@ ClientComms.prototype.sendUpdateVehicle = function(vehicle) {
     this._constructAndBroadcastMsg(Message.UPDATE_VEHICLE, vehicle, 4);
 }
 
-ClientComms.prototype.sendUpdateNavPath = function(msgBody) {
-    this._constructAndBroadcastMsg(Message.UPDATE_NAV_PATH, msgBody, 4);
+ClientComms.prototype.sendUpdateNavPath = function(id, navigationPath) {
+    this._constructAndBroadcastMsg(Message.UPDATE_NAV_PATH, {id: id, navigationPath: navigationPath}, 4);
 }
 
+// TODO: possibly not used
 ClientComms.prototype.sendNavPathUpdated = function(connection, id) {
     if(this.debug && this.debugLevel > 4) {
 	console.log((new Date()) + ' Sending id: ' + Message.NAV_PATH_UPDATED + ' body: ' + JSON.stringify(id));
