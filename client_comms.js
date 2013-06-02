@@ -189,6 +189,18 @@ ClientComms.prototype.sendState = function(id, state) {
     this._constructAndBroadcastMsg(Message.VEHICLE_STATE, {id: id, state: state}, 4);
 }
 
+ClientComms.prototype.sendWaypointSetError = function(id, text) {
+    // this._constructAndBroadcastMsg(Message.VEHICLE_PAYLOAD, {id: id, payload: payload}, 4);
+}
+
+ClientComms.prototype.sendWaypointAchieved = function(id, sequence) {
+    this._constructAndBroadcastMsg(Message.NAV_PATH_WAYPOINT_ACHIEVED, {id: id, sequence: sequence}, 4);
+}
+
+ClientComms.prototype.sendWaypointTargeted = function(id, sequence) {
+    this._constructAndBroadcastMsg(Message.NAV_PATH_SET_TARGETED, {id: id, sequence: sequence}, 4);
+}
+
 ClientComms.prototype.sendStatusMsg = function(id, severity, text) {
     this._constructAndBroadcastMsg(Message.VEHICLE_STATUS_MSG, {id: id, severity: severity, text: text}, 4);
 }
