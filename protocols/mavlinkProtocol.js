@@ -956,6 +956,9 @@ this.mavlinkParser.on('MISSION_ACK', function(message) {
 		break;
 
 	    case MavlinkProtocol.WAYPOINT_SENDING:
+		// set the waypoint mode before emiting the event, incase the listener decides to initiate something else
+		self.devices[deviceId]._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
+
 		if(self.devices[deviceId]._waypointLastSequence + 1 == self.devices[deviceId]._waypoints.length) {
 		    if(self.debugWaypoints && self.debugLevel > 0) {
 			console.log('Mission update sucessful');
@@ -964,8 +967,6 @@ this.mavlinkParser.on('MISSION_ACK', function(message) {
 		    // call the success listener
 		    self.emit('setWaypointsSuccessful', self.id, deviceId);
 		}
-
-		self.devices[deviceId]._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
 		break;
 	}
     } else {
