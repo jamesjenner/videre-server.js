@@ -18,11 +18,13 @@ OPTIONS:
 
 -d, --debug                   Generate debugging messages, level is optional. 0 - informational, 1 - detailed (includes telemetry)
 
-ca, --comms-add               Add a comms definition
+-ca, --comms-add              Add a comms definition
 
 -cd, --comms-delete           Delete a comms definition
 
 -cl, --comms-list             List all defined comms
+
+-pl, --protocl-list           List all defined protocols
 
 -cad, --comms-auto-discover   Perform auto discovery of available comms (currently not implemented)
 
@@ -38,27 +40,25 @@ ca, --comms-add               Add a comms definition
 
 -csb, --comms-serial-baud     Comms serial baud rate
 
--va, --add-vehicles           Allow clients to add vehicles
-
--vd, --delete-vehicles        Allow clients to delete vehicles
-
 -vu, --update-vehicles        Allow clients to update vehicles
 
--u, --update-vehicles         Allow clients to update vehicles
-
 -so, --secure-only            Set communications to only accept secure connections
+
+-uo, --unsecure-only          Set communications to only accept unsecure connections (this is the default option)
 
 -m, --mixed                   Set communications to accept secure and unsecure connections
 
 -u1, --uuid-v1                Set uuid generation for session keys to uuid v1, default is v4
 
--p, --port                    Set the port parameter
+-p, --port                    Set the port parameter for remote connections
 
--s, --ssl-port                Set the ssl port parameter
+-s, --ssl-port                Set the ssl port parameter for remote secure connections
 
--sk, --ssl-key                Set the ssl private key file parameter
+-sk, --ssl-key                Set the ssl private key file parameter for remote secure connections, if not found then will revert to unsecure communications
 
--sc, --ssl-cert               Set the ssl certificate parameter
+-sc, --ssl-cert               Set the ssl certificate parameter for remote secure connections, if not found then will revert to unsecure communications
+
+-t, --telemetry-time          Set the timer for sending telemetry to clients, in milliseconds
 
 -g, --generate                Generate a configuration file
 
@@ -68,6 +68,12 @@ ca, --comms-add               Add a comms definition
 Dependancies
 ------------
 All module dependancies are hidden from git via .gitignore. Install manually from the project root directory.
+
+Under ubuntu the default version of nodejs is quite old (as of 12.04LTE). This will result in a failure for the opt module as it has a dependency on the version of nodejs. Websocket will not run native with the older version of nodejs, while it will run natively with the latest version of nodejs. 
+
+As such it is recommended to obtain nodejs from the nodejs website (requires compiling).
+
+Under windows 64-bit systems there are problems compiling node-bcrypt. There are several threads about this issue on the github issues page for bcrypt.
 
 Module Dependancies are:
  - websocket - https://npmjs.org/package/websocket
