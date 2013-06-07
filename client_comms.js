@@ -47,12 +47,23 @@ function ClientComms(options) {
 
     this.port = options.port || 9007; // 80?
     this.securePort = options.securePort || 9008; // 443?
-    this.communicationType = options.communicationType || Message.COMMS_TYPE_MIXED;
+    this.communicationType = options.communicationType || Message.COMMS_TYPE_UNSECURE_ONLY;
     this.uuidV1 = ((options.uuidV1  != null) ? options.uuidV1 : false);
     this.sslKey = options.sslKey || 'keys/privatekey.pem';
     this.sslCert = options.sslCert || 'keys/certificate.pem';
     this.debug = ((options.debug != null) ? options.debug : false);
     this.debugLevel = options.debugLevel || 0;
+
+    if(this.communicationType !== Message.COMMS_TYPE_UNSECURE_ONLY) {
+	if(!fs.existsSync(this.sslKey)) {
+	    console.log((new Date()) + 'WARNING: cannot find file ' + this.sslKey + ', setting communication mode to UNSECURE ONLY');
+	    this.communicationType = Message.COMMS_TYPE_UNSECURE_ONLY;
+	}
+	if(!fs.existsSync(this.sslCert)) {
+	    console.log((new Date()) + 'WARNING: cannot find file ' + this.sslCert + ', setting communication mode to UNSECURE ONLY');
+	    this.communicationType = Message.COMMS_TYPE_UNSECURE_ONLY;
+	}
+    }
 
     users = User.load(USERS_FILE);
 }
