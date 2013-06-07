@@ -67,7 +67,7 @@ var config = {
     port: 9007,
     securePort: 9008,
     uuidV1: false,
-    communicationType: Message.COMMS_TYPE_MIXED,
+    communicationType: Message.COMMS_TYPE_UNSECURE_ONLY,
     sslKey: 'keys/privatekey.pem',
     sslCert: 'keys/certificate.pem'
 };
@@ -85,6 +85,7 @@ var search_paths = [
 var addingComms = false;
 var deletingComms = false;
 var listingComms = false;
+var listingProtocols = false;
 
 opt.configSync(config, search_paths);
 
@@ -106,14 +107,6 @@ opt.option(["-d", "--debug"], function (param) {
     }
 }, "Generate debugging messages, level is optional. 0 - informational, 1 - detailed");
 
-opt.option(["-va", "--add-vehicles"], function (param) {
-    config.allowAddVehicle = true;
-}, "Allow clients to add vehicles");
-
-opt.option(["-vd", "--delete-vehicles"], function (param) {
-    config.allowDeleteVehicle = true;
-}, "Allow clients to delete vehicles");
-
 opt.option(["-vu", "--update-vehicles"], function (param) {
     config.allowUpdateVehicle = true;
 }, "Allow clients to update vehicles");
@@ -121,6 +114,10 @@ opt.option(["-vu", "--update-vehicles"], function (param) {
 opt.option(["-so", "--secure-only"], function (param) {
     config.communicationType = Message.COMMS_TYPE_SECURE_ONLY;
 }, "Set communications to only accept secure connections");
+
+opt.option(["-uo", "--unsecure-only"], function (param) {
+    config.communicationType = Message.COMMS_TYPE_UNSECURE_ONLY;
+}, "Set communications to only accept unsecure connections, this is the default type");
 
 opt.option(["-m", "--mixed"], function (param) {
     config.communicationType = Message.COMMS_TYPE_MIXED;
@@ -157,6 +154,9 @@ opt.option(["-cm", "--comms-multi-vehicle"], function (param) {
 opt.option(["-cl", "--comms-list"], function (param) {
     listingComms = true;
 }, "comms listing, lists all defined comms");
+opt.option(["-pl", "--protocol-list"], function (param) {
+    listingProtocols = true;
+}, "protocol listing, lists all defined protocols");
 opt.option(["-cp", "--comms-protocol"], function (param) {
     console.log("comms protocol: " + param);
     commsDefinition.protocol = ((param != null) ? param.trim() : '');
@@ -218,7 +218,7 @@ opt.option(["-p", "--port"], function (param) {
     } else {
 	opt.usage("Port must be a number greater then 0.", 1);
     }
-}, "Set the port parameter");
+}, "Set the port parameter for remote connections");
 
 opt.option(["-s", "--ssl-port"], function (param) {
     if (Number(param).toFixed(0) > 0) {
@@ -227,21 +227,21 @@ opt.option(["-s", "--ssl-port"], function (param) {
     } else {
 	opt.usage("SLL Port must be a number greater then 0.", 1);
     }
-}, "Set the ssl port parameter");
+}, "Set the ssl port parameter for remote secure connections");
 
 opt.option(["-sk", "--ssl-key"], function (param) {
     if (param !== undefined && param.trim()) {
 	config.sslKey = param.trim();
 	opt.consume(param);
     }
-}, "Set the ssl private key file parameter");
+}, "Set the ssl private key file parameter for remote secure connections");
 
 opt.option(["-sc", "--ssl-cert"], function (param) {
     if (param !== undefined && param.trim()) {
 	config.sslCert = param.trim();
 	opt.consume(param);
     }
-}, "Set the ssl certificate parameter");
+}, "Set the ssl certificate parameter for remote secure connections");
 
 opt.option(["-g", "--generate"], function (param) {
     var config_filename = ""; 
@@ -330,10 +330,14 @@ if(addingComms) {
     process.exit(1);
 }
 
+if(listingProtocols) {
+    // output all the defined comms and then exit
+    console.log(protocolRegister.getText());
+    process.exit(1);
+}
+
 // setup the client communications
 clientComms = new ClientComms({
-    allowAddVehicle: config.addVehicleEnabled,
-    allowDeleteVehicle: config.deleteVehicleEnabled,
     allowUpdateVehicle: config.updateVehicleEnabled,
     port: config.port,
     securePort: config.securePort,
