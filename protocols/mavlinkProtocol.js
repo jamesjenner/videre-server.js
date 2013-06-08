@@ -1102,6 +1102,7 @@ this.mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
 	);
     }
 
+    self.emit('altitude', self.id, message.header.srcSystem, message.alt / 1000);
     // TODO: using raw as int doesn't appear to be reported, not sure why
     /*
     self.vehicleState = _.extend(self.vehicleState, {
@@ -1350,10 +1351,8 @@ this.mavlinkParser.on('ATTITUDE', function(message) {
     attitude.y = attitude.roll;
     attitude.z = attitude.yaw;
 
-    var heading = attitude.yaw < 0 ? attitude.yaw * -2 : attitude.yaw;
-
-    // only recognise an attitude change if the change is more than the accuracy of the attitude
-    self._reportAttitude.call(self, message.header.srcSystem, attitude, heading);
+    // report attitude change (managed by parent)
+    self._reportAttitude.call(self, message.header.srcSystem, attitude);
 });
 
 this.mavlinkParser.on('VFR_HUD', function(message) {
@@ -1363,7 +1362,7 @@ this.mavlinkParser.on('VFR_HUD', function(message) {
      * groundspeed Current ground speed in m/s
      * heading     Current heading in degrees, in compass units (0..360, 0=north)
      * throttle    Current throttle setting in integer percent, 0 to 100
-     * alt         Current altitude (MSL), in meters
+     * alt         Current altitude (MSL - mean sea level), in meters
      * climb       Current climb rate in meters/second
      */
     if(self.debugVFR_HUD && self.debugLevel == 1) {
@@ -1374,19 +1373,21 @@ this.mavlinkParser.on('VFR_HUD', function(message) {
 	    ' ground speed: ' + message.groundspeed + 
 	    ' heading: ' + message.heading + 
 	    ' throttle: ' + message.throttle + 
+	    ' altitude: ' + message.alt + 
 	    ' climb: ' + message.climb);
     }
 
-    // Appears to be only reported for fixed wing aircraft
-    /*
-    self.vehicleState = _.extend(self.vehicleState, {
-	airspeed: message.airspeed,
-	groundspeed: message.groundspeed,
-	heading: message.heading,
-	throttle: message.throttle,
-	climb: message.climb
-    });
-    */
+    self.devices[deviceId].speed = message.airspeed;
+    self.devices[deviceId].altitude = message.alt;
+    self.devices[deviceId].throttle = message.throttle;
+    self.devices[deviceId].heading = message.heading;
+    self.devices[deviceId].vsi = message.climb;
+
+    self.emit('speed', self.id, message.header.srcSystem, message.airspeed);
+    self.emit('altitude', self.id, message.header.srcSystem, message.alt);
+    self.emit('throttle', self.id, message.header.srcSystem, message.throttle);
+    self.emit('heading', self.id, message.header.srcSystem, message.heading);
+    self.emit('vsi', self.id, message.header.srcSystem, message.climb);
 });
 
 this.mavlinkParser.on('GPS_RAW_INT', function(message) {
@@ -1425,7 +1426,9 @@ this.mavlinkParser.on('GPS_RAW_INT', function(message) {
 
     var lat = message.lat / 10000000; 
     var lng = message.lon / 10000000;
-    var alt = message.alt / 1000;
+
+    self.emit('speed', self.id, message.header.srcSystem, message.vel / 100);
+    self.emit('altitude', self.id, message.header.srcSystem, message.alt / 1000);
 
     self._reportPosition.call(self, message.header.srcSystem, lat, lng, alt);
 });
