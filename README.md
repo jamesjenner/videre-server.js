@@ -84,7 +84,13 @@ Module Dependancies are:
  - serialport - https://npmjs.org/package/serialport
  - underscore - https://npmjs.org/package/underscore
 
-To install the modules use the following commands:
+To install the modules use the following command:
+
+```
+npm install
+```
+
+To install the modules individually use the following:
 
 ```
 npm install websocket
