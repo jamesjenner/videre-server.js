@@ -406,7 +406,7 @@ MavlinkProtocol.prototype._setupListeners = function() {
 
 this.mavlinkParser.on('message', function(message) {
     if(self.debugMessage) {
-	console.log(message.name + ' <- received message for ' + this.id + ":" + message.header.srcSystem + ", protocol " + self.name);
+	console.log(message.name + ' <- received message for ' + self.id + ":" + message.header.srcSystem + ", protocol " + self.name);
     }
 });
 
