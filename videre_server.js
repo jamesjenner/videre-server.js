@@ -587,13 +587,13 @@ function startDeviceComms(comms) {
 	    getVehicleIdFunction: getVehicleId,
 	    getDeviceOptionsFunction: getVehicleOptions,
 
-	    debugWaypoints: true,
+	    debugWaypoints: false,
 	    debugHeartbeat: false,
 	    debugMessage: false,
 	    debugAttitude: false,
 	    debugIMU: false,
 	    debugGPS: false,
-	    debugVFR_HUD: false,
+	    debugVFR_HUD: true,
 	    debugGPSRaw: false,
 	    debugGPSStatus: false,
 	});
@@ -603,6 +603,12 @@ function startDeviceComms(comms) {
 
 	    protocol.on('attitude', processAttitude);
 	    // TODO: change name to gps
+	    protocol.on('speed', processSpeed);
+	    protocol.on('altitude', processAltitude);
+	    protocol.on('throttle', processThrottle);
+	    protocol.on('heading', processHeading);
+	    protocol.on('vsi', processVSI);
+
 	    protocol.on('positionGPSRawInt', processPosition);
 	    protocol.on('retreivedNoWaypoints', processNoWaypoints);
 	    protocol.on('retreivedWaypoints', processWaypoints);
@@ -896,7 +902,6 @@ function processAttitude(protocolId, deviceId, attitude, heading) {
 	}
 
 	vehicleMap[protocolId][deviceId].telemetry.attitude = attitude;
-	vehicleMap[protocolId][deviceId].telemetry.heading = heading;
 
 	// set telemetry to dirty
 	vehicleMap[protocolId][deviceId].telemetry.dirty = true;
@@ -923,6 +928,93 @@ function processSystemState(protocolId, deviceId, batteryVoltage, batteryCurrent
 	vehicleMap[protocolId][deviceId].telemetry.dirty = true;
     }
 }
+
+/*
+ * process heading
+ *
+ * captures the heading and updates telemetry
+ *
+ */
+function processHeading(protocolId, deviceId, heading) {
+    // lookup vehicle based on device id
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
+	// set for vehicle
+	vehicleMap[protocolId][deviceId].telemetry.heading = heading;
+
+	// set telemetry to dirty
+	vehicleMap[protocolId][deviceId].telemetry.dirty = true;
+    }
+}
+
+/*
+ * process VSI (vertical speed indicator)
+ *
+ * captures the vertial speed and updates telemetry
+ *
+ */
+function processVSI(protocolId, deviceId, vsi) {
+    // lookup vehicle based on device id
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
+	// set for vehicle
+	vehicleMap[protocolId][deviceId].telemetry.vsi = vsi;
+
+	// set telemetry to dirty
+	vehicleMap[protocolId][deviceId].telemetry.dirty = true;
+    }
+}
+
+/*
+ * process throttle
+ *
+ * captures the throttle and updates telemetry
+ *
+ */
+function processThrottle(protocolId, deviceId, throttle) {
+    // lookup vehicle based on device id
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
+	// set for vehicle
+	vehicleMap[protocolId][deviceId].telemetry.throttle = throttle;
+
+	// set telemetry to dirty
+	vehicleMap[protocolId][deviceId].telemetry.dirty = true;
+    }
+}
+
+/*
+ * process altitude
+ *
+ * captures the altitude and updates telemetry
+ *
+ */
+function processAltitude(protocolId, deviceId, altitude) {
+    // lookup vehicle based on device id
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
+	// set for vehicle
+	vehicleMap[protocolId][deviceId].telemetry.altitude = altitude;
+
+	// set telemetry to dirty
+	vehicleMap[protocolId][deviceId].telemetry.dirty = true;
+    }
+}
+
+/*
+ * process speed
+ *
+ * captures the speed and updates telemetry
+ *
+ */
+function processSpeed(protocolId, deviceId, speed) {
+    // lookup vehicle based on device id
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
+	// set for vehicle
+	vehicleMap[protocolId][deviceId].telemetry.speed = speed;
+
+	// set telemetry to dirty
+	vehicleMap[protocolId][deviceId].telemetry.dirty = true;
+    }
+}
+
+
 
 /*
  * process position
