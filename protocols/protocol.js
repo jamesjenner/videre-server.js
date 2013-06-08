@@ -269,7 +269,7 @@ Protocol.prototype._writeWithTimeout = function(options) {
     self._writeMessage(options.message);
 }
 
-Protocol.prototype._reportAttitude = function(id, att, heading) {
+Protocol.prototype._reportAttitude = function(id, att) {
     // don't report if the device is undefined
     if(this.devices[id] === undefined) {
 	return;
@@ -281,6 +281,14 @@ Protocol.prototype._reportAttitude = function(id, att, heading) {
        (attitude.roll  > att.roll  + this.devices[id].rollAccuracy  || attitude.roll  < att.roll  - this.devices[id].rollAccuracy) ||
        (attitude.yaw   > att.yaw   + this.devices[id].yawAccuracy   || attitude.yaw   < att.yaw   - this.devices[id].yawAccuracy)) {
 
+	// if yaw has changed then update the heading based on yaw
+        if(attitude.yaw > att.yaw  + this.devices[id].yawAccuracy   || attitude.yaw   < att.yaw   - this.devices[id].yawAccuracy) {
+	    this.devices[id].heading = att.yaw < 0 ? att.yaw * -2 : att.yaw;
+
+	    // report heading change
+	    this.emit('heading', this.id, id, this.devices[id].heading);
+	}
+
         // update the attitude
 	this.devices[id].attitude.pitch = att.pitch;
 	this.devices[id].attitude.roll = att.roll;
@@ -288,7 +296,6 @@ Protocol.prototype._reportAttitude = function(id, att, heading) {
 	this.devices[id].attitude.x = att.x;
 	this.devices[id].attitude.y = att.y;
 	this.devices[id].attitude.z = att.z;
-	this.devices[id].heading = heading;
 
 	// TODO; do we need to know the speed of change?
 	/*
@@ -298,11 +305,11 @@ Protocol.prototype._reportAttitude = function(id, att, heading) {
 	*/
 
 	// fire the event
-	this.emit('attitude', this.id, id, this.devices[id].attitude, heading);
+	this.emit('attitude', this.id, id, this.devices[id].attitude);
     }
 }
 
-Protocol.prototype._reportPosition = function(id, lat, lng, alt) {
+Protocol.prototype._reportPosition = function(id, lat, lng) {
     var reportPos = false;
 
     // don't report if the device is undefined
@@ -338,7 +345,6 @@ Protocol.prototype._reportPosition = function(id, lat, lng, alt) {
     if(reportPos) {
 	this.devices[id].position.latitude  = lat;
 	this.devices[id].position.longitude = lng;
-	this.devices[id].position.altitude  = alt;
 
 	this.emit('positionGPSRawInt', this.id, id, this.devices[id].position);
     }
