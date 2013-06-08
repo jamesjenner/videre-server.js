@@ -1,0 +1,22 @@
+{
+    "name": "Videre-server.js",
+    "author": "James G Jenner",
+    "description": "A server for the Videre client to interact with unmanned vehicles (currently UAVs).",
+    "version": "0.0.1"
+    "license": "gpl 3.0"
+    "repository": {
+	"type": "git",
+	"url": "git@github.com:jamesjenner/videre-server.js.git"
+    },
+    "dependencies": {
+	"websocket": "",
+	"node-uuid": "",
+	"bcrypt": "",
+	"opt": "",
+	"serialport": "",
+	"underscore": "",
+    },
+    "engines": {
+	"node": ">= 10.x.x"
+    }
+}
