@@ -6,6 +6,7 @@ npm-debug.log
 # ignore data stores #
 ######################
 *.json
+!package.json
 
 # ignore local test files #
 ###########################
