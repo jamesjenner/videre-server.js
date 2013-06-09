@@ -609,7 +609,7 @@ function startDeviceComms(comms) {
 	    protocol.on('heading', processHeading);
 	    protocol.on('vsi', processVSI);
 
-	    protocol.on('positionGPSRawInt', processPosition);
+	    protocol.on('positionGPS', processPosition);
 	    protocol.on('retreivedNoWaypoints', processNoWaypoints);
 	    protocol.on('retreivedWaypoints', processWaypoints);
 	    protocol.on('setWaypointsSuccessful', processSetWaypointsSuccess);
