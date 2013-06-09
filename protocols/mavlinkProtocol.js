@@ -117,6 +117,7 @@ function MavlinkProtocol(options) {
 
     this.devices = new Object();
     this.mavlinkParser = new MAVLink();
+    this.reportingGlobalPositionInt = false;
 
     this._setupListeners();
 }
@@ -403,6 +404,8 @@ MavlinkProtocol.prototype._setupListeners = function() {
  * critical to allow manual intervention and then move to emergency after a certain timeout.
  *
  */
+
+// TODO: support vision related messages
 
 this.mavlinkParser.on('message', function(message) {
     if(self.debugMessage) {
@@ -1071,6 +1074,40 @@ this.mavlinkParser.on('MISSION_ITEM_REACHED', function(message) {
     self.emit('waypointAchieved', self.id, deviceId, message.seq);
 });
 
+this.mavlinkParser.on('LOCAL_POSITION_NED', function(message) {
+    /* 
+     * The filtered local position (e.g. fused computer vision and accelerometers). 
+     * Coordinate frame is right-handed, Z-axis down (aeronautical frame, NED / 
+     * north-east-down convention)
+     *
+     * time_boot_ms   Timestamp (milliseconds since system boot)
+     * x              X Position
+     * y              Y Position
+     * z              Z Position
+     * vx             X Speed
+     * vy             Y Speed
+     * vz             Z Speed
+     */
+    if(self.debugGPS && self.debugLevel == 1) {
+	console.log('Global position (int)');
+    } else if (self.debugGPS && self.debugLevel > 1) {
+	console.log('Global position (int)' + 
+	    ' x: ' + message.x +
+	    ' y: ' + message.y +
+	    ' z: ' + message.z +
+	    ' vx: ' + message.vx +
+	    ' vy: ' + message.vy +
+	    ' vz: ' + message.vz
+	);
+    }
+    
+    // note that QGroundControl treats vx as speed and vz as vsi, so will treat the same
+    // suspect that NED is only used for internally tracked items that do not use GPS, requires confirmation
+
+    self.emit('speed', self.id, message.header.srcSystem, message.vx);
+    self.emit('vsi', self.id, message.header.srcSystem, message.vz);
+});
+
 this.mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
     /* 
      * The filtered global position (e.g. fused GPS and accelerometers). 
@@ -1087,6 +1124,10 @@ this.mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
      * vz             Ground Z Speed (Altitude), expressed as m/s * 100
      * hdg            Compass heading in degrees * 100, 0.0..359.99 degrees. If unknown, set to: 65535
      */
+
+    // uncertain under what conditions that GLOBAL_POSITION_INT are reported, suspect it's 
+    // related to a global estimator
+
     if(self.debugGPS && self.debugLevel == 1) {
 	console.log('Global position (int)');
     } else if (self.debugGPS && self.debugLevel > 1) {
@@ -1102,20 +1143,19 @@ this.mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
 	);
     }
 
+    // note that QGroundControl treats vx as speed and vz as vsi, so will treat the same
+    var lat = message.lat / 10000000; 
+    var lng = message.lon / 10000000;
+
+    // set the flag to state we're using global position int, so raw gps is ignored
+    // According to the logic in QGroundControl, if this is reported then GPS RAW should be ignored
+    self.reportingGlobalPositionInt = true;
+
+    self._reportPosition.call(self, message.header.srcSystem, lat, lng, alt);
+
+    self.emit('speed', self.id, message.header.srcSystem, message.vx / 100);
+    self.emit('vsi', self.id, message.header.srcSystem, message.vz / 100);
     self.emit('altitude', self.id, message.header.srcSystem, message.alt / 1000);
-    // TODO: using raw as int doesn't appear to be reported, not sure why
-    /*
-    self.vehicleState = _.extend(self.vehicleState, {
-	lat: message.lat/10000000,
-	lon: message.lon/10000000,
-	alt: message.alt/1000,
-	relative_alt: message.relative_alt/1000,
-	vx: message.vx/100,
-	vy: message.vy/100,
-	vz: message.vz/100,
-	hdg: message.hdg/100
-    });
-    */
 });
 
 this.mavlinkParser.on('STATUS_TEXT', function(message) {
@@ -1208,40 +1248,10 @@ this.mavlinkParser.on('HIGHRES_IMU', function(message) {
 	    ' temperature: ' + message.temperature
 	);
     }
-
-    /*
-    * TODO: implement reportin the pressure based altitude, possibly the x/y/z mag as well
-    self.vehicleState = _.extend(self.vehicleState, {
-	time_usec: message.time_usec,
-	xacc: message.xacc,
-	yacc: message.yacc,
-	zacc: message.zacc,
-	xgyro: message.xgyro,
-	ygyro: message.ygyro,
-	zgyro: message.zgyro,
-	xmag: message.xmag,
-	ymag: message.ymag,
-	zmag: message.zmag,
-	abs_pressure: message.abs_pressure,
-	diff_pressure: message.diff_pressure,
-	pressure_alt: message.pressure_alt,
-	temperature: message.temperature
-    });
-    */
 });
 
 this.mavlinkParser.on('GPS_STATUS', function(message) {
     // TODO: consider how to handle this
-    /*
-    self.vehicleState = _.extend(self.vehicleState, {
-	satellites_visible: message.satellites_visible,
-	satellite_prn: new Uint8Array(message.satellite_prn),
-	satellite_used: new Uint8Array(message.satellite_used),
-	satellite_elevation: new Uint8Array(message.satellite_elevation),
-	satellite_azimuth: new Uint8Array(message.satellite_azimuth),
-	satellite_snr: new Uint8Array(message.satellite_snr)
-    });
-    */
     
     if(self.debugGPSStatus && self.debugLevel == 1) {
         console.log('GPS Status');
@@ -1383,10 +1393,14 @@ this.mavlinkParser.on('VFR_HUD', function(message) {
     self.devices[deviceId].heading = message.heading;
     self.devices[deviceId].vsi = message.climb;
 
+    // only report heading if it has not been determined (via attitude processing), as per QGroundControl logic
+    if(!self.headingDetermined) {
+	self.emit('heading', self.id, message.header.srcSystem, message.heading);
+    }
+
     self.emit('speed', self.id, message.header.srcSystem, message.airspeed);
     self.emit('altitude', self.id, message.header.srcSystem, message.alt);
     self.emit('throttle', self.id, message.header.srcSystem, message.throttle);
-    self.emit('heading', self.id, message.header.srcSystem, message.heading);
     self.emit('vsi', self.id, message.header.srcSystem, message.climb);
 });
 
@@ -1410,27 +1424,30 @@ this.mavlinkParser.on('GPS_RAW_INT', function(message) {
      *                    0.0..359.99 degrees. If unknown, set to: 65535
      * satellites_visible Number of satellites visible. If unknown, set to 255
      */
-    if(self.debugGPSRaw && self.debugLevel == 1) {
-	console.log('GPS Raw (int)');
-    } else if (self.debugGPSRaw && self.debugLevel > 1) {
-	console.log('GPS Raw (int):' + 
-	    ' fix type: ' + message.fix_type +
-	    ' lat: ' + message.lat / 10000000 + 
-	    ' lng: ' + message.lon / 10000000 + 
-	    ' alt: ' + message.alt / 1000 + 
-	    ' eph: ' + message.eph / 100 + 
-	    ' epv: ' + message.epv / 100 + 
-	    ' vel: ' + message.vel / 100 + 
-	    ' cog: ' + message.cog);
+    // only report GPS Raw if not using global position int
+    if(!self.reportingGlobalPositionInt) {
+	if(self.debugGPSRaw && self.debugLevel == 1) {
+	    console.log('GPS Raw (int)');
+	} else if (self.debugGPSRaw && self.debugLevel > 1) {
+	    console.log('GPS Raw (int):' + 
+		' fix type: ' + message.fix_type +
+		' lat: ' + message.lat / 10000000 + 
+		' lng: ' + message.lon / 10000000 + 
+		' alt: ' + message.alt / 1000 + 
+		' eph: ' + message.eph / 100 + 
+		' epv: ' + message.epv / 100 + 
+		' vel: ' + message.vel / 100 + 
+		' cog: ' + message.cog);
+	}
+
+        var lat = message.lat / 10000000; 
+        var lng = message.lon / 10000000;
+
+        self.emit('speed', self.id, message.header.srcSystem, message.vel / 100);
+        self.emit('altitude', self.id, message.header.srcSystem, message.alt / 1000);
+
+        self._reportPosition.call(self, message.header.srcSystem, lat, lng);
     }
-
-    var lat = message.lat / 10000000; 
-    var lng = message.lon / 10000000;
-
-    self.emit('speed', self.id, message.header.srcSystem, message.vel / 100);
-    self.emit('altitude', self.id, message.header.srcSystem, message.alt / 1000);
-
-    self._reportPosition.call(self, message.header.srcSystem, lat, lng, alt);
 });
 
 /* end init listeners for mavlink */
