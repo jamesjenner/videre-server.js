@@ -88,6 +88,9 @@ function Protocol(options) {
 	this.id = this.networkAddress + ":" + networkPort;
     }
 
+    // set to true if heading is determined from attitude info
+    this.headingDetermined = false;
+
     // define the devices
     this.devices = [null, null];
 }
@@ -281,6 +284,7 @@ Protocol.prototype._reportAttitude = function(id, att) {
        (attitude.roll  > att.roll  + this.devices[id].rollAccuracy  || attitude.roll  < att.roll  - this.devices[id].rollAccuracy) ||
        (attitude.yaw   > att.yaw   + this.devices[id].yawAccuracy   || attitude.yaw   < att.yaw   - this.devices[id].yawAccuracy)) {
 
+	this.headingDetermined = true;
 	// if yaw has changed then update the heading based on yaw
         if(attitude.yaw > att.yaw  + this.devices[id].yawAccuracy   || attitude.yaw   < att.yaw   - this.devices[id].yawAccuracy) {
 	    this.devices[id].heading = att.yaw < 0 ? att.yaw * -2 : att.yaw;
@@ -346,7 +350,7 @@ Protocol.prototype._reportPosition = function(id, lat, lng) {
 	this.devices[id].position.latitude  = lat;
 	this.devices[id].position.longitude = lng;
 
-	this.emit('positionGPSRawInt', this.id, id, this.devices[id].position);
+	this.emit('positionGPS', this.id, id, this.devices[id].position);
     }
 }
 
