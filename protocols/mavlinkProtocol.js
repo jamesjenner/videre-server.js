@@ -54,7 +54,7 @@ module.exports = MavlinkProtocol;
      *   1 0b000 00001 Reserved for future use.
      */
 
-MavlinkProtocol.WAYPOINT_COMPONENT = 50;
+MavlinkProtocol.COMMAND_COMPONENT = 50;
 
 MavlinkProtocol.WAYPOINT_NO_ACTION = 0;
 MavlinkProtocol.WAYPOINT_REQUESTED = 1;
@@ -409,6 +409,189 @@ MavlinkProtocol.prototype.setArmedMode = function(vehicleId, setArmed) {
     return true;
 }
 
+/**
+ * request to launch the device
+ *
+ * id          the id of the vehicle for the request
+ */
+MavlinkProtocol.prototype.launch = function(vehicleId) {
+    // convert the videre id to the mavlink id
+    var deviceId = this.getMavlinkId(vehicleId);
+
+    // send message
+    this._writeMessage(new mavlink.messages.command_long(deviceId, 
+	mavlink.MAV_COMP_ID_ALL, 
+	mavlink.MAV_CMD_NAV_TAKEOFF, 
+	1,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0));
+}
+
+/**
+ * request to land the device
+ *
+ * id          the id of the vehicle for the request
+ */
+MavlinkProtocol.prototype.land = function(vehicleId) {
+    // convert the videre id to the mavlink id
+    var deviceId = this.getMavlinkId(vehicleId);
+
+    // send message
+    this._writeMessage(new mavlink.messages.command_long(deviceId, 
+	MavlinkProtocol.MAV_COMP_ID_ALL, 
+	mavlink.MAV_CMD_NAV_LAND, 
+	1,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0));
+}
+
+/**
+ * request the device to hold (pause/stop and hold position)
+ *
+ * id          the id of the vehicle for the request
+ */
+MavlinkProtocol.prototype.halt = function(vehicleId) {
+    // convert the videre id to the mavlink id
+    var deviceId = this.getMavlinkId(vehicleId);
+
+    // send message
+    this._writeMessage(new mavlink.messages.command_long(deviceId, 
+	MavlinkProtocol.MAV_COMP_ID_ALL, 
+	mavlink.MAV_CMD_OVERRIDE_GOTO, 
+	1,
+	mavlink.MAV_GOTO_DO_HOLD,
+	mavlink.MAV_GOTO_HOLD_AT_CURRENT_POSITION,
+	0,
+	0,
+	0,
+	0,
+	0));
+}
+
+/**
+ * request the device to continue (go/unpause)
+ *
+ * id          the id of the vehicle for the request
+ */
+MavlinkProtocol.prototype.go = function(vehicleId) {
+    // convert the videre id to the mavlink id
+    var deviceId = this.getMavlinkId(vehicleId);
+
+    // send message
+    this._writeMessage(new mavlink.messages.command_long(deviceId, 
+	MavlinkProtocol.MAV_COMP_ID_ALL, 
+	mavlink.MAV_CMD_OVERRIDE_GOTO, 
+	1,
+	mavlink.MAV_GOTO_DO_CONTINUE,
+	mavlink.MAV_GOTO_HOLD_AT_CURRENT_POSITION,
+	0,
+	0,
+	0,
+	0,
+	0));
+}
+
+/**
+ * request the device to reboot the autopilot
+ *
+ * id          the id of the vehicle for the request
+ */
+MavlinkProtocol.prototype.rebootAutopilot = function(vehicleId) {
+    // convert the videre id to the mavlink id
+    var deviceId = this.getMavlinkId(vehicleId);
+
+    // send message
+    this._writeMessage(new mavlink.messages.command_long(deviceId, 
+	MavlinkProtocol.MAV_COMP_ID_ALL, 
+	mavlink.MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN, 
+	1,
+	0,
+	2, // QGroundControl has the value of 2 here, uncertain why, it's not documented
+	0,
+	0,
+	0,
+	0,
+	0));
+}
+
+/**
+ * request the device to reboot the onboard computer
+ *
+ * id          the id of the vehicle for the request
+ */
+MavlinkProtocol.prototype.reboot = function(vehicleId) {
+    // convert the videre id to the mavlink id
+    var deviceId = this.getMavlinkId(vehicleId);
+
+    // send message
+    this._writeMessage(new mavlink.messages.command_long(deviceId, 
+	MavlinkProtocol.MAV_COMP_ID_ALL, 
+	mavlink.MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN, 
+	0,
+	1,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0));
+}
+
+/**
+ * request the device to shutdown the autopilot
+ *
+ * id          the id of the vehicle for the request
+ */
+MavlinkProtocol.prototype.shutdownAutopilot = function(vehicleId) {
+    // convert the videre id to the mavlink id
+    var deviceId = this.getMavlinkId(vehicleId);
+
+    // send message
+    this._writeMessage(new mavlink.messages.command_long(deviceId, 
+	MavlinkProtocol.MAV_COMP_ID_ALL, 
+	mavlink.MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN, 
+	2,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0));
+}
+
+/**
+ * request the device to shutdown the onboard computer
+ *
+ * id          the id of the vehicle for the request
+ */
+MavlinkProtocol.prototype.shutdown = function(vehicleId) {
+    // convert the videre id to the mavlink id
+    var deviceId = this.getMavlinkId(vehicleId);
+
+    // send message
+    this._writeMessage(new mavlink.messages.command_long(deviceId, 
+	MavlinkProtocol.MAV_COMP_ID_ALL, 
+	mavlink.MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN, 
+	0,
+	2,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0));
+}
 
 /**
  * request to update the waypoints for the drone
@@ -455,7 +638,7 @@ MavlinkProtocol.prototype.requestSetWaypoints = function(vehicleId, waypoints) {
 	// request the waypoints
 	this._writeWithTimeout({
 	    deviceId: deviceId,
-	    message: new mavlink.messages.mission_count(deviceId, MavlinkProtocol.WAYPOINT_COMPONENT, waypoints.length),
+	    message: new mavlink.messages.mission_count(deviceId, MavlinkProtocol.COMMAND_COMPONENT, waypoints.length),
 	    timeout: 10000, 
 	    maxAttempts: 3, 
 	    messageName: 'mission count', 
@@ -513,7 +696,7 @@ MavlinkProtocol.prototype.requestWaypoints = function(vehicleId) {
 	// request the waypoints
 	this._writeWithTimeout({
 	    deviceId: deviceId,
-	    message: new mavlink.messages.mission_request_list(deviceId, MavlinkProtocol.WAYPOINT_COMPONENT),
+	    message: new mavlink.messages.mission_request_list(deviceId, MavlinkProtocol.COMMAND_COMPONENT),
 	    timeout: 10000, 
 	    maxAttempts: 3, 
 	    messageName: 'mission request list', 
@@ -560,7 +743,7 @@ MavlinkProtocol.prototype.requestSetTargetWaypoint = function(vehicleId, waypoin
 	// request the waypoints
 	this._writeWithTimeout({
 	    deviceId: deviceId,
-	    message: new mavlink.messages.mission_set_current(deviceId, MavlinkProtocol.WAYPOINT_COMPONENT, waypoint),
+	    message: new mavlink.messages.mission_set_current(deviceId, MavlinkProtocol.COMMAND_COMPONENT, waypoint),
 	    timeout: 10000, 
 	    maxAttempts: 3, 
 	    messageName: 'mission set current', 
@@ -616,7 +799,7 @@ MavlinkProtocol.prototype.requestClearWaypoints = function(vehicleId) {
 	
 	this._writeWithTimeout({
 	    deviceId: deviceId,
-	    message: new mavlink.messages.mission_clear_all(deviceId, MavlinkProtocol.WAYPOINT_COMPONENT),
+	    message: new mavlink.messages.mission_clear_all(deviceId, MavlinkProtocol.COMMAND_COMPONENT),
 	    timeout: 10000, 
 	    maxAttempts: 3, 
 	    messageName: 'mission clear all', 
@@ -626,7 +809,7 @@ MavlinkProtocol.prototype.requestClearWaypoints = function(vehicleId) {
 	});
 	*/
 
-	this._writeMessage(new mavlink.messages.mission_clear_all(deviceId, MavlinkProtocol.WAYPOINT_COMPONENT));
+	this._writeMessage(new mavlink.messages.mission_clear_all(deviceId, MavlinkProtocol.COMMAND_COMPONENT));
     } else {
 	if(this.debugWaypoints) {
 	    if(this.debugLevel === 0) {
