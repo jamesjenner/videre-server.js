@@ -21,7 +21,7 @@ var mavlinkProtocol1 = new MavlinkProtocol({
     debug: DEBUG,
     getVehicleIdFunction: getId,
     getDeviceOptionsFunction: getOptions,
-    debugWaypoints: true,
+    debugWaypoints: false,
     debugHeartbeat: false,
     debugMessage: false,
     debugAttitude: false,
@@ -40,8 +40,11 @@ mavlinkProtocol1.on('attitude', function(protocolId, deviceId, attitude, heading
     console.log("test1: " + protocolId + ", " + deviceId + 
         " attitude pitch: " + attitude.pitch + 
         " roll: " + attitude.roll + 
-        " yaw: "  +  attitude.yaw +
-        " heading: " + heading);
+        " yaw: "  +  attitude.yaw);
+});
+mavlinkProtocol1.on('heading', function(protocolId, deviceId, heading) {
+    console.log("test1: " + protocolId + ", " + deviceId + 
+        " heading: " + heading );
 });
 mavlinkProtocol1.on('positionGPSRawInt', function(protocolId, deviceId, position) {
     console.log("test1: " + protocolId + ", " + deviceId + " gps" +
@@ -73,11 +76,22 @@ mavlinkProtocol1.on('statusText', function(protocolId, deviceId, severity, text)
     console.log("test1: " + protocolId + ", " + deviceId + " status text: " + severity + " : " + text);
 });
 
-mavlinkProtocol1.on('systemState', function(protocolId, deviceId, batteryVoltage, batteryCurrent, batteryRemaining, commDropRate, commErrors) {
-    console.log("test1: " + protocolId + ", " + deviceId + " system state: " + 
+mavlinkProtocol1.on('autoPilotType', function(protocolId, deviceId, text) {
+    console.log("test1: " + protocolId + ", " + deviceId + " pilot type: " + text);
+});
+mavlinkProtocol1.on('deviceType', function(protocolId, deviceId, text) {
+    console.log("test1: " + protocolId + ", " + deviceId + " device type: " + text);
+});
+
+mavlinkProtocol1.on('batteryState', function(protocolId, deviceId, batteryVoltage, batteryCurrent, batteryRemaining) {
+    console.log("test1: " + protocolId + ", " + deviceId + " battery state: " + 
 	" battery voltage: " + batteryVoltage +
 	" battery current: " + batteryCurrent +
-	" battery remaining: " + batteryRemaining +
+	" battery remaining: " + batteryRemaining);
+});
+
+mavlinkProtocol1.on('commState', function(protocolId, deviceId, commDropRate, commErrors) {
+    console.log("test1: " + protocolId + ", " + deviceId + " comm state: " + 
 	" comm drop rate: " + commDropRate +
 	" comm errors: " + commErrors);
 });
@@ -86,6 +100,28 @@ mavlinkProtocol1.on('systemStatusChanged', function(protocolId, deviceId, system
     console.log("test1: " + protocolId + ", " + deviceId + " system status changed: " + systemStatus + " : " + systemStatusText);
 });
 
+mavlinkProtocol1.on('autonomousModeChanged', function(protocolId, deviceId, state) {
+    console.log("test1: " + protocolId + ", " + deviceId + " Autonomous mode changed: " + state);
+});
+mavlinkProtocol1.on('testModeChanged', function(protocolId, deviceId, state) {
+    console.log("test1: " + protocolId + ", " + deviceId + " Test mode changed: " + state);
+});
+mavlinkProtocol1.on('stabilizedModeChanged', function(protocolId, deviceId, state) {
+    console.log("test1: " + protocolId + ", " + deviceId + " Stabilized mode changed: " + state);
+});
+mavlinkProtocol1.on('hardwareInLoopModeChanged', function(protocolId, deviceId, state) {
+    console.log("test1: " + protocolId + ", " + deviceId + " Hardware in loop changed: " + state);
+});
+mavlinkProtocol1.on('remoteControlModeChanged', function(protocolId, deviceId, state) {
+    console.log("test1: " + protocolId + ", " + deviceId + " Remote control changed: " + state);
+});
+mavlinkProtocol1.on('guidedModeChanged', function(protocolId, deviceId, state) {
+    console.log("test1: " + protocolId + ", " + deviceId + " Guided mode changed: " + state);
+});
+mavlinkProtocol1.on('armedModeChanged', function(protocolId, deviceId, state) {
+    console.log("test1: " + protocolId + ", " + deviceId + " Armed mode changed: " + state);
+});
+	
 mavlinkProtocol1.connect();
 
 
@@ -123,6 +159,68 @@ var deviceId = '1';
 
 var waypoints = null;
 
+setTimeout(function() {
+    var vehicleId = vehicles[COMPORT1]['1'].id;
+    console.log("test1: requesting arming for " + vehicleId);
+    if(mavlinkProtocol1.setArmedMode.call(mavlinkProtocol1, vehicleId, true)) {
+	console.log("test1: requesting arming sent");
+    } else {
+	console.log("test1: requesting arming not required");
+    }
+}, 3000);
+
+setTimeout(function() {
+    var vehicleId = vehicles[COMPORT1]['1'].id;
+    console.log("test1: requesting stabilized mode enabled for " + vehicleId);
+    if(mavlinkProtocol1.setStabilizedMode.call(mavlinkProtocol1, vehicleId, true)) {
+	console.log("test1: requesting stabilized mode enabled sent");
+    } else {
+	console.log("test1: requesting stabilized mode enabled not required");
+    }
+}, 6000);
+
+setTimeout(function() {
+    var vehicleId = vehicles[COMPORT1]['1'].id;
+    console.log("test1: requesting autonomous mode enabled for " + vehicleId);
+    if(mavlinkProtocol1.setAutonomousMode.call(mavlinkProtocol1, vehicleId, true)) {
+	console.log("test1: requesting autonomous mode enabled sent");
+    } else {
+	console.log("test1: requesting autonomous mode enabled not required");
+    }
+}, 9000);
+
+setTimeout(function() {
+    var vehicleId = vehicles[COMPORT1]['1'].id;
+    console.log("test1: requesting autonomous mode disabled for " + vehicleId);
+    if(mavlinkProtocol1.setAutonomousMode.call(mavlinkProtocol1, vehicleId, false)) {
+	console.log("test1: requesting autonomous mode disabled sent");
+    } else {
+	console.log("test1: requesting autonomous mode disabled not required");
+    }
+}, 12000);
+
+setTimeout(function() {
+    var vehicleId = vehicles[COMPORT1]['1'].id;
+    console.log("test1: requesting stabilized mode disabled for " + vehicleId);
+    if(mavlinkProtocol1.setStabilizedMode.call(mavlinkProtocol1, vehicleId, false)) {
+	console.log("test1: requesting stabilized mode disabled sent");
+    } else {
+	console.log("test1: requesting stabilized mode disabled not required");
+    }
+}, 15000);
+
+setTimeout(function() {
+    var vehicleId = vehicles[COMPORT1]['1'].id;
+    console.log("test1: requesting disarming for " + vehicleId);
+    if(mavlinkProtocol1.setArmedMode.call(mavlinkProtocol1, vehicleId, false)) {
+	console.log("test1: requesting disarming sent");
+    } else {
+	console.log("test1: requesting disarming not required");
+    }
+}, 18000);
+
+
+/*
 // request to retrieve waypoints
 setTimeout(function() {
 
@@ -162,7 +260,6 @@ setTimeout(function() {
     }
 }, 15000);
 
-/*
 setTimeout(function() {
     console.log("test1: clearing waypoints");
 
