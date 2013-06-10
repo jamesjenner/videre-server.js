@@ -53,14 +53,6 @@ module.exports = MavlinkProtocol;
      *                 system tests and should not be used for stable implementations.
      *   1 0b000 00001 Reserved for future use.
      */
-MavlinkProtocol.BASE_MODE_ARMED = 1 << 7;
-MavlinkProtocol.BASE_MODE_REMOTE_CONTROL_ENABLED = 1 << 6;
-MavlinkProtocol.BASE_MODE_HARDWARE_IN_LOOP = 1 << 5;
-MavlinkProtocol.BASE_MODE_SYSTEM_STABILIZED = 1 << 4;
-MavlinkProtocol.BASE_MODE_GUIDED_MODE = 1 << 3;
-MavlinkProtocol.BASE_MODE_AUTONOMOUS_MODE = 1 << 2;
-MavlinkProtocol.BASE_MODE_TEST_MODE = 1 << 1;
-MavlinkProtocol.BASE_MODE_RESERVED = 1 << 0;
 
 MavlinkProtocol.WAYPOINT_COMPONENT = 50;
 
@@ -143,6 +135,280 @@ MavlinkProtocol.prototype._writeMessage = function(data) {
 
     MavlinkProtocol.super_.prototype._writeMessage.call(this, p);
 }
+
+/**
+ * request to set the autonomous mode of the device
+ *
+ * id            the id of the vehicle for the request
+ * setAutonomous boolean representing whether to be autonomous or not
+ *
+ * returns       true if request generated
+ *               false if the mode was already set to this mode
+ */
+MavlinkProtocol.prototype.setAutonomousMode = function(vehicleId, setAutonomous) {
+    // convert the videre id to the mavlink id
+    var deviceId = this.getMavlinkId(vehicleId);
+
+    // copy the mode
+    var newMode = this.devices[deviceId]._baseMode;
+
+    // check and apply changes as required
+    if(setAutonomous) {
+	if(isSet(newMode, mavlink.MAV_MODE_FLAG_AUTO_ENABLED)) {
+	    return false;
+	} else {
+	    // we are not autonomous
+	    newMode |= mavlink.MAV_MODE_FLAG_AUTO_ENABLED;
+	}
+    } else {
+	if(isSet(newMode, mavlink.MAV_MODE_FLAG_AUTO_ENABLED)) {
+	    // we are autonomous
+	    newMode ^= mavlink.MAV_MODE_FLAG_AUTO_ENABLED;
+	} else {
+	    return false;
+	}
+    }
+
+    // send message
+    this._writeMessage(new mavlink.messages.set_mode(deviceId, newMode, this.devices[deviceId]._customMode));
+
+    return true;
+}
+
+/**
+ * request to set the test mode of the device
+ *
+ * id          the id of the vehicle for the request
+ * setTestMode boolean representing whether to be in test mode or not
+ *
+ * returns     true if request generated
+ *             false if the mode was already set to this mode
+ */
+MavlinkProtocol.prototype.setTestMode = function(vehicleId, setTestMode) {
+    // convert the videre id to the mavlink id
+    var deviceId = this.getMavlinkId(vehicleId);
+
+    // copy the mode
+    var newMode = this.devices[deviceId]._baseMode;
+
+    // check and apply changes as required
+    if(setTestMode) {
+	if(isSet(newMode, mavlink.MAV_MODE_FLAG_TEST_ENABLED)) {
+	    return false;
+	} else {
+	    // we are not test mode
+	    newMode |= mavlink.MAV_MODE_FLAG_TEST_ENABLED;
+	}
+    } else {
+	if(isSet(newMode, mavlink.MAV_MODE_FLAG_TEST_ENABLED)) {
+	    // we are test mode
+	    newMode ^= mavlink.MAV_MODE_FLAG_TEST_ENABLED;
+	} else {
+	    return false;
+	}
+    }
+
+    // send message
+    this._writeMessage(new mavlink.messages.set_mode(deviceId, newMode, this.devices[deviceId]._customMode));
+
+    return true;
+}
+
+/**
+ * request to set the stabalized  mode of the device
+ *
+ * id            the id of the vehicle for the request
+ * setStabalized boolean representing whether to be stabalized or not
+ *
+ * returns       true if request generated
+ *               false if the mode was already set to this mode
+ */
+MavlinkProtocol.prototype.setStabilizedMode = function(vehicleId, setStabilized) {
+    // convert the videre id to the mavlink id
+    var deviceId = this.getMavlinkId(vehicleId);
+
+    // copy the mode
+    var newMode = this.devices[deviceId]._baseMode;
+
+    // check and apply changes as required
+    if(setStabilized) {
+	if(isSet(newMode, mavlink.MAV_MODE_FLAG_STABILIZE_ENABLED)) {
+	    return false;
+	} else {
+	    // we are not stabilised
+	    newMode |= mavlink.MAV_MODE_FLAG_STABILIZE_ENABLED;
+	}
+    } else {
+	if(isSet(newMode, mavlink.MAV_MODE_FLAG_STABILIZE_ENABLED)) {
+	    // we are stabilised
+	    newMode ^= mavlink.MAV_MODE_FLAG_STABILIZE_ENABLED;
+	} else {
+	    return false;
+	}
+    }
+
+    // send message
+    this._writeMessage(new mavlink.messages.set_mode(deviceId, newMode, this.devices[deviceId]._customMode));
+
+    return true;
+}
+
+/**
+ * request to set the hardware in loop mode of the device
+ *
+ * id          the id of the vehicle for the request
+ * setHIL      boolean representing whether to be hardware in loop or not
+ *
+ * returns     true if request generated
+ *             false if the mode was already set to this mode
+ */
+MavlinkProtocol.prototype.setHardwareInLoopMode = function(vehicleId, setHIL) {
+    // convert the videre id to the mavlink id
+    var deviceId = this.getMavlinkId(vehicleId);
+
+    // copy the mode
+    var newMode = this.devices[deviceId]._baseMode;
+
+    // check and apply changes as required
+    if(setHIL) {
+	if(isSet(newMode, mavlink.MAV_MODE_FLAG_HIL_ENABLED)) {
+	    return false;
+	} else {
+	    // we are not hardware in loop
+	    newMode |= mavlink.MAV_MODE_FLAG_HIL_ENABLED;
+	}
+    } else {
+	if(isSet(newMode, mavlink.MAV_MODE_FLAG_HIL_ENABLED)) {
+	    // we are hardware in loop
+	    newMode ^= mavlink.MAV_MODE_FLAG_HIL_ENABLED;
+	} else {
+	    return false;
+	}
+    }
+
+    // send message
+    this._writeMessage(new mavlink.messages.set_mode(deviceId, newMode, this.devices[deviceId]._customMode));
+
+    return true;
+}
+
+/**
+ * request to set the remote control mode of the device
+ *
+ * id               the id of the vehicle for the request
+ * setRemoteControl boolean representing whether to be remote control or not
+ *
+ * returns          true if request generated
+ *                  false if the mode was already set to this mode
+ */
+MavlinkProtocol.prototype.setRemoteControlMode = function(vehicleId, setRemoteControl) {
+    // convert the videre id to the mavlink id
+    var deviceId = this.getMavlinkId(vehicleId);
+
+    // copy the mode
+    var newMode = this.devices[deviceId]._baseMode;
+
+    // check and apply changes as required
+    if(setRemoteControl) {
+	if(isSet(newMode, mavlink.MAV_MODE_FLAG_MANUAL_INPUT_ENABLED)) {
+	    return false;
+	} else {
+	    // we are not remote control
+	    newMode |= mavlink.MAV_MODE_FLAG_MANUAL_INPUT_ENABLED;
+	}
+    } else {
+	if(isSet(newMode, mavlink.MAV_MODE_FLAG_MANUAL_INPUT_ENABLED)) {
+	    // we are remote control
+	    newMode ^= mavlink.MAV_MODE_FLAG_MANUAL_INPUT_ENABLED;
+	} else {
+	    return false;
+	}
+    }
+
+    // send message
+    this._writeMessage(new mavlink.messages.set_mode(deviceId, newMode, this.devices[deviceId]._customMode));
+
+    return true;
+}
+
+/**
+ * request to set the guided mode of the device
+ *
+ * id          the id of the vehicle for the request
+ * setGuided   boolean representing whether to be guided or not
+ *
+ * returns     true if request generated
+ *             false if the mode was already set to this mode
+ */
+MavlinkProtocol.prototype.setGuidedMode = function(vehicleId, setGuided) {
+    // convert the videre id to the mavlink id
+    var deviceId = this.getMavlinkId(vehicleId);
+
+    // copy the mode
+    var newMode = this.devices[deviceId]._baseMode;
+
+    // check and apply changes as required
+    if(setGuided) {
+	if(isSet(newMode, mavlink.MAV_MODE_FLAG_GUIDED_ENABLED)) {
+	    return false;
+	} else {
+	    // we are not guided
+	    newMode |= mavlink.MAV_MODE_FLAG_GUIDED_ENABLED;
+	}
+    } else {
+	if(isSet(newMode, mavlink.MAV_MODE_FLAG_GUIDED_ENABLED)) {
+	    // we are guided
+	    newMode ^= mavlink.MAV_MODE_FLAG_GUIDED_ENABLED;
+	} else {
+	    return false;
+	}
+    }
+
+    // send message
+    this._writeMessage(new mavlink.messages.set_mode(deviceId, newMode, this.devices[deviceId]._customMode));
+
+    return true;
+}
+
+/**
+ * request to set the armed mode of the device
+ *
+ * id          the id of the vehicle for the request
+ * setArmed    boolean representing whether to be armed or not
+ *
+ * returns     true if request generated
+ *             false if the mode was already set to this mode
+ */
+MavlinkProtocol.prototype.setArmedMode = function(vehicleId, setArmed) {
+    // convert the videre id to the mavlink id
+    var deviceId = this.getMavlinkId(vehicleId);
+
+    // copy the mode
+    var newMode = this.devices[deviceId]._baseMode;
+
+    // check and apply changes as required
+    if(setArmed) {
+	if(isSet(newMode, mavlink.MAV_MODE_FLAG_SAFETY_ARMED)) {
+	    return false;
+	} else {
+	    // we are not armed, arm
+	    newMode |= mavlink.MAV_MODE_FLAG_SAFETY_ARMED;
+	}
+    } else {
+	if(isSet(newMode, mavlink.MAV_MODE_FLAG_SAFETY_ARMED)) {
+	    // we are armed, disarm
+	    newMode ^= mavlink.MAV_MODE_FLAG_SAFETY_ARMED;
+	} else {
+	    return false;
+	}
+    }
+
+    // send message
+    this._writeMessage(new mavlink.messages.set_mode(deviceId, newMode, this.devices[deviceId]._customMode));
+
+    return true;
+}
+
 
 /**
  * request to update the waypoints for the drone
@@ -455,7 +721,7 @@ this.mavlinkParser.on('HEARTBEAT', function(message) {
 
     // if the system status has changed then update it
     if(self.devices[deviceId].systemStatus != message.system_status) {
-	self.devices[deviceId].systemStatus = message.system_status
+	self.devices[deviceId].systemStatus = message.system_status;
 
 	switch(message.system_status) {
 	    case mavlink.MAV_STATE_UNINIT:
@@ -489,6 +755,20 @@ this.mavlinkParser.on('HEARTBEAT', function(message) {
 	self.emit('systemStatusChanged', self.id, deviceId, self.devices[deviceId].systemStatus, self.devices[deviceId].systemStatusText);
     }
        
+    if(self.devices[deviceId]._customMode != message.custom_mode) {
+	self.devices[deviceId]._customMode = message.custom_mode;
+	self.emit('customModechanged', self.id, deviceId, self.devices[deviceId]._customMode);
+    }
+
+    /*
+    console.log("heartbeat => " + 
+	JSON.stringify(message.base_mode) + " toString(2) -> " + 
+	message.base_mode.toString(2) + " integer -> " + 
+	parseInt(message.base_mode, 2) + " raw -> " + 
+	self.devices[deviceId]._baseMode + " : " + message.base_mode + " bin -> " + 
+	parseInt(self.devices[deviceId]._baseMode, 2).toString(2) + " : " + parseInt(message.base_mode, 2).toString(2));
+    */
+
     // if the base mode has changed then update it
     if(self.devices[deviceId]._baseMode != message.base_mode) {
 	var autonomousModeOld = self.devices[deviceId].autonomousMode;
@@ -499,159 +779,177 @@ this.mavlinkParser.on('HEARTBEAT', function(message) {
 	var guidedOld = self.devices[deviceId].guided;
 	var armedOld = self.devices[deviceId].armed;
 
-	self.devices[deviceId].autonomousMode  = message.base_mode & MavlinkProtocol.MAV_MODE_FLAG_AUTO_ENABLED != 0 ? true : false;
-	self.devices[deviceId].testMode        = message.base_mode & MavlinkProtocol.MAV_MODE_FLAG_TEST_ENABLED != 0 ? true : false;
-	self.devices[deviceId].stabilizedMode  = message.base_mode & MavlinkProtocol.MAV_MODE_FLAG_STABILIZE_ENABLED != 0 ? true : false;
-	self.devices[deviceId].hardwareInLoop  = message.base_mode & MavlinkProtocol.MAV_MODE_FLAG_HIL_ENABLED != 0 ? true : false;
-	self.devices[deviceId].remoteControl   = message.base_mode & MavlinkProtocol.MAV_MODE_FLAG_MANUAL_INPUT_ENABLED != 0 ? true : false;
-	self.devices[deviceId].guided          = message.base_mode & MavlinkProtocol.MAV_MODE_FLAG_GUIDED_ENABLED != 0 ? true : false;
-	self.devices[deviceId].armed           = message.base_mode & MavlinkProtocol.BASE_MODE_ARMED != 0 ? true : false;
+	var newMode = message.base_mode;
+	self.devices[deviceId].customMode      = isSet(newMode, mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED);
+	self.devices[deviceId].autonomousMode  = isSet(newMode, mavlink.MAV_MODE_FLAG_AUTO_ENABLED);
+	self.devices[deviceId].testMode        = isSet(newMode, mavlink.MAV_MODE_FLAG_TEST_ENABLED);
+	self.devices[deviceId].stabilizedMode  = isSet(newMode, mavlink.MAV_MODE_FLAG_STABILIZE_ENABLED);
+	self.devices[deviceId].hardwareInLoop  = isSet(newMode, mavlink.MAV_MODE_FLAG_HIL_ENABLED);
+	self.devices[deviceId].remoteControl   = isSet(newMode, mavlink.MAV_MODE_FLAG_MANUAL_INPUT_ENABLED);
+	self.devices[deviceId].guided          = isSet(newMode, mavlink.MAV_MODE_FLAG_GUIDED_ENABLED);
+	self.devices[deviceId].armed           = isSet(newMode, mavlink.MAV_MODE_FLAG_SAFETY_ARMED);
 
 	self.devices[deviceId]._baseMode = message.base_mode;
 
 	// fire the mode changed event as appropriate
 	if(autonomousModeOld != self.devices[deviceId].autonomousMode) {
-	    self.emit('autonomousModeChanged', deviceId, self.devices[deviceId].autonomousMode);
+	    self.emit('autonomousModeChanged', self.id, deviceId, self.devices[deviceId].autonomousMode);
 	}
 
 	if(testModeOld != self.devices[deviceId].testMode) {
-	    self.emit('testModeChanged', deviceId, self.devices[deviceId].testMode);
+	    self.emit('testModeChanged', self.id, deviceId, self.devices[deviceId].testMode);
 	}
 
 	if(stabilizedModeOld != self.devices[deviceId].stabilizedMode) {
-	    self.emit('stabilizedModeChanged', deviceId, self.devices[deviceId].stabilizedMode);
+	    self.emit('stabilizedModeChanged', self.id, deviceId, self.devices[deviceId].stabilizedMode);
 	}
 
 	if(hardwareInLoopOld != self.devices[deviceId].hardwareInLoop) {
-	    self.emit('hardwareInLoopModeChanged', deviceId, self.devices[deviceId].hardwareInLoop);
+	    self.emit('hardwareInLoopModeChanged', self.id, deviceId, self.devices[deviceId].hardwareInLoop);
 	}
 
 	if(remoteControlOld != self.devices[deviceId].remoteControl) {
-	    self.emit('remoteControlModeChanged', deviceId, self.devices[deviceId].remoteControl);
+	    self.emit('remoteControlModeChanged', self.id, deviceId, self.devices[deviceId].remoteControl);
 	}
 
 	if(guidedOld != self.devices[deviceId].guided) {
-	    self.emit('guidedModeChanged', deviceId, self.devices[deviceId].guided);
+	    self.emit('guidedModeChanged', self.id, deviceId, self.devices[deviceId].guided);
 	}
 
 	if(armedOld != self.devices[deviceId].armed) {
-	    self.emit('armedModeChanged', deviceId, self.devices[deviceId].armed);
+	    self.emit('armedModeChanged', self.id, deviceId, self.devices[deviceId].armed);
 	}
+    }
+
+    if(self.devices[deviceId].autopilot === 'unknown' || self.devices[deviceId]._autopilot !== message.autopilot) {
+	self.devices[deviceId]._autopilot = message.autopilot;
+
+	switch(message.autopilot) {
+	    case mavlink.MAV_AUTOPILOT_GENERIC:
+		self.devices[deviceId].autopilot = 'Generic';
+		break;
+            case mavlink.MAV_AUTOPILOT_PIXHAWK:
+		self.devices[deviceId].autopilot = 'PIXHAWK';
+		break;
+            case mavlink.MAV_AUTOPILOT_SLUGS:
+		self.devices[deviceId].autopilot = 'SLUGS';
+		break;
+            case mavlink.MAV_AUTOPILOT_ARDUPILOTMEGA:
+		self.devices[deviceId].autopilot = 'ArduPilotMega';
+		break;
+            case mavlink.MAV_AUTOPILOT_OPENPILOT:
+		self.devices[deviceId].autopilot = 'OpenPilot';
+		break;
+            case mavlink.MAV_AUTOPILOT_GENERIC_WAYPOINTS_ONLY:
+		self.devices[deviceId].autopilot = 'Generic waypoints only';
+		break;
+            case mavlink.MAV_AUTOPILOT_GENERIC_WAYPOINTS_AND_SIMPLE_NAVIGATION_ONLY:
+		self.devices[deviceId].autopilot = 'Generic waypoints and simple navigation';
+		break;
+            case mavlink.MAV_AUTOPILOT_GENERIC_MISSION_FULL:
+		self.devices[deviceId].autopilot = 'Generic autopilot and full mission command set';
+		break;
+            case mavlink.MAV_AUTOPILOT_INVALID:
+		self.devices[deviceId].autopilot = 'No valid autopilot';
+		break;
+            case mavlink.MAV_AUTOPILOT_PPZ:
+		self.devices[deviceId].autopilot = 'PPZ UAV';
+		break;
+            case mavlink.MAV_AUTOPILOT_UDB:
+		self.devices[deviceId].autopilot = 'UAV Dev Board';
+		break;
+            case mavlink.MAV_AUTOPILOT_FP:
+		self.devices[deviceId].autopilot = 'FlexiPilot';
+		break;
+            case mavlink.MAV_AUTOPILOT_PX4:
+		self.devices[deviceId].autopilot = 'PX4 Autopilot';
+		break;
+            case mavlink.MAV_AUTOPILOT_SMACCMPILOT:
+		self.devices[deviceId].autopilot = 'SMACCM';
+		break;
+
+	    default:
+		self.devices[deviceId].autopilot = 'Unrecognised ' + message.autopilot;
+		break;
+	}
+	self.emit('autoPilotType', self.id, deviceId, self.devices[deviceId].autopilot);
+    }
+    if(self.devices[deviceId].deviceType === 'unknown' || self.devices[deviceId]._deviceType !== message.deviceType) {
+	self.devices[deviceId]._deviceType = message.deviceType;
+
+	switch(message.type) {
+	    case mavlink.MAV_TYPE_GENERIC:
+	        self.devices[deviceId].deviceType = 'Generic micro air vehicle';
+		break;
+	    case mavlink.MAV_TYPE_FIXED_WING:
+	        self.devices[deviceId].deviceType = 'Fixed wing aircraft';
+		break;
+	    case mavlink.MAV_TYPE_QUADROTOR:
+		self.devices[deviceId].deviceType = 'Quadrotor';
+		break;
+	    case mavlink.MAV_TYPE_COAXIAL:
+		self.devices[deviceId].deviceType = 'Coaxial helicopter';
+		break;
+	    case mavlink.MAV_TYPE_HELICOPTER:
+		self.devices[deviceId].deviceType = 'Helicopter with tail rotor';
+		break;
+	    case mavlink.MAV_TYPE_ANTENNA_TRACKER:
+		self.devices[deviceId].deviceType = 'Ground installation';
+		break;
+	    case mavlink.MAV_TYPE_GCS:
+		self.devices[deviceId].deviceType = 'Ground control station';
+		break;
+	    case mavlink.MAV_TYPE_AIRSHIP:
+		self.devices[deviceId].deviceType = 'Airship, controlled';
+		break;
+	    case mavlink.MAV_TYPE_FREE_BALLOON:
+		self.devices[deviceId].deviceType = 'Free balloon, uncontrolled';
+		break;
+	    case mavlink.MAV_TYPE_ROCKET:
+		self.devices[deviceId].deviceType = 'Rocket';
+		break;
+	    case mavlink.MAV_TYPE_GROUND_ROVER:
+		self.devices[deviceId].deviceType = 'Ground rover';
+		break;
+	    case mavlink.MAV_TYPE_SURFACE_BOAT:
+		self.devices[deviceId].deviceType = 'Surface vessel';
+		break;
+	    case mavlink.MAV_TYPE_SUBMARINE:
+		self.devices[deviceId].deviceType = 'Submarine';
+		break;
+	    case mavlink.MAV_TYPE_HEXAROTOR:
+		self.devices[deviceId].deviceType = 'Hexarotor';
+		break;
+	    case mavlink.MAV_TYPE_OCTOROTOR:
+		self.devices[deviceId].deviceType = 'Octorotor';
+		break;
+	    case mavlink.MAV_TYPE_TRICOPTER:
+		self.devices[deviceId].deviceType = 'Tricopter';
+		break;
+	    case mavlink.MAV_TYPE_FLAPPING_WING:
+		self.devices[deviceId].deviceType = 'Flapping wing';
+		break;
+	    case mavlink.MAV_TYPE_KITE:
+		self.devices[deviceId].deviceType = 'Kite';
+		break;
+
+	    default:
+		self.devices[deviceId].deviceType = 'Unrecognised ' + message.type;
+		break;
+	}
+	self.emit('deviceType', self.id, deviceId, self.devices[deviceId].deviceType);
     }
 
     // set the system id from the heartbeat if it is not currently set
     if(self.debugHeartbeat && self.debugLevel == 1) {
 	console.log('Heartbeat');
     } else if (self.debugHeartbeat && self.debugLevel > 1) {
-        var mavType = 'unknown';
 	var autopilot = 'unknown';
-	var sysStatus = 'unknown';
-
-	switch(message.autopilot) {
-	    case mavlink.MAV_AUTOPILOT_GENERIC:
-		autopilot = 'Generic';
-		break;
-            case mavlink.MAV_AUTOPILOT_PIXHAWK:
-		autopilot = 'PIXHAWK';
-		break;
-            case mavlink.MAV_AUTOPILOT_SLUGS:
-		autopilot = 'SLUGS';
-		break;
-            case mavlink.MAV_AUTOPILOT_ARDUPILOTMEGA:
-		autopilot = 'ArduPilotMega / ArduCopter';
-		break;
-            case mavlink.MAV_AUTOPILOT_OPENPILOT:
-		autopilot = 'OpenPilot';
-		break;
-            case mavlink.MAV_AUTOPILOT_GENERIC_WAYPOINTS_ONLY:
-		autopilot = 'Generic autopilot only supporting simple waypoints';
-		break;
-            case mavlink.MAV_AUTOPILOT_GENERIC_WAYPOINTS_AND_SIMPLE_NAVIGATION_ONLY:
-		autopilot = 'Generic autopilot supporting waypoints and other simple navigation';
-		break;
-            case mavlink.MAV_AUTOPILOT_GENERIC_MISSION_FULL:
-		autopilot = 'Generic autopilot supporting the full mission command set';
-		break;
-            case mavlink.MAV_AUTOPILOT_INVALID:
-		autopilot = 'No valid autopilot';
-		break;
-            case mavlink.MAV_AUTOPILOT_PPZ:
-		autopilot = 'PPZ UAV';
-		break;
-            case mavlink.MAV_AUTOPILOT_UDB:
-		autopilot = 'UAV Dev Board';
-		break;
-            case mavlink.MAV_AUTOPILOT_FP:
-		autopilot = 'FlexiPilot';
-		break;
-            case mavlink.MAV_AUTOPILOT_PX4:
-		autopilot = 'PX4 Autopilot';
-		break;
-            case mavlink.MAV_AUTOPILOT_SMACCMPILOT:
-		autopilot = '';
-		break;
-	}
-	switch(message.type) {
-	    case mavlink.MAV_TYPE_GENERIC:
-	        mavType = 'Generic micro air vehicle';
-		break;
-	    case mavlink.MAV_TYPE_FIXED_WING:
-	        mavType = 'Fixed wing aircraft';
-		break;
-	    case mavlink.MAV_TYPE_QUADROTOR:
-		mavType = 'Quadrotor';
-		break;
-	    case mavlink.MAV_TYPE_COAXIAL:
-		mavType = 'Coaxial helicopter';
-		break;
-	    case mavlink.MAV_TYPE_HELICOPTER:
-		mavType = 'Normal helicopter with tail rotor';
-		break;
-	    case mavlink.MAV_TYPE_ANTENNA_TRACKER:
-		mavType = 'Ground installation';
-		break;
-	    case mavlink.MAV_TYPE_GCS:
-		mavType = 'Operator control unit / ground control station';
-		break;
-	    case mavlink.MAV_TYPE_AIRSHIP:
-		mavType = 'Airship, controlled';
-		break;
-	    case mavlink.MAV_TYPE_FREE_BALLOON:
-		mavType = 'Free balloon, uncontrolled';
-		break;
-	    case mavlink.MAV_TYPE_ROCKET:
-		mavType = 'Rocket';
-		break;
-	    case mavlink.MAV_TYPE_GROUND_ROVER:
-		mavType = 'Ground rover';
-		break;
-	    case mavlink.MAV_TYPE_SURFACE_BOAT:
-		mavType = 'Surface vessel, boat, ship';
-		break;
-	    case mavlink.MAV_TYPE_SUBMARINE:
-		mavType = 'Submarine';
-		break;
-	    case mavlink.MAV_TYPE_HEXAROTOR:
-		mavType = 'Hexarotor';
-		break;
-	    case mavlink.MAV_TYPE_OCTOROTOR:
-		mavType = 'Octorotor';
-		break;
-	    case mavlink.MAV_TYPE_TRICOPTER:
-		mavType = 'Tricopter';
-		break;
-	    case mavlink.MAV_TYPE_FLAPPING_WING:
-		mavType = 'Flapping wing';
-		break;
-	    case mavlink.MAV_TYPE_KITE:
-		mavType = 'Kite';
-		break;
-	}
 
 	console.log('Heartbeat  src sys:          ' + message.header.srcSystem);
 	console.log('           src component:    ' + message.header.srcComponent);
-	console.log('           type:             ' + mavType);
-	console.log('           autopilot:        ' + autopilot);
+	console.log('           type:             ' + self.devices[deviceId].deviceType);
+	console.log('           autopilot:        ' + self.devices[deviceId].autopilot);
 	console.log('           base_mode:        ' + message.base_mode);
 	console.log('           autonomous mode:  ' + self.devices[deviceId].autonomousMode);
 	console.log('           test mode:        ' + self.devices[deviceId].testMode);
@@ -1158,7 +1456,8 @@ this.mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
     self.emit('altitude', self.id, message.header.srcSystem, message.alt / 1000);
 });
 
-this.mavlinkParser.on('STATUS_TEXT', function(message) {
+// this.mavlinkParser.on('STATUS_TEXT', function(message) {
+this.mavlinkParser.on('STATUSTEXT', function(message) {
     /* 
      * Status text message. These messages are printed in yellow in the COMM console of QGroundControl. 
      *
@@ -1169,15 +1468,18 @@ this.mavlinkParser.on('STATUS_TEXT', function(message) {
      * severity  Severity of status. Relies on the definitions within RFC-5424. See enum MAV_SEVERITY.
      * text      Status text message, without null termination character
      */
-    if(self.debug && self.debugLevel == 1) {
+    if(self.debugStatustext && self.debugLevel == 1) {
 	console.log('Status text');
-    } else if (self.debug && self.debugLevel > 1) {
+    } else if (self.debugStatustext && self.debugLevel > 1) {
 	console.log('Status text' + 
 	    ' severity: ' + message.severity +
 	    ' text: ' + message.text);
     }
 
-    self.emit('statusText', self.id, message.header.srcSystem, message.severity, message.text);
+    // for an unknown reason the text is null terminated, while the standard says it should be fixed length
+    text = message.text.substring(0, message.text.indexOf('\u0000'));
+
+    self.emit('statusText', self.id, message.header.srcSystem, message.severity, text);
 });
 
 this.mavlinkParser.on('PARAM_VALUE', function(message) {
@@ -1307,24 +1609,24 @@ this.mavlinkParser.on('SYS_STATUS', function(message) {
 
     if(self.devices[deviceId].batteryVoltage    != message.voltage_battery / 1000 || 
 	self.devices[deviceId].batteryCurrent   != message.current_battery / 100 ||
-	self.devices[deviceId].batteryRemaining != message.battery_remaining ||
-	self.devices[deviceId].commDropRate     != message.drop_rate_comm ||
-	self.devices[deviceId].commErrors       != message.errors_comm) {
+	self.devices[deviceId].batteryRemaining != message.battery_remaining) {
 
 	self.devices[deviceId].batteryVoltage   = message.voltage_battery / 1000;
 	self.devices[deviceId].batteryCurrent   = message.current_battery / 100;
 	self.devices[deviceId].batteryRemaining = message.battery_remaining;
-	self.devices[deviceId].commDropRate     = message.drop_rate_comm;
-	self.devices[deviceId].commErrors       = message.errors_comm;
 
-	self.emit('systemState', 
-	    self.id, 
-	    deviceId,
+	self.emit('batteryState', self.id, deviceId,
 	    self.devices[deviceId].batteryVoltage, 
 	    self.devices[deviceId].batteryCurrent, 
-	    self.devices[deviceId].batteryRemaining, 
-	    self.devices[deviceId].commDropRate, 
-	    self.devices[deviceId].commErrors);
+	    self.devices[deviceId].batteryRemaining);
+    }
+
+    if(self.devices[deviceId].commDropRate != message.drop_rate_comm || self.devices[deviceId].commErrors != message.errors_comm) {
+
+	self.devices[deviceId].commDropRate = message.drop_rate_comm;
+	self.devices[deviceId].commErrors = message.errors_comm;
+
+	self.emit('commState', self.id, deviceId, self.devices[deviceId].commDropRate, self.devices[deviceId].commErrors);
     }
 });
 
@@ -1500,7 +1802,8 @@ function _Device(systemId, vehicleId, options) {
     this._waypointLastSequence = -1;
     this._waypointTimeoutId = null;
     this._waypointTimeoutCounter = null;
-    this._baseMode = null;
+    this._baseMode = parseInt(0, 2);
+    this._customMode = parseInt(0, 2);
     this._waypoints = new Array();
 
     this.autonomousMode  = false;
@@ -1513,6 +1816,9 @@ function _Device(systemId, vehicleId, options) {
 
     this.systemStatus     = '';
     this.systemStatusText = '';
+
+    this._deviceType = '';
+    this._autopilot = '';
 
     this.pitchAccuracy = ((options.pitchAccuracy != null) ? options.pitchAccuracy : 0.03);
     this.rollAccuracy = ((options.rollAccuracy != null) ? options.rollAccuracy : 0.03);
@@ -1559,3 +1865,31 @@ _Device.prototype._getWaypointState = function() {
 function rToP(v) {
     return v * (180/Math.PI);
 }
+
+function isSet(flag, mask) {
+    if(flag & mask) {
+	return true;
+    } else {
+	return false;
+    }
+}
+
+function setFlag(flag, mask, action) {
+    if(action) {
+	// set to true
+	if(!(flag & mask)) {
+	    // we are unset, set
+	    flag |= mask;
+	}
+    } else {
+	// set to false
+	if(flag & mask) {
+	    // we are set, unset
+	    flag ^= mask;
+	}
+    }
+
+    return flag;
+}
+
+
