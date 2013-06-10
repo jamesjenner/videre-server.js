@@ -362,6 +362,18 @@ clientComms.on('vehicleLaunch', function(d) {vehicleLaunch(d);});
 clientComms.on('vehicleLand', function(d) {vehicleLand(d);});
 clientComms.on('vehicleAbort', function(d) {vehicleAbort(d);});
 
+clientComms.on('vehicleHalt', vehicleHalt);
+clientComms.on('vehicleGo', vehicleGo);
+clientComms.on('vehicleRebootAutopilot', vehicleRebootAutopilot);
+clientComms.on('vehicleReboot', vehicleReboot);
+clientComms.on('vehicleShutdownAutopilot', vehicleShutdownAutopilot);
+clientComms.on('vehicleShutdown', vehicleShutdown);
+clientComms.on('vehicleSetAutonomousMode', vehicleSetAutonomousMode);
+clientComms.on('vehicleSetTestMode', vehicleSetTestMode);
+clientComms.on('vehicleSetStabilizedMode', vehicleSetStabilizedMode);
+clientComms.on('vehicleSetHardwareInLoopMode', vehicleSetHardwareInLoopMode);
+clientComms.on('vehicleSetRemoteControlMode', vehicleSetRemoteControlMode);
+clientComms.on('vehicleSetGuidedMode', vehicleSetGuidedMode);
 /*
 clientComms.on('vehicleTest', function(d) {x(d);});
 */
@@ -432,6 +444,145 @@ function vehicleLand(data) {
 
     if(remoteVehicle) {
 	remoteVehicle.land();
+    }
+}
+
+function vehicleHalt(data) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: vehicleHalt for " + data.id + " - calling remoteVehicle.halt()");
+    }
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.halt();
+    }
+}
+
+function vehicleGo(data) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: vehicleGo for " + data.id + " - calling remoteVehicle.go()");
+    }
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.Go();
+    }
+}
+
+function vehicleRebootAutopilot(data) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: vehicleRebootAutopilot for " + data.id + " - calling remoteVehicle.rebootAutopilot()");
+    }
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.rebootAutopilot();
+    }
+}
+
+function vehicleReboot(data) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: vehicleVehicleReboot for " + data.id + " - calling remoteVehicle.vehicleReboot()");
+    }
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.vehicleReboot();
+    }
+}
+
+function vehicleShutdownAutopilot(data) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: vehicleShutdownAutopilot for " + data.id + 
+	    " - calling remoteVehicle.shutdownAutopilot()");
+    }
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.shutdownAutopilot();
+    }
+}
+
+function vehicleShutdown(data) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: vehicleShutdown for " + data.id + " - calling remoteVehicle.shutdown()");
+    }
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.shutdown();
+    }
+}
+
+function vehicleSetAutonomousMode(data) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: vehicleSetAutonomousMode for " + data.id + 
+	    " - calling remoteVehicle.setAutonomousMode(" + data.mode + ")");
+    }
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.setAutonomousMode(data.mode);
+    }
+}
+
+function vehicleSetTestMode(data) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: vehicleSetTestMode for " + data.id + 
+	    " - calling remoteVehicle.setTestMode(" + data.mode + ")");
+    }
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.setTestMode(data.mode);
+    }
+}
+
+function vehicleSetStabilizedMode(data) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: vehicleSetStabilizedMode for " + data.id + 
+	    " - calling remoteVehicle.setStabilizedMode(" + data.mode + ")");
+    }
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.setStabilizedMode(data.mode);
+    }
+}
+
+function vehicleSetHardwareInLoopMode(data) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: vehicleSetHardwareInLoopMode for " + data.id + 
+	    " - calling remoteVehicle.setHardwareInLoopMode(" + data.mode + ")");
+    }
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.setHardwareInLoopMode(data.mode);
+    }
+}
+
+function vehicleSetRemoteControlMode(data) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: vehicleSetRemoteControlMode for " + data.id + 
+	    " - calling remoteVehicle.setRemoteControlMode(" + data.mode + ")");
+    }
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.setRemoteControlMode(data.mode);
+    }
+}
+
+function vehicleSetGuidedMode(data) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: vehicleSetGuidedMode for " + data.id + 
+	    " - calling remoteVehicle.setGuidedMode(" + data.mode + ")");
+    }
+    var remoteVehicle = getRemoteVehicle(data.id);
+
+    if(remoteVehicle) {
+	remoteVehicle.setGuidedMode(data.mode);
     }
 }
 
@@ -1135,11 +1286,7 @@ function processStatusText(protocolId, deviceId, severity, text) {
     // lookup vehicle based on device id
     if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
         if(config.debug) {
-	    if(config.debugLevel > 3) {
-		console.log((new Date()) + ' videre-server: processStatusText, sending: ' + severity + " : " + text);
-	    } else {
-		console.log((new Date()) + ' videre-server: sending status for ' + vehicleMap[protocolId][deviceId].name);
-	    }
+	    console.log((new Date()) + ' videre-server: processStatusText, sending: ' + severity + " : " + text);
 	}
 
 	// update state for vehicle

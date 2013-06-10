@@ -318,6 +318,54 @@ rcvdLaunch = function(self, data) {
     self.emit('vehicleLaunch', data);
 }
 
+rcvdHalt = function(self, data) {
+    self.emit('vehicleHalt', data);
+}
+
+rcvdGo = function(self, data) {
+    self.emit('vehicleGo', data);
+}
+
+rcvdRebootAutopilot = function(self, data) {
+    self.emit('vehicleRebootAutopilot', data);
+}
+
+rcvdReboot = function(self, data) {
+    self.emit('vehicleReboot', data);
+}
+
+rcvdShutdownAutopilot = function(self, data) {
+    self.emit('vehicleShutdownAutopilot', data);
+}
+
+rcvdShutdown = function(self, data) {
+    self.emit('vehicleShutdown', data);
+}
+
+rcvdSetAutonomousMode = function(self, data) {
+    self.emit('vehicleSetAutonomousMode', data);
+}
+
+rcvdSetTestMode = function(self, data) {
+    self.emit('vehicleSetTestMode', data);
+}
+
+rcvdSetStabilizedMode = function(self, data) {
+    self.emit('vehicleSetStabilizedMode', data);
+}
+
+rcvdSetHardwareInLoopMode = function(self, data) {
+    self.emit('vehicleSetHardwareInLoopMode', data);
+}
+
+rcvdSetRemoteControlMode = function(self, data) {
+    self.emit('vehicleSetRemoteControlMode', data);
+}
+
+rcvdSetGuidedMode = function(self, data) {
+    self.emit('vehicleSetGuidedMode', data);
+}
+
 rcvdUp = function(self, data) {
     self.emit('vehicleUp', data);
 }
@@ -740,6 +788,54 @@ function processMessage(self, connection, id, msg) {
 
 	    case Message.CMD_LAND:
 		rcvdLand(self, msg);
+		break;
+
+	    case Message.CMD_HALT:
+		rcvdHalt(self, msg);
+		break;
+
+	    case Message.CMD_GO:
+		rcvdGo(self, msg);
+		break;
+
+	    case Message.CMD_REBOOT_AUTOPILOT:
+		rcvdRebootAutopilot(self, msg);
+		break;
+
+	    case Message.CMD_REBOOT:
+		rcvdReboot(self, msg);
+		break;
+
+	    case Message.CMD_SHUTDOWN_AUTOPILOT:
+		rcvdShutdownAutopilot(self, msg);
+		break;
+
+	    case Message.CMD_SHUTDOWN:
+		rcvdShutdown(self, msg);
+		break;
+
+	    case Message.CMD_SET_AUTONOMOUS_MODE:
+		rcvdSetAutonomousMode(self, msg);
+		break;
+
+	    case Message.CMD_SET_TEST_MODE:
+		rcvdSetTestMode(self, msg);
+		break;
+
+	    case Message.CMD_SET_STABILIZED_MODE:
+		rcvdSetStabilizedMode(self, msg);
+		break;
+
+	    case Message.CMD_SET_HIL_MODE:
+		rcvdSetHardwareInLoopMode(self, msg);
+		break;
+
+	    case Message.CMD_SET_REMOTE_CONTROL_MODE:
+		rcvdSetRemoteControlMode(self, msg);
+		break;
+
+	    case Message.CMD_SET_GUIDED_MODE:
+		rcvdSetGuidedMode(self, msg);
 		break;
 
 	    case Message.CMD_LEFT:
