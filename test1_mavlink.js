@@ -159,6 +159,43 @@ var deviceId = '1';
 
 var waypoints = null;
 
+// test shutdown
+setTimeout(function() {
+    var vehicleId = vehicles[COMPORT1]['1'].id;
+    console.log("test1: requesting shutdown for " + vehicleId);
+    mavlinkProtocol1.shutdown.call(mavlinkProtocol1, vehicleId);
+}, 3000);
+
+
+/*
+// test launch/land/halt/go
+setTimeout(function() {
+    var vehicleId = vehicles[COMPORT1]['1'].id;
+    console.log("test1: requesting launch for " + vehicleId);
+    mavlinkProtocol1.launch.call(mavlinkProtocol1, vehicleId);
+}, 3000);
+
+setTimeout(function() {
+    var vehicleId = vehicles[COMPORT1]['1'].id;
+    console.log("test1: requesting halt for " + vehicleId);
+    mavlinkProtocol1.halt.call(mavlinkProtocol1, vehicleId);
+}, 6000);
+
+setTimeout(function() {
+    var vehicleId = vehicles[COMPORT1]['1'].id;
+    console.log("test1: requesting go for " + vehicleId);
+    mavlinkProtocol1.go.call(mavlinkProtocol1, vehicleId);
+}, 9000);
+
+setTimeout(function() {
+    var vehicleId = vehicles[COMPORT1]['1'].id;
+    console.log("test1: requesting land for " + vehicleId);
+    mavlinkProtocol1.land.call(mavlinkProtocol1, vehicleId);
+}, 12000);
+*/
+
+/*
+// test setting modes
 setTimeout(function() {
     var vehicleId = vehicles[COMPORT1]['1'].id;
     console.log("test1: requesting arming for " + vehicleId);
@@ -218,6 +255,7 @@ setTimeout(function() {
 	console.log("test1: requesting disarming not required");
     }
 }, 18000);
+*/
 
 
 /*
