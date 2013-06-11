@@ -1440,7 +1440,7 @@ function processArmedModeChanged(protocolId, deviceId, enabled) {
 	}
 
 	// update state for vehicle
-	vehicleMap[protocolId][deviceId].state.autonomous = enabled;
+	vehicleMap[protocolId][deviceId].state.armed = enabled;
 
 	// send state changed message to clients
 	clientComms.sendState(vehicleMap[protocolId][deviceId].id, vehicleMap[protocolId][deviceId].state);
