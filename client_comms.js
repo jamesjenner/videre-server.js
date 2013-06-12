@@ -306,6 +306,14 @@ rcvdPerformTest = function(self, data) {
     self.emit('vehicleTest', data);
 }
 
+rcvdArm = function(self, data) {
+    self.emit('vehicleArm', data);
+}
+
+rcvdDisarm = function(self, data) {
+    self.emit('vehicleDisarm', data);
+}
+
 rcvdLand = function(self, data) {
     self.emit('vehicleLand', data);
 }
@@ -748,6 +756,8 @@ function processMessage(self, connection, id, msg) {
 		break;
 	}
     } else {
+	console.log((new Date()) + 
+	    ' message received ' + id + ' ' + msg);
 	switch(id) {
 	    case Message.CHANGE_PWD:
 		break;
@@ -812,6 +822,14 @@ function processMessage(self, connection, id, msg) {
 
 	    case Message.CMD_SHUTDOWN:
 		rcvdShutdown(self, msg);
+		break;
+
+	    case Message.CMD_ARM:
+		rcvdArm(self, msg);
+		break;
+
+	    case Message.CMD_DISARM:
+		rcvdDisarm(self, msg);
 		break;
 
 	    case Message.CMD_SET_AUTONOMOUS_MODE:
