@@ -358,6 +358,15 @@ clientComms.on('updateNavPath', function(d, c) {updateNavPath(d, c);});
 clientComms.on('sendVehicles', function(c) {sendVehicles(c);});
 clientComms.on('newConnectionAccepted', function(c) {newConnection(c);});
 
+clientComms.on('vehicleArm', armVehicle);
+clientComms.on('vehicleDisarm', disarmVehicle);
+clientComms.on('vehicleSetAutonomousMode', setVehicleAutonomousMode);
+clientComms.on('vehicleSetTestMode', setVehicleTestMode);
+clientComms.on('vehicleSetStabilizedMode', setVehicleStabilizedMode);
+clientComms.on('vehicleSetHardwareInLoopMode', setVehicleHardwareInLoopMode);
+clientComms.on('vehicleSetRemoteControlMode', setVehicleRemoteControlMode);
+clientComms.on('vehicleSetGuidedMode', setVehicleGuidedMode);
+
 clientComms.on('vehicleLaunch', function(d) {vehicleLaunch(d);});
 clientComms.on('vehicleLand', function(d) {vehicleLand(d);});
 clientComms.on('vehicleAbort', function(d) {vehicleAbort(d);});
@@ -368,12 +377,7 @@ clientComms.on('vehicleRebootAutopilot', vehicleRebootAutopilot);
 clientComms.on('vehicleReboot', vehicleReboot);
 clientComms.on('vehicleShutdownAutopilot', vehicleShutdownAutopilot);
 clientComms.on('vehicleShutdown', vehicleShutdown);
-clientComms.on('vehicleSetAutonomousMode', vehicleSetAutonomousMode);
-clientComms.on('vehicleSetTestMode', vehicleSetTestMode);
-clientComms.on('vehicleSetStabilizedMode', vehicleSetStabilizedMode);
-clientComms.on('vehicleSetHardwareInLoopMode', vehicleSetHardwareInLoopMode);
-clientComms.on('vehicleSetRemoteControlMode', vehicleSetRemoteControlMode);
-clientComms.on('vehicleSetGuidedMode', vehicleSetGuidedMode);
+
 /*
 clientComms.on('vehicleTest', function(d) {x(d);});
 */
@@ -428,10 +432,107 @@ function vehicleAbort(data) {
     }
 }
 
+function armVehicle(msg) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: armVehicle");
+    }
+
+    var protocol = findDeviceCommsByVehicleId(msg.id);
+    
+    if(protocol != null) {
+	protocol.setArmedMode(msg.id, true);
+    }
+}
+
+function disarmVehicle(msg) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: disarmVehicle");
+    }
+
+    var protocol = findDeviceCommsByVehicleId(msg.id);
+    
+    if(protocol != null) {
+	protocol.setArmedMode(msg.id, false);
+    }
+}
+
+function setVehicleAutonomousMode(msg) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: setVehicleAutonomousMode " + JSON.stringify(msg));
+    }
+
+    var protocol = findDeviceCommsByVehicleId(msg.id);
+    
+    if(protocol != null) {
+	protocol.setAutonomousMode(msg.id, msg.mode);
+    }
+}
+
+function setVehicleTestMode(msg) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: setVehicleTestMode " + JSON.stringify(msg));
+    }
+
+    var protocol = findDeviceCommsByVehicleId(msg.id);
+    
+    if(protocol != null) {
+	protocol.setTestMode(msg.id, msg.mode);
+    }
+}
+
+function setVehicleStabilizedMode(msg) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: setVehicleStabilizedMode " + JSON.stringify(msg));
+    }
+
+    var protocol = findDeviceCommsByVehicleId(msg.id);
+    
+    if(protocol != null) {
+	protocol.setStabilizedMode(msg.id, msg.mode);
+    }
+}
+
+function setVehicleHardwareInLoopMode(msg) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: setVehicleHardwareInLoopMode " + JSON.stringify(msg));
+    }
+
+    var protocol = findDeviceCommsByVehicleId(msg.id);
+    
+    if(protocol != null) {
+	protocol.setHardwareInLoopMode(msg.id, msg.mode);
+    }
+}
+
+function setVehicleRemoteControlMode(msg) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: setVehicleRemoteControlMode " + JSON.stringify(msg));
+    }
+
+    var protocol = findDeviceCommsByVehicleId(msg.id);
+    
+    if(protocol != null) {
+	protocol.setRemoteControlMode(msg.id, msg.mode);
+    }
+}
+
+function setVehicleGuidedMode(msg) {
+    if(config.debug) {
+	console.log((new Date()) + " videre-server.js: setVehicleGuidedMode " + JSON.stringify(msg));
+    }
+
+    var protocol = findDeviceCommsByVehicleId(msg.id);
+    
+    if(protocol != null) {
+	protocol.setGuidedMode(msg.id, msg.mode);
+    }
+}
+
 function vehicleLaunch(data) {
     if(config.debug) {
 	console.log((new Date()) + " videre-server.js: vehicleLaunch(" + JSON.stringify(data) + ") - calling remoteVehicle.takeoff()");
     }
+
     var remoteVehicle = getRemoteVehicle(data.id);
 
     if(remoteVehicle) {
@@ -511,78 +612,6 @@ function vehicleShutdown(data) {
 
     if(remoteVehicle) {
 	remoteVehicle.shutdown();
-    }
-}
-
-function vehicleSetAutonomousMode(data) {
-    if(config.debug) {
-	console.log((new Date()) + " videre-server.js: vehicleSetAutonomousMode for " + data.id + 
-	    " - calling remoteVehicle.setAutonomousMode(" + data.mode + ")");
-    }
-    var remoteVehicle = getRemoteVehicle(data.id);
-
-    if(remoteVehicle) {
-	remoteVehicle.setAutonomousMode(data.mode);
-    }
-}
-
-function vehicleSetTestMode(data) {
-    if(config.debug) {
-	console.log((new Date()) + " videre-server.js: vehicleSetTestMode for " + data.id + 
-	    " - calling remoteVehicle.setTestMode(" + data.mode + ")");
-    }
-    var remoteVehicle = getRemoteVehicle(data.id);
-
-    if(remoteVehicle) {
-	remoteVehicle.setTestMode(data.mode);
-    }
-}
-
-function vehicleSetStabilizedMode(data) {
-    if(config.debug) {
-	console.log((new Date()) + " videre-server.js: vehicleSetStabilizedMode for " + data.id + 
-	    " - calling remoteVehicle.setStabilizedMode(" + data.mode + ")");
-    }
-    var remoteVehicle = getRemoteVehicle(data.id);
-
-    if(remoteVehicle) {
-	remoteVehicle.setStabilizedMode(data.mode);
-    }
-}
-
-function vehicleSetHardwareInLoopMode(data) {
-    if(config.debug) {
-	console.log((new Date()) + " videre-server.js: vehicleSetHardwareInLoopMode for " + data.id + 
-	    " - calling remoteVehicle.setHardwareInLoopMode(" + data.mode + ")");
-    }
-    var remoteVehicle = getRemoteVehicle(data.id);
-
-    if(remoteVehicle) {
-	remoteVehicle.setHardwareInLoopMode(data.mode);
-    }
-}
-
-function vehicleSetRemoteControlMode(data) {
-    if(config.debug) {
-	console.log((new Date()) + " videre-server.js: vehicleSetRemoteControlMode for " + data.id + 
-	    " - calling remoteVehicle.setRemoteControlMode(" + data.mode + ")");
-    }
-    var remoteVehicle = getRemoteVehicle(data.id);
-
-    if(remoteVehicle) {
-	remoteVehicle.setRemoteControlMode(data.mode);
-    }
-}
-
-function vehicleSetGuidedMode(data) {
-    if(config.debug) {
-	console.log((new Date()) + " videre-server.js: vehicleSetGuidedMode for " + data.id + 
-	    " - calling remoteVehicle.setGuidedMode(" + data.mode + ")");
-    }
-    var remoteVehicle = getRemoteVehicle(data.id);
-
-    if(remoteVehicle) {
-	remoteVehicle.setGuidedMode(data.mode);
     }
 }
 
@@ -1321,7 +1350,7 @@ function processAutonomousModeChanged(protocolId, deviceId, enabled) {
 	    if(config.debugLevel > 3) {
 		console.log((new Date()) + ' videre-server: processAutonomousModeChanged, sending: ' + enabled);
 	    } else {
-		console.log((new Date()) + ' videre-server: sending autonomous mode for ' + vehicleMap[protocolId][deviceId].name);
+		console.log((new Date()) + ' videre-server: sending autonomous ' + enabled + ' for ' + vehicleMap[protocolId][deviceId].name);
 	    }
 	}
 
@@ -1340,7 +1369,7 @@ function processTestModeChanged(protocolId, deviceId, enabled) {
 	    if(config.debugLevel > 3) {
 		console.log((new Date()) + ' videre-server: processTestModeChanged, sending: ' + enabled);
 	    } else {
-		console.log((new Date()) + ' videre-server: sending test mode state for ' + vehicleMap[protocolId][deviceId].name);
+		console.log((new Date()) + ' videre-server: sending test ' + enabled + ' for ' + vehicleMap[protocolId][deviceId].name);
 	    }
 	}
 
@@ -1359,12 +1388,12 @@ function processStabilizedModeChanged(protocolId, deviceId, enabled) {
 	    if(config.debugLevel > 3) {
 		console.log((new Date()) + ' videre-server: processStabilizedModeChanged, sending: ' + enabled);
 	    } else {
-		console.log((new Date()) + ' videre-server: sending stabilized mode for ' + vehicleMap[protocolId][deviceId].name);
+		console.log((new Date()) + ' videre-server: sending stabilized ' + enabled + ' for ' + vehicleMap[protocolId][deviceId].name);
 	    }
 	}
 
 	// update state for vehicle
-	vehicleMap[protocolId][deviceId].state.stabilised = enabled;
+	vehicleMap[protocolId][deviceId].state.stabilized = enabled;
 
 	// send state changed message to clients
 	clientComms.sendState(vehicleMap[protocolId][deviceId].id, vehicleMap[protocolId][deviceId].state);
@@ -1378,7 +1407,7 @@ function processHardwareInLoopModeChanged(protocolId, deviceId, enabled) {
 	    if(config.debugLevel > 3) {
 		console.log((new Date()) + ' videre-server: processHardwareInLoopModeChanged, sending: ' + enabled);
 	    } else {
-		console.log((new Date()) + ' videre-server: sending hardware in loop for ' + vehicleMap[protocolId][deviceId].name);
+		console.log((new Date()) + ' videre-server: sending hardware in loop ' + enabled + ' for ' + vehicleMap[protocolId][deviceId].name);
 	    }
 	}
 
@@ -1397,7 +1426,7 @@ function processRemoteControlModeChanged(protocolId, deviceId, enabled) {
 	    if(config.debugLevel > 3) {
 		console.log((new Date()) + ' videre-server: processRemoteControlModeChanged, sending: ' + enabled);
 	    } else {
-		console.log((new Date()) + ' videre-server: sending remote control mode for ' + vehicleMap[protocolId][deviceId].name);
+		console.log((new Date()) + ' videre-server: sending remote control ' + enabled + ' for ' + vehicleMap[protocolId][deviceId].name);
 	    }
 	}
 
@@ -1416,7 +1445,7 @@ function processGuidedModeChanged(protocolId, deviceId, enabled) {
 	    if(config.debugLevel > 3) {
 		console.log((new Date()) + ' videre-server: processGuidedModeChanged, sending: ' + enabled);
 	    } else {
-		console.log((new Date()) + ' videre-server: sending guided mode for ' + vehicleMap[protocolId][deviceId].name);
+		console.log((new Date()) + ' videre-server: sending guided ' + enabled + ' for ' + vehicleMap[protocolId][deviceId].name);
 	    }
 	}
 
@@ -1435,7 +1464,7 @@ function processArmedModeChanged(protocolId, deviceId, enabled) {
 	    if(config.debugLevel > 3) {
 		console.log((new Date()) + ' videre-server: processAutonomousModeChanged, sending: ' + enabled);
 	    } else {
-		console.log((new Date()) + ' videre-server: sending system state for ' + vehicleMap[protocolId][deviceId].name);
+		console.log((new Date()) + ' videre-server: sending armed ' + enabled + ' for ' + vehicleMap[protocolId][deviceId].name);
 	    }
 	}
 
