@@ -159,12 +159,14 @@ var deviceId = '1';
 
 var waypoints = null;
 
+/*
 // test shutdown
 setTimeout(function() {
     var vehicleId = vehicles[COMPORT1]['1'].id;
     console.log("test1: requesting shutdown for " + vehicleId);
     mavlinkProtocol1.shutdown.call(mavlinkProtocol1, vehicleId);
 }, 3000);
+*/
 
 
 /*
@@ -194,7 +196,6 @@ setTimeout(function() {
 }, 12000);
 */
 
-/*
 // test setting modes
 setTimeout(function() {
     var vehicleId = vehicles[COMPORT1]['1'].id;
@@ -255,7 +256,6 @@ setTimeout(function() {
 	console.log("test1: requesting disarming not required");
     }
 }, 18000);
-*/
 
 
 /*
