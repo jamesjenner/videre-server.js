@@ -280,13 +280,13 @@ Protocol.prototype._reportAttitude = function(id, att) {
 
     var attitude = this.devices[id].attitude;
 
-    if((attitude.pitch > att.pitch + this.devices[id].pitchAccuracy || attitude.pitch < att.pitch - this.devices[id].pitchAccuracy) ||
-       (attitude.roll  > att.roll  + this.devices[id].rollAccuracy  || attitude.roll  < att.roll  - this.devices[id].rollAccuracy) ||
-       (attitude.yaw   > att.yaw   + this.devices[id].yawAccuracy   || attitude.yaw   < att.yaw   - this.devices[id].yawAccuracy)) {
+    if((att.pitch > parseFloat(attitude.pitch) + parseFloat(this.devices[id].pitchAccuracy) || att.pitch < parseFloat(attitude.pitch) - parseFloat(this.devices[id].pitchAccuracy) ) ||
+       (att.roll  > parseFloat(attitude.roll)  + parseFloat(this.devices[id].rollAccuracy)  || att.roll  < parseFloat(attitude.roll)  - parseFloat(this.devices[id].rollAccuracy)  ) ||
+       (att.yaw   > parseFloat(attitude.yaw)   + parseFloat(this.devices[id].yawAccuracy)   || att.yaw   < parseFloat(attitude.yaw)   - parseFloat(this.devices[id].yawAccuracy)   )) {
 
 	this.headingDetermined = true;
 	// if yaw has changed then update the heading based on yaw
-        if(attitude.yaw > att.yaw  + this.devices[id].yawAccuracy   || attitude.yaw   < att.yaw   - this.devices[id].yawAccuracy) {
+        if(attitude.yaw > parseFloat(att.yaw)  + parseFloat(this.devices[id].yawAccuracy)   || attitude.yaw   < att.yaw   - this.devices[id].yawAccuracy) {
 	    this.devices[id].heading = att.yaw < 0 ? att.yaw * -2 : att.yaw;
 
 	    // report heading change
@@ -294,12 +294,12 @@ Protocol.prototype._reportAttitude = function(id, att) {
 	}
 
         // update the attitude
-	this.devices[id].attitude.pitch = att.pitch;
-	this.devices[id].attitude.roll = att.roll;
-	this.devices[id].attitude.yaw = att.yaw;
-	this.devices[id].attitude.x = att.x;
-	this.devices[id].attitude.y = att.y;
-	this.devices[id].attitude.z = att.z;
+	this.devices[id].attitude.pitch = parseFloat(att.pitch);
+	this.devices[id].attitude.roll = parseFloat(att.roll);
+	this.devices[id].attitude.yaw = parseFloat(att.yaw);
+	this.devices[id].attitude.x = parseFloat(att.x);
+	this.devices[id].attitude.y = parseFloat(att.y);
+	this.devices[id].attitude.z = parseFloat(att.z);
 
 	// TODO; do we need to know the speed of change?
 	/*
