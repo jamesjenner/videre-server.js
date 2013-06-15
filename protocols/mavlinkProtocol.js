@@ -1781,11 +1781,11 @@ this.mavlinkParser.on('SYS_STATUS', function(message) {
 	console.log('Sys Status');
     } else if (self.debugSysStatus && self.debugLevel > 1) {
 	console.log('Sys Status:' +
-	    ' battery voltage (millivolts): ' + message.voltage_battery + 
-	    ' current (10 millamperes): ' + message.current_battery + 
+	    ' battery voltage (V): ' + (message.voltage_battery / 1000) + 
+	    ' current (mA): ' + (message.current_battery / 100) + 
 	    ' remaining %: ' + message.battery_remaining + 
 	    ' comm drop rate %: ' + message.drop_rate_comm + 
-	    ' comm errors: ' + message.errors_com);
+	    ' comm errors: ' + message.errors_comm);
     }
 
     var deviceId = message.header.srcSystem;
