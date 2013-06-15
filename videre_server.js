@@ -771,6 +771,7 @@ function startDeviceComms(comms) {
 	    debugHeartbeat: false,
 	    debugMessage: false,
 	    debugAttitude: false,
+	    debugSysStatus: false,
 	    debugIMU: false,
 	    debugGPS: false,
 	    debugVFR_HUD: true,
@@ -797,7 +798,8 @@ function startDeviceComms(comms) {
 	    protocol.on('targetWaypoint', processTargetWaypoint);
 	    protocol.on('waypointAchieved', processWaypointAchieved);
 	    protocol.on('statusText', processStatusText);
-	    protocol.on('systemState', processSystemState);
+	    protocol.on('batteryState', processBatteryState);
+	    protocol.on('commState', processCommState);
 	    // TODO: don't see a reason for this...
 	    // protocol.on('systemStateChanged', processSystemStateChanged);
 	    protocol.on('autonomousModeChanged', processAutonomousModeChanged);
@@ -1089,23 +1091,48 @@ function processAttitude(protocolId, deviceId, attitude, heading) {
 }
 
 /*
- * process system state
+ * process battery state
  *
- * capture system state and update telemetry
+ * capture battery state and update telemetry
  *
  */
-function processSystemState(protocolId, deviceId, batteryVoltage, batteryCurrent, batteryRemaining, commDropRate, commErrors) {
+function processBatteryState(protocolId, deviceId, batteryVoltage, batteryCurrent, batteryRemaining) {
     // lookup vehicle based on device id
     if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
-	// update telemetry for vehicle with attitude info
-	vehicleMap[protocolId][deviceId].telemetry.batteryVoltage = batteryVoltage;
-	vehicleMap[protocolId][deviceId].telemetry.batteryCurrent = batteryCurrent;
-	vehicleMap[protocolId][deviceId].telemetry.batteryRemaining = batteryRemaining;
-	vehicleMap[protocolId][deviceId].telemetry.commDropRate = commDropRate;
-	vehicleMap[protocolId][deviceId].telemetry.commErrors = commErrors;
+	if(vehicleMap[protocolId][deviceId].telemetry.batteryVoltage !== batteryVoltage || 
+	    vehicleMap[protocolId][deviceId].telemetry.batteryCurrent !== batteryCurrent || 
+	    vehicleMap[protocolId][deviceId].telemetry.batteryRemaining !== batteryRemaining) {
+	    
+	    // update telemetry for vehicle with attitude info
+	    vehicleMap[protocolId][deviceId].telemetry.batteryVoltage = batteryVoltage;
+	    vehicleMap[protocolId][deviceId].telemetry.batteryCurrent = batteryCurrent;
+	    vehicleMap[protocolId][deviceId].telemetry.batteryRemaining = batteryRemaining;
 
-	// set telemetry to dirty
-	vehicleMap[protocolId][deviceId].telemetry.dirty = true;
+	    // set telemetry to dirty
+	    vehicleMap[protocolId][deviceId].telemetry.dirty = true;
+	}
+    }
+}
+
+/*
+ * process comms state
+ *
+ * capture comms state and update telemetry
+ *
+ */
+function processCommState(protocolId, deviceId, commDropRate, commErrors) {
+    // lookup vehicle based on device id
+    if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
+	if(vehicleMap[protocolId][deviceId].telemetry.commDropRate !== commDropRate || 
+	    vehicleMap[protocolId][deviceId].telemetry.commErrors !== commErrors) {
+
+	    // update telemetry for vehicle with attitude info
+	    vehicleMap[protocolId][deviceId].telemetry.commDropRate = commDropRate;
+	    vehicleMap[protocolId][deviceId].telemetry.commErrors = commErrors;
+
+	    // set telemetry to dirty
+	    vehicleMap[protocolId][deviceId].telemetry.dirty = true;
+	}
     }
 }
 
@@ -1135,11 +1162,13 @@ function processHeading(protocolId, deviceId, heading) {
 function processVSI(protocolId, deviceId, vsi) {
     // lookup vehicle based on device id
     if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
-	// set for vehicle
-	vehicleMap[protocolId][deviceId].telemetry.vsi = vsi;
+	if(vehicleMap[protocolId][deviceId].telemetry.vsi !== vsi) {
+	    // set for vehicle
+	    vehicleMap[protocolId][deviceId].telemetry.vsi = vsi;
 
-	// set telemetry to dirty
-	vehicleMap[protocolId][deviceId].telemetry.dirty = true;
+	    // set telemetry to dirty
+	    vehicleMap[protocolId][deviceId].telemetry.dirty = true;
+	}
     }
 }
 
@@ -1152,11 +1181,13 @@ function processVSI(protocolId, deviceId, vsi) {
 function processThrottle(protocolId, deviceId, throttle) {
     // lookup vehicle based on device id
     if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
-	// set for vehicle
-	vehicleMap[protocolId][deviceId].telemetry.throttle = throttle;
+	if(vehicleMap[protocolId][deviceId].telemetry.throttle !== throttle) {
+	    // set for vehicle
+	    vehicleMap[protocolId][deviceId].telemetry.throttle = throttle;
 
-	// set telemetry to dirty
-	vehicleMap[protocolId][deviceId].telemetry.dirty = true;
+	    // set telemetry to dirty
+	    vehicleMap[protocolId][deviceId].telemetry.dirty = true;
+	}
     }
 }
 
@@ -1169,11 +1200,13 @@ function processThrottle(protocolId, deviceId, throttle) {
 function processAltitude(protocolId, deviceId, altitude) {
     // lookup vehicle based on device id
     if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
-	// set for vehicle
-	vehicleMap[protocolId][deviceId].telemetry.altitude = altitude;
+	if(vehicleMap[protocolId][deviceId].telemetry.altitude !== altitude) {
+	    // set for vehicle
+	    vehicleMap[protocolId][deviceId].telemetry.altitude = altitude;
 
-	// set telemetry to dirty
-	vehicleMap[protocolId][deviceId].telemetry.dirty = true;
+	    // set telemetry to dirty
+	    vehicleMap[protocolId][deviceId].telemetry.dirty = true;
+	}
     }
 }
 
@@ -1186,11 +1219,13 @@ function processAltitude(protocolId, deviceId, altitude) {
 function processSpeed(protocolId, deviceId, speed) {
     // lookup vehicle based on device id
     if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
-	// set for vehicle
-	vehicleMap[protocolId][deviceId].telemetry.speed = speed;
+	if(vehicleMap[protocolId][deviceId].telemetry.speed !== speed) {
+	    // set for vehicle
+	    vehicleMap[protocolId][deviceId].telemetry.speed = speed;
 
-	// set telemetry to dirty
-	vehicleMap[protocolId][deviceId].telemetry.dirty = true;
+	    // set telemetry to dirty
+	    vehicleMap[protocolId][deviceId].telemetry.dirty = true;
+	}
     }
 }
 
@@ -1526,6 +1561,7 @@ function checkSendTelemetry() {
 		vehicleMap[i][j] !== null &&
 		vehicleMap[i][j].telemetry !== undefined && 
 		vehicleMap[i][j].telemetry.dirty) {
+		vehicleMap[i][j].telemetry.dirty = false;
 
 		if(config.debug) {
 		    if(config.debugLevel > 3) {
@@ -1533,11 +1569,16 @@ function checkSendTelemetry() {
 			    vehicleMap[i][j].telemetry
 			));
 		    } else {
-			console.log((new Date()) + ' videre-server: checkSendTelemetry, sending for ' + vehicleMap[i][j].name);
+			/*
+			console.log((new Date()) + ' videre-server: send tel: ' +  
+		            vehicleMap[i][j].telemetry.attitude.pitch + " : " + 
+		            vehicleMap[i][j].telemetry.attitude.roll + " : " + 
+			    vehicleMap[i][j].telemetry.attitude.yaw);
+			    // + ' for ' + vehicleMap[i][j].name);
+			*/
 		    }
 		}
 		clientComms.sendTelemetry(vehicleMap[i][j].id, vehicleMap[i][j].telemetry);
-		vehicleMap[i][j].telemetry.dirty = false;
 	    }
 	}
     }
