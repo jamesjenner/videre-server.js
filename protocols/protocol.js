@@ -287,7 +287,7 @@ Protocol.prototype._reportAttitude = function(id, att) {
 	this.headingDetermined = true;
 	// if yaw has changed then update the heading based on yaw
         if(attitude.yaw > parseFloat(att.yaw)  + parseFloat(this.devices[id].yawAccuracy)   || attitude.yaw   < att.yaw   - this.devices[id].yawAccuracy) {
-	    this.devices[id].heading = att.yaw < 0 ? att.yaw * -2 : att.yaw;
+	    this.devices[id].heading = att.yaw < 0 ? parseFloat(att.yaw) + 360 : att.yaw;
 
 	    // report heading change
 	    this.emit('heading', this.id, id, this.devices[id].heading);
