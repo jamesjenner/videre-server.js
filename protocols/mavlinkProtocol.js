@@ -738,9 +738,12 @@ MavlinkProtocol.prototype.requestSetTargetWaypoint = function(vehicleId, waypoin
 
     if(this.devices[deviceId]._waypointMode === MavlinkProtocol.WAYPOINT_NO_ACTION) {
 	// set mode to setting target
-	this.devices[deviceId]._waypointMode = MavlinkProtocol.WAYPOINT_SETTING_TARGET;
+	// this.devices[deviceId]._waypointMode = MavlinkProtocol.WAYPOINT_SETTING_TARGET;
 	
-	// request the waypoints
+	// request set target waypoint
+	this._writeMessage(new mavlink.messages.mission_set_current(deviceId, MavlinkProtocol.COMMAND_COMPONENT, waypoint));
+
+	/*
 	this._writeWithTimeout({
 	    deviceId: deviceId,
 	    message: new mavlink.messages.mission_set_current(deviceId, MavlinkProtocol.COMMAND_COMPONENT, waypoint),
@@ -751,6 +754,7 @@ MavlinkProtocol.prototype.requestSetTargetWaypoint = function(vehicleId, waypoin
 	    timeoutId: MavlinkProtocol._MISSION_SET_TARGET_ID,
 	    onMaxAttempts: function() { this.devices[deviceId]._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION }
 	});
+	*/
     } else {
 	if(this.debugWaypoints) {
 	    if(this.debugLevel === 0) {
@@ -1546,7 +1550,7 @@ this.mavlinkParser.on('MISSION_CURRENT', function(message) {
 	self.devices[deviceId]._waypointMode = MavlinkProtocol.WAYPOINT_NO_ACTION;
     }
 
-    self.emit('targetWaypoint', self.id, deviceId, message.seq);
+    self.emit('waypointTargeted', self.id, deviceId, message.seq);
 });
 
 this.mavlinkParser.on('MISSION_ITEM_REACHED', function(message) {
