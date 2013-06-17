@@ -294,8 +294,12 @@ rcvdUpdateVehicle = function(self, data) {
     self.emit('updateVehicle', data);
 }
 
-rcvdUpdateNavPath = function(self, data, connection) {
-    self.emit('updateNavPath', data, connection);
+rcvdUpdateNavPath = function(self, data) {
+    self.emit('updateNavPath', data);
+}
+
+rcvdNavPathSetTargeted = function(self, data) {
+    self.emit('navPathSetTargeted', data);
 }
 
 rcvdSendVehicles = function(self, connection) {
@@ -775,7 +779,11 @@ function processMessage(self, connection, id, msg) {
 		break;
 
 	    case Message.UPDATE_NAV_PATH:
-		rcvdUpdateNavPath(self, msg, connection);
+		rcvdUpdateNavPath(self, msg);
+		break;
+
+	    case Message.NAV_PATH_SET_TARGETED:
+		rcvdNavPathSetTargeted(self, msg);
 		break;
 
 	    case Message.GET_VEHICLES:
