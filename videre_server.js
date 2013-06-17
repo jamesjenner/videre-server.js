@@ -354,7 +354,8 @@ clientComms = new ClientComms({
 // listen for the events from clients
 // clientComms.on('updateVehicle', function(d) {updateVehicle(d);});
 clientComms.on('updateVehicle', updateVehicle);
-clientComms.on('updateNavPath', function(d, c) {updateNavPath(d, c);});
+clientComms.on('updateNavPath', function(d) {updateNavPath(d);});
+clientComms.on('navPathSetTargeted', setNavPathTarget);
 clientComms.on('sendVehicles', function(c) {sendVehicles(c);});
 clientComms.on('newConnectionAccepted', function(c) {newConnection(c);});
 
@@ -795,7 +796,7 @@ function startDeviceComms(comms) {
 	    protocol.on('retreivedWaypoints', processWaypoints);
 	    protocol.on('setWaypointsSuccessful', processSetWaypointsSuccess);
 	    protocol.on('setWaypointsError', processSetWaypointsError);
-	    protocol.on('targetWaypoint', processTargetWaypoint);
+	    protocol.on('waypointTargeted', processWaypointTargeted);
 	    protocol.on('waypointAchieved', processWaypointAchieved);
 	    protocol.on('statusText', processStatusText);
 	    protocol.on('batteryState', processBatteryState);
@@ -1018,7 +1019,7 @@ function updateVehicle(msg) {
     }
 }
 
-function updateNavPath(msg, connection) {
+function updateNavPath(msg) {
     // if the message isn't set and the id isn't set then do nothing
     if(!msg && !msg.vehicleId) {
 	if(config.debug) {
@@ -1039,10 +1040,34 @@ function updateNavPath(msg, connection) {
 	protocol.requestSetWaypoints(msg.vehicleId, msg.navigationPath.points);
     } else {
 	if(config.debug) {
-	    console.log((new Date()) + ' Update nav path of vehicle failed, vehicle not found: ' + msg.vehicleId);
+	    console.log((new Date()) + ' Update nav path failed, vehicle not found: ' + msg.vehicleId);
 	}
     }
 }
+
+function setNavPathTarget(msg) {
+    // if the message isn't set and the id isn't set then do nothing
+    if(!msg && !msg.vehicleId) {
+	if(config.debug) {
+	    console.log((new Date()) + ' set nav path target failed, vehicleId is not specififed.');
+	}
+	return;
+    }
+
+    // find the vehicle
+    // var vehicle = findVehicleById(msg.id);
+    var protocol = findDeviceCommsByVehicleId(msg.vehicleId);
+    
+    if(protocol != null) {
+	// set the waypoints for the vehicle
+        protocol.requestSetTargetWaypoint(msg.vehicleId, msg.nbr);
+    } else {
+	if(config.debug) {
+	    console.log((new Date()) + ' set nav path target failed, vehicle not found: ' + msg.vehicleId);
+	}
+    }
+}
+
 
 function sendVehicles(connection) {
     clientComms.sendVehicles(connection, vehicles);
@@ -1316,7 +1341,7 @@ function processSetWaypointsSuccess(protocolId, deviceId) {
     }
 }
 
-function processSetWaypointsError(protoclId, deviceId, text) {
+function processSetWaypointsError(protocolId, deviceId, text) {
     if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
         if(config.debug) {
 	    console.log((new Date()) + ' videre-server: error setting waypoints ' + text);
@@ -1326,7 +1351,7 @@ function processSetWaypointsError(protoclId, deviceId, text) {
     }
 }
 
-function processTargetWaypoint(protoclId, deviceId, sequence) {
+function processWaypointTargeted(protocolId, deviceId, sequence) {
     if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
         if(config.debug) {
 	    console.log((new Date()) + ' videre-server: waypoint targeted ' + sequence);
@@ -1336,7 +1361,7 @@ function processTargetWaypoint(protoclId, deviceId, sequence) {
     }
 }
 
-function processWaypointAchieved(protoclId, deviceId, sequence) {
+function processWaypointAchieved(protocolId, deviceId, sequence) {
     if(vehicleMap[protocolId][deviceId] !== undefined && vehicleMap[protocolId][deviceId] !== null) {
         if(config.debug) {
 	    console.log((new Date()) + ' videre-server: waypoint achieved ' + sequence);
