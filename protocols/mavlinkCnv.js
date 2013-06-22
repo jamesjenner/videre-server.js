@@ -113,6 +113,7 @@ MavlinkCnv.waypointsMtoV = function(waypoints) {
 	    sequence: waypoints[i].seq,
 	    current: waypoints[i].current === 1 ? true : false,
 	    altitude: waypoints[i].z,
+	    autoContinue: waypoints[i].autocontinue,
 	    isHome: false,
 	    loiter: false,
 	    loiterTime: 0,
