@@ -135,6 +135,8 @@ MavlinkCnv.waypointsMtoV = function(waypoints) {
 
 	    case mavlink.MAV_CMD_NAV_LAND:
 		point.yaw = waypoints[i].param4;
+                // setting altitude to zero as PX4FMU is setting it to a weird number when landing
+		point.altitude = 0;
 		point.terminus = true;
 		point.stop = true;
 		break;
