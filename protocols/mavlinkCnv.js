@@ -178,6 +178,8 @@ MavlinkCnv.waypointsMtoV = function(waypoints) {
 	    default:
 		ignore = true;
 		// currently unsupported, so ignore for now
+		console.log("protocols/mavlinkCnv.js waypointsMtoV() command " + 
+		    waypoints[i].command + " sequence " + waypoints[i].seq + ". Command type not supported,  will be ignored");
 	}
 
 	if(!ignore) {
