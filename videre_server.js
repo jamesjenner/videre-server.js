@@ -1037,7 +1037,22 @@ function updateNavPath(msg) {
 	// this way the persisted values have been confirmed as set at the vehicle
 
 	// set the waypoints for the vehicle
-	protocol.requestSetWaypoints(msg.vehicleId, msg.navigationPath.points);
+
+	// check if the points are empty
+	if(msg.navigationPath.points === null || msg.navigationPath.points.length === 0) {
+	    // they are so request to clear them
+	    protocol.requestClearWaypoints(msg.vehicleId);
+
+	    // a defect(?) in the client is not sending an ack on waypoints being cleared, so presume they are
+	    // remove the waypoints from the navPaths 
+	    navPaths[msg.vehicleId] = new Array();
+
+	    // persist the nav paths
+	    saveJSON(NAV_PATH_FILE, navPaths);
+        } else {
+	    // they are not so request to set them
+	    protocol.requestSetWaypoints(msg.vehicleId, msg.navigationPath.points);
+	}
     } else {
 	if(config.debug) {
 	    console.log((new Date()) + ' Update nav path failed, vehicle not found: ' + msg.vehicleId);
@@ -1091,6 +1106,15 @@ function newConnection(connection) {
 	console.log((new Date()) + ' sending sending nav path for ' + i);
 	clientComms.sendUpdateNavPath(i, navPaths[i]);
     }
+
+    console.log((new Date()) + ' sending positions');
+    for(var pId in vehicleMap) {
+	for(var dId in vehicleMap[pId]) {
+	    // send the message
+	    clientComms.sendPositionToConnection(connection, vehicleMap[pId][dId].id, vehicleMap[pId][dId].position);
+	}
+    }
+
     console.log((new Date()) + ' sending done');
 }
 
@@ -1290,9 +1314,9 @@ function processNoWaypoints(protocolId, deviceId) {
 	    console.log((new Date()) + ' videre-server: no waypoints for ' + vehicleMap[protocolId][deviceId].name);
 	}
 
-	// check if the waypoints are defined for the vehicle
-	if(navPaths[vehicleMap[protocolId][deviceId].id] !== undefined) {
-	    // we have persisted waypoints so lets request the vehicle to use them
+	// check if they are empty
+	if(navPaths[vehicleMap[protocolId][deviceId].id] === undefined || navPaths[vehicleMap[protocolId][deviceId].id].length() === 0) {
+	    // we have waypoints so lets request the vehicle to use them
 	    deviceComms[protocolId].requestSetWaypoints.call(deviceComms[protocolId], 
 	        vehicleMap[protocolId][deviceId].id, 
 	        navPaths[vehicleMap[protocolId][deviceId].id]);
