@@ -192,6 +192,10 @@ ClientComms.prototype.sendPosition = function(id, position) {
     this._constructAndBroadcastMsg(Message.CURRENT_POSITION, {id: id, position: position}, 4);
 }
 
+ClientComms.prototype.sendPositionToConnection = function(connection, id, position) {
+    connection.send(Message.constructMessage(Message.CURRENT_POSITION, {id: id, position: position}, 4));
+}
+
 ClientComms.prototype.sendPayload = function(id, payload) {
     this._constructAndBroadcastMsg(Message.VEHICLE_PAYLOAD, {id: id, payload: payload}, 4);
 }
