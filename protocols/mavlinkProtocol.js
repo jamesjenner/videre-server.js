@@ -864,6 +864,10 @@ this.mavlinkParser.on('message', function(message) {
     if(self.debugMessage) {
 	console.log(message.name + ' <- received message for ' + self.id + ":" + message.header.srcSystem + ", protocol " + self.name);
     }
+
+    if(self.logging) {
+	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name);
+    }
 });
 
 this.mavlinkParser.on('PING', function(message) {
@@ -880,6 +884,14 @@ this.mavlinkParser.on('PING', function(message) {
 	console.log('Ping');
     } else if (self.debug && self.debugLevel > 1) {
 	console.log('Ping' + 
+	    ' time_usec: ' + message.time_usec + 
+	    ' seq: ' + message.seq +
+	    ' target_system: ' + message.target_system +
+	    ' target_component: ' + message.target_component);
+    }
+
+    if(self.logging) {
+	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
 	    ' time_usec: ' + message.time_usec + 
 	    ' seq: ' + message.seq +
 	    ' target_system: ' + message.target_system +
@@ -1148,6 +1160,20 @@ this.mavlinkParser.on('HEARTBEAT', function(message) {
 	console.log('           custom mode:      ' + message.custom_mode);
 	console.log('           system status:    ' + sysState);
 	console.log('           mavlink version:  ' + message.mavlink_version);
+    }
+
+    if(self.logging) {
+	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+	    ' autopilot: ' + self.devices[deviceId].autopilot +
+	    ' base_mode: ' + message.base_mode +
+	    ' autonomous mode: ' + self.devices[deviceId].autonomousMode +
+	    ' test mode: ' + self.devices[deviceId].testMode +
+	    ' stabalized mode: ' + self.devices[deviceId].stablizedMode +
+	    ' hardware in loop: ' + self.devices[deviceId].hardwareInLoop +
+	    ' remote control: ' + self.devices[deviceId].remoteControl +
+	    ' guided: ' + self.devices[deviceId].guided +
+	    ' armed: ' + self.devices[deviceId].armed +
+	    ' system status: ' + sysState);
     }
 });
 
@@ -1551,12 +1577,22 @@ this.mavlinkParser.on('MISSION_CURRENT', function(message) {
     }
 
     self.emit('waypointTargeted', self.id, deviceId, message.seq);
+
+    if(self.logging) {
+	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+	    ' seq: ' + message.seq);
+    }
 });
 
 this.mavlinkParser.on('MISSION_ITEM_REACHED', function(message) {
     console.log('Mission item reached ' + message.seq);
 
     self.emit('waypointAchieved', self.id, deviceId, message.seq);
+
+    if(self.logging) {
+	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+	    ' seq: ' + message.seq);
+    }
 });
 
 this.mavlinkParser.on('LOCAL_POSITION_NED', function(message) {
@@ -1591,6 +1627,16 @@ this.mavlinkParser.on('LOCAL_POSITION_NED', function(message) {
 
     self.emit('speed', self.id, message.header.srcSystem, message.vx);
     self.emit('vsi', self.id, message.header.srcSystem, message.vz);
+
+    if(self.logging) {
+	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+	    ' x: ' + message.x +
+	    ' y: ' + message.y +
+	    ' z: ' + message.z +
+	    ' vx: ' + message.vx +
+	    ' vy: ' + message.vy +
+	    ' vz: ' + message.vz);
+    }
 });
 
 this.mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
@@ -1641,6 +1687,18 @@ this.mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
     self.emit('speed', self.id, message.header.srcSystem, message.vx / 100);
     self.emit('vsi', self.id, message.header.srcSystem, message.vz / 100);
     self.emit('altitude', self.id, message.header.srcSystem, message.alt / 1000);
+
+    if(self.logging) {
+	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+	    ' lat: ' + message.lat / 10000000 + 
+	    ' lng: ' + message.lon / 10000000 + 
+	    ' alt: ' + message.alt / 1000 +
+	    ' rel alt: ' + message.relative_alt / 1000 +
+	    ' vx: ' + message.vx / 100 +
+	    ' vy: ' + message.vy / 100 +
+	    ' vz: ' + message.vz / 100 +
+	    ' hdg: ' + message.hdg / 100);
+    }
 });
 
 // this.mavlinkParser.on('STATUS_TEXT', function(message) {
@@ -1667,6 +1725,12 @@ this.mavlinkParser.on('STATUSTEXT', function(message) {
     text = message.text.substring(0, message.text.indexOf('\u0000'));
 
     self.emit('statusText', self.id, message.header.srcSystem, message.severity, text);
+
+    if(self.logging) {
+	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+	    ' severity: ' + message.severity +
+	    ' text: ' + message.text);
+    }
 });
 
 this.mavlinkParser.on('PARAM_VALUE', function(message) {
@@ -1689,6 +1753,15 @@ this.mavlinkParser.on('PARAM_VALUE', function(message) {
 	console.log('Param Value');
     } else if (self.debug && self.debugLevel > 1) {
 	console.log('Param Value' + 
+	    ' param_id: ' + message.id +
+	    ' param_value: ' + message.param_value +
+	    ' param_type: ' + message.param_type +
+	    ' param_count: ' + message.param_count +
+	    ' param_index: ' + message.param_index);
+    }
+
+    if(self.logging) {
+	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
 	    ' param_id: ' + message.id +
 	    ' param_value: ' + message.param_value +
 	    ' param_type: ' + message.param_type +
@@ -1736,6 +1809,24 @@ this.mavlinkParser.on('HIGHRES_IMU', function(message) {
 	    ' pressure_alt: ' + message.pressure_alt +
 	    ' temperature: ' + message.temperature
 	);
+    }
+
+    if(self.logging) {
+	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+	    ' time_usec: ' + message.time_usec +
+	    ' xacc: ' + message.xacc +
+	    ' yacc: ' + message.yacc +
+	    ' zacc: ' + message.zacc +
+	    ' xgyro: ' + message.xgyro +
+	    ' ygyro: ' + message.ygyro +
+	    ' zgyro: ' + message.zgyro +
+	    ' xmag: ' + message.xmag +
+	    ' ymag: ' + message.ymag +
+	    ' zmag: ' + message.zmag +
+	    ' abs_pressure: ' + message.abs_pressure +
+	    ' diff_pressure: ' + message.diff_pressure +
+	    ' pressure_alt: ' + message.pressure_alt +
+	    ' temperature: ' + message.temperature);
     }
 });
 
@@ -1792,6 +1883,15 @@ this.mavlinkParser.on('SYS_STATUS', function(message) {
 	    ' comm errors: ' + message.errors_comm);
     }
 
+    if(self.logging) {
+	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+	    ' battery voltage (V): ' + (message.voltage_battery / 1000) + 
+	    ' current (mA): ' + (message.current_battery / 100) + 
+	    ' remaining %: ' + message.battery_remaining + 
+	    ' comm drop rate %: ' + message.drop_rate_comm + 
+	    ' comm errors: ' + message.errors_comm);
+    }
+
     var deviceId = message.header.srcSystem;
 
     if(self.devices[deviceId].batteryVoltage    != message.voltage_battery / 1000 || 
@@ -1841,6 +1941,16 @@ this.mavlinkParser.on('ATTITUDE', function(message) {
 	    ' yaw speed: ' + message.yawspeed);
     }
 
+    if(self.logging) {
+	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+	    ' pitch: ' + message.pitch + 
+	    ' roll: ' + message.roll + 
+	    ' yaw: ' + message.yaw + 
+	    ' pitch speed: ' + message.pitch.speed + 
+	    ' rollspeed: ' + message.rollspeed + 
+	    ' yaw speed: ' + message.yawspeed);
+    }
+
     var attitude = new Attitude();
     attitude.pitch = rToP(message.pitch);
     attitude.roll = rToP(message.roll);
@@ -1868,6 +1978,16 @@ this.mavlinkParser.on('VFR_HUD', function(message) {
 	console.log('VFR HUD');
     } else if (self.debugVFR_HUD && self.debugLevel > 1) {
 	console.log('VFR HUD:' + 
+	    ' air speed: ' + message.airspeed + 
+	    ' ground speed: ' + message.groundspeed + 
+	    ' heading: ' + message.heading + 
+	    ' throttle: ' + message.throttle + 
+	    ' altitude: ' + message.alt + 
+	    ' climb: ' + message.climb);
+    }
+
+    if(self.logging) {
+	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
 	    ' air speed: ' + message.airspeed + 
 	    ' ground speed: ' + message.groundspeed + 
 	    ' heading: ' + message.heading + 
@@ -1919,6 +2039,18 @@ this.mavlinkParser.on('GPS_RAW_INT', function(message) {
 	    console.log('GPS Raw (int)');
 	} else if (self.debugGPSRaw && self.debugLevel > 1) {
 	    console.log('GPS Raw (int):' + 
+		' fix type: ' + message.fix_type +
+		' lat: ' + message.lat / 10000000 + 
+		' lng: ' + message.lon / 10000000 + 
+		' alt: ' + message.alt / 1000 + 
+		' eph: ' + message.eph / 100 + 
+		' epv: ' + message.epv / 100 + 
+		' vel: ' + message.vel / 100 + 
+		' cog: ' + message.cog);
+	}
+
+	if(self.logging) {
+	    self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
 		' fix type: ' + message.fix_type +
 		' lat: ' + message.lat / 10000000 + 
 		' lng: ' + message.lon / 10000000 + 

@@ -8,6 +8,12 @@ npm-debug.log
 *.json
 !package.json
 
+# ignore logs #
+###############
+logs
+*.log
+*.logs
+
 # ignore local test files #
 ###########################
 test

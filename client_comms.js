@@ -54,6 +54,9 @@ function ClientComms(options) {
     this.debug = ((options.debug != null) ? options.debug : false);
     this.debugLevel = options.debugLevel || 0;
 
+    this.logging = ((options.analysisLog != null) ? true : false);
+    this.logger = options.analysisLog;
+
     if(this.communicationType !== Message.COMMS_TYPE_UNSECURE_ONLY) {
 	if(!fs.existsSync(this.sslKey)) {
 	    console.log((new Date()) + 'WARNING: cannot find file ' + this.sslKey + ', setting communication mode to UNSECURE ONLY');
@@ -276,14 +279,26 @@ ClientComms.prototype.sendLanded = function(vehicle) {
 
 fireNewConnection = function(self, connection) {
     self.emit('newConnection', connection);
+
+    if(self.logging) {
+	self.logger.info('new connection: ', connection.remoteAddress + ' protocol: ' + connection.protocol);
+    }
 }
 
 fireNewConnectionAuthenticated = function(self, connection) {
     self.emit('newConnectionAuthenticated', connection);
+
+    if(self.logging) {
+	self.logger.info('new connection authenticated: ', connection.remoteAddress + ' protocol: ' + connection.protocol);
+    }
 }
 
 fireNewConnectionAccepted = function(self, connection) {
     self.emit('newConnectionAccepted', connection);
+
+    if(self.logging) {
+	self.logger.info('new connection accepted: ', connection.remoteAddress + ' protocol: ' + connection.protocol);
+    }
 }
 
 rcvdAddVehicle = function(self, data) {
@@ -296,18 +311,34 @@ rcvdDeleteVehicle = function(self, data) {
 
 rcvdUpdateVehicle = function(self, data) {
     self.emit('updateVehicle', data);
+
+    if(self.logging) {
+	self.logger.info('update vehicle', data);
+    }
 }
 
 rcvdUpdateNavPath = function(self, data) {
     self.emit('updateNavPath', data);
+
+    if(self.logging) {
+	self.logger.info('nav path update', data);
+    }
 }
 
 rcvdNavPathSetTargeted = function(self, data) {
     self.emit('navPathSetTargeted', data);
+
+    if(self.logging) {
+	self.logger.info('nav path set targeted', data);
+    }
 }
 
 rcvdSendVehicles = function(self, connection) {
     self.emit('sendVehicles', connection);
+
+    if(self.logging) {
+	self.logger.info('send vehicles', connection);
+    }
 }
 
 rcvdPerformTest = function(self, data) {
@@ -316,70 +347,138 @@ rcvdPerformTest = function(self, data) {
 
 rcvdArm = function(self, data) {
     self.emit('vehicleArm', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle arm', data);
+    }
 }
 
 rcvdDisarm = function(self, data) {
     self.emit('vehicleDisarm', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle disarm', data);
+    }
 }
 
 rcvdLand = function(self, data) {
     self.emit('vehicleLand', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle land', data);
+    }
 }
 
 rcvdAbort = function(self, data) {
     self.emit('vehicleAbort', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle abort', data);
+    }
 }
 
 rcvdLaunch = function(self, data) {
     self.emit('vehicleLaunch', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle launch', data);
+    }
 }
 
 rcvdHalt = function(self, data) {
     self.emit('vehicleHalt', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle halt', data);
+    }
 }
 
 rcvdGo = function(self, data) {
     self.emit('vehicleGo', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle go', data);
+    }
 }
 
 rcvdRebootAutopilot = function(self, data) {
     self.emit('vehicleRebootAutopilot', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle reboot autopilot', data);
+    }
 }
 
 rcvdReboot = function(self, data) {
     self.emit('vehicleReboot', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle reboot', data);
+    }
 }
 
 rcvdShutdownAutopilot = function(self, data) {
     self.emit('vehicleShutdownAutopilot', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle shutdown autopilot', data);
+    }
 }
 
 rcvdShutdown = function(self, data) {
     self.emit('vehicleShutdown', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle shutdown', data);
+    }
 }
 
 rcvdSetAutonomousMode = function(self, data) {
     self.emit('vehicleSetAutonomousMode', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle set autonomous mode', data);
+    }
 }
 
 rcvdSetTestMode = function(self, data) {
     self.emit('vehicleSetTestMode', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle set test mode', data);
+    }
 }
 
 rcvdSetStabilizedMode = function(self, data) {
     self.emit('vehicleSetStabilizedMode', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle set stabilized mode', data);
+    }
 }
 
 rcvdSetHardwareInLoopMode = function(self, data) {
     self.emit('vehicleSetHardwareInLoopMode', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle set hardware in loop mode', data);
+    }
 }
 
 rcvdSetRemoteControlMode = function(self, data) {
     self.emit('vehicleSetRemoteControlMode', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle set remote control mode', data);
+    }
 }
 
 rcvdSetGuidedMode = function(self, data) {
     self.emit('vehicleSetGuidedMode', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle set guided mode', data);
+    }
 }
 
 rcvdUp = function(self, data) {
@@ -427,14 +526,26 @@ rcvdReset = function(self, data) {
 
 rcvdDisconnect = function(self, data) {
     self.emit('vehicleDisconnect', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle disconnect', data);
+    }
 }
 
 rcvdReconnect = function(self, data) {
     self.emit('vehicleReconnect', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle reconnect', data);
+    }
 }
 
 rcvdConnect = function(self, data) {
     self.emit('vehicleConnect', data);
+
+    if(self.logging) {
+	self.logger.info('vehicle connect', data);
+    }
 }
 /*
 rcvd = function(self, data) {

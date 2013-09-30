@@ -20,6 +20,7 @@ var fs                    = require('fs');
 var path                  = require('path');
 var opt                   = require('opt').create();
 var uuid                  = require('node-uuid');
+var log4js                = require('log4js');
 
 var Vehicle               = require('./videre-common/js/vehicle.js');
 var Message               = require('./videre-common/js/message.js');
@@ -37,6 +38,30 @@ var ProtocolRegister = require('./protocols/register.js');
 var VEHICLES_FILE = 'vehicles.json';
 var NAV_PATH_FILE = 'waypoints.json';
 var VEHICLE_COMMS_FILE = 'vehicle_comms.json';
+
+// setup log4js component with a logger
+log4js.configure({
+    appenders: [
+	{
+	    type: "file",
+	    filename: "videre.log",
+	    category: ['videre', 'file' ]
+	},
+	{
+	    type: "file",
+	    filename: "videre_clientcomms.log",
+	    category: ['client', 'file' ]
+	}
+	/*
+	{
+	    type: "console"
+	}
+	*/
+    ],
+    replaceConsole: false
+});
+
+var logger, loggerClientComms;
 
 // load the comms from the file
 var vehicleComms = new VehicleComms({filename: VEHICLE_COMMS_FILE, debug: true});
@@ -69,7 +94,8 @@ var config = {
     uuidV1: false,
     communicationType: Message.COMMS_TYPE_UNSECURE_ONLY,
     sslKey: 'keys/privatekey.pem',
-    sslCert: 'keys/certificate.pem'
+    sslCert: 'keys/certificate.pem',
+    analysis: false,
 };
 
 var commsDefinition = new Comm();
@@ -106,6 +132,10 @@ opt.option(["-d", "--debug"], function (param) {
 	config.debugLevel = 0;
     }
 }, "Generate debugging messages, level is optional. 0 - informational, 1 - detailed");
+
+opt.option(["-a", "--analysis"], function (param) {
+    config.analysis = true;
+}, "Generate logs for analysis");
 
 opt.option(["-vu", "--update-vehicles"], function (param) {
     config.allowUpdateVehicle = true;
@@ -336,6 +366,15 @@ if(listingProtocols) {
     process.exit(1);
 }
 
+// configure analysis logs if required
+if(config.analysis) {
+    logger = log4js.getLogger('videre');
+    logger.setLevel('INFO');
+    loggerClientComms = log4js.getLogger('client');
+    logger.setLevel('INFO');
+    loggerClientComms.info('starting client comms');
+}
+
 // setup the client communications
 clientComms = new ClientComms({
     allowUpdateVehicle: config.updateVehicleEnabled,
@@ -345,6 +384,7 @@ clientComms = new ClientComms({
     communicationType: config.communicationType,
     sslKey: config.sslKey,
     sslCert: config.sslCert,
+    analysisLog: loggerClientComms,
     debug: config.debug,
     debugLevel: config.debugLevel
 });
@@ -736,6 +776,7 @@ function startDeviceComms(comms) {
     var devComms = new Object();
     var protocol;
     var Protocol;
+    var commsLogger;
 
     if(config.debug && comms.length < 1) {
 	console.log((new Date()) + " videre-server.js: startDevicecomms - no devices are defined");
@@ -755,6 +796,14 @@ function startDeviceComms(comms) {
 	    continue;
 	} 
 
+	if(config.analysis) {
+	    log4js.loadAppender('file');
+	    var filename = 'device_comms_' + i + '.log';
+	    var logId = 'device_comms_' + i;
+	    log4js.addAppender(log4js.appenders.file(filename), logId);
+            commsLogger = log4js.getLogger(logId);
+	}
+
 	var protocol = new Protocol({
 	    name: comms[i].protocol,
 	    debug: config.debug,
@@ -767,6 +816,8 @@ function startDeviceComms(comms) {
 
 	    getVehicleIdFunction: getVehicleId,
 	    getDeviceOptionsFunction: getVehicleOptions,
+
+	    analysisLog: commsLogger,
 
 	    debugWaypoints: false,
 	    debugHeartbeat: false,

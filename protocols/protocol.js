@@ -88,6 +88,9 @@ function Protocol(options) {
 	this.id = this.networkAddress + ":" + networkPort;
     }
 
+    this.logging = ((options.analysisLog != null) ? true : false);
+    this.logger = options.analysisLog;
+
     // set to true if heading is determined from attitude info
     this.headingDetermined = false;
 
