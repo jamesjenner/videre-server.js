@@ -49,8 +49,13 @@ log4js.configure({
 	},
 	{
 	    type: "file",
-	    filename: "videre_clientcomms.log",
-	    category: ['client', 'file' ]
+	    filename: "videre_clientcomms_in.log",
+	    category: ['clientIn', 'file' ]
+	},
+	{
+	    type: "file",
+	    filename: "videre_clientcomms_out.log",
+	    category: ['clientOut', 'file' ]
 	}
 	/*
 	{
@@ -61,7 +66,7 @@ log4js.configure({
     replaceConsole: false
 });
 
-var logger, loggerClientComms;
+var logger, loggerClientCommsIn, loggerClientCommsOut;
 
 // load the comms from the file
 var vehicleComms = new VehicleComms({filename: VEHICLE_COMMS_FILE, debug: true});
@@ -370,9 +375,12 @@ if(listingProtocols) {
 if(config.analysis) {
     logger = log4js.getLogger('videre');
     logger.setLevel('INFO');
-    loggerClientComms = log4js.getLogger('client');
-    logger.setLevel('INFO');
-    loggerClientComms.info('starting client comms');
+    loggerClientCommsIn = log4js.getLogger('clientIn');
+    loggerClientCommsIn.setLevel('INFO');
+    loggerClientCommsIn.info('starting client comms');
+    loggerClientCommsOut = log4js.getLogger('clientOut');
+    loggerClientCommsOut.setLevel('INFO');
+    loggerClientCommsOut.info('starting client comms');
 }
 
 // setup the client communications
@@ -384,7 +392,8 @@ clientComms = new ClientComms({
     communicationType: config.communicationType,
     sslKey: config.sslKey,
     sslCert: config.sslCert,
-    analysisLog: loggerClientComms,
+    analysisLogIn: loggerClientCommsIn,
+    analysisLogOut: loggerClientCommsOut,
     debug: config.debug,
     debugLevel: config.debugLevel
 });
@@ -776,7 +785,8 @@ function startDeviceComms(comms) {
     var devComms = new Object();
     var protocol;
     var Protocol;
-    var commsLogger;
+    var commsLoggerIn;
+    var commsLoggerOut;
 
     if(config.debug && comms.length < 1) {
 	console.log((new Date()) + " videre-server.js: startDevicecomms - no devices are defined");
@@ -798,10 +808,14 @@ function startDeviceComms(comms) {
 
 	if(config.analysis) {
 	    log4js.loadAppender('file');
-	    var filename = 'device_comms_' + i + '.log';
-	    var logId = 'device_comms_' + i;
+	    var filename = 'device_comms_' + i + '_in.log';
+	    var logId = 'device_comms_' + i + '_in';
 	    log4js.addAppender(log4js.appenders.file(filename), logId);
-            commsLogger = log4js.getLogger(logId);
+            commsLoggerIn = log4js.getLogger(logId);
+	    filename = 'device_comms_' + i + '_out.log';
+	    logId = 'device_comms_' + i + '_out';
+	    log4js.addAppender(log4js.appenders.file(filename), logId);
+            commsLoggerOut = log4js.getLogger(logId);
 	}
 
 	var protocol = new Protocol({
@@ -817,7 +831,8 @@ function startDeviceComms(comms) {
 	    getVehicleIdFunction: getVehicleId,
 	    getDeviceOptionsFunction: getVehicleOptions,
 
-	    analysisLog: commsLogger,
+	    analysisLogIn: commsLoggerIn,
+	    analysisLogOut: commsLoggerOut,
 
 	    debugWaypoints: false,
 	    debugHeartbeat: false,

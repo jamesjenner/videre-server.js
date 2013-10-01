@@ -172,6 +172,9 @@ MavlinkProtocol.prototype.setAutonomousMode = function(vehicleId, setAutonomous)
     // send message
     this._writeMessage(new mavlink.messages.set_mode(deviceId, newMode, this.devices[deviceId]._customMode));
 
+    if(this.loggingOut) {
+	this.loggerOut.info(vehicleId + ':' + deviceId + ':' + ' set autonomous mode ' + setAutonomous);
+    }
     return true;
 }
 
@@ -210,6 +213,10 @@ MavlinkProtocol.prototype.setTestMode = function(vehicleId, setTestMode) {
 
     // send message
     this._writeMessage(new mavlink.messages.set_mode(deviceId, newMode, this.devices[deviceId]._customMode));
+
+    if(this.loggingOut) {
+	this.loggerOut.info(vehicleId + ':' + deviceId + ':' + ' set test mode ' + setTestMode);
+    }
 
     return true;
 }
@@ -250,6 +257,10 @@ MavlinkProtocol.prototype.setStabilizedMode = function(vehicleId, setStabilized)
     // send message
     this._writeMessage(new mavlink.messages.set_mode(deviceId, newMode, this.devices[deviceId]._customMode));
 
+    if(this.loggingOut) {
+	this.loggerOut.info(vehicleId + ':' + deviceId + ':' + ' set stabilized mode ' + setStabilized);
+    }
+
     return true;
 }
 
@@ -288,6 +299,10 @@ MavlinkProtocol.prototype.setHardwareInLoopMode = function(vehicleId, setHIL) {
 
     // send message
     this._writeMessage(new mavlink.messages.set_mode(deviceId, newMode, this.devices[deviceId]._customMode));
+
+    if(this.loggingOut) {
+	this.loggerOut.info(vehicleId + ':' + deviceId + ':' + ' set hardware in loop mode ' + setHIL);
+    }
 
     return true;
 }
@@ -328,6 +343,10 @@ MavlinkProtocol.prototype.setRemoteControlMode = function(vehicleId, setRemoteCo
     // send message
     this._writeMessage(new mavlink.messages.set_mode(deviceId, newMode, this.devices[deviceId]._customMode));
 
+    if(this.loggingOut) {
+	this.loggerOut.info(vehicleId + ':' + deviceId + ':' + ' set remote control mode ' + setRemoteControl);
+    }
+
     return true;
 }
 
@@ -366,6 +385,10 @@ MavlinkProtocol.prototype.setGuidedMode = function(vehicleId, setGuided) {
 
     // send message
     this._writeMessage(new mavlink.messages.set_mode(deviceId, newMode, this.devices[deviceId]._customMode));
+
+    if(this.loggingOut) {
+	this.loggerOut.info(vehicleId + ':' + deviceId + ':' + ' set guided mode ' + setGuided);
+    }
 
     return true;
 }
@@ -406,6 +429,10 @@ MavlinkProtocol.prototype.setArmedMode = function(vehicleId, setArmed) {
     // send message
     this._writeMessage(new mavlink.messages.set_mode(deviceId, newMode, this.devices[deviceId]._customMode));
 
+    if(this.loggingOut) {
+	this.loggerOut.info(vehicleId + ':' + deviceId + ':' + ' set armed mode ' + setArmed);
+    }
+
     return true;
 }
 
@@ -430,6 +457,10 @@ MavlinkProtocol.prototype.launch = function(vehicleId) {
 	0,
 	0,
 	0));
+
+    if(this.loggingOut) {
+	this.loggerOut.info(vehicleId + ':' + deviceId + ':' + ' launch');
+    }
 }
 
 /**
@@ -453,6 +484,10 @@ MavlinkProtocol.prototype.land = function(vehicleId) {
 	0,
 	0,
 	0));
+
+    if(this.loggingOut) {
+	this.loggerOut.info(vehicleId + ':' + deviceId + ':' + ' land');
+    }
 }
 
 /**
@@ -476,6 +511,10 @@ MavlinkProtocol.prototype.halt = function(vehicleId) {
 	0,
 	0,
 	0));
+
+    if(this.loggingOut) {
+	this.loggerOut.info(vehicleId + ':' + deviceId + ':' + ' halt');
+    }
 }
 
 /**
@@ -499,6 +538,10 @@ MavlinkProtocol.prototype.go = function(vehicleId) {
 	0,
 	0,
 	0));
+
+    if(this.loggingOut) {
+	this.loggerOut.info(vehicleId + ':' + deviceId + ':' + ' go');
+    }
 }
 
 /**
@@ -522,6 +565,10 @@ MavlinkProtocol.prototype.rebootAutopilot = function(vehicleId) {
 	0,
 	0,
 	0));
+
+    if(this.loggingOut) {
+	this.loggerOut.info(vehicleId + ':' + deviceId + ':' + ' reboot autopilot');
+    }
 }
 
 /**
@@ -545,6 +592,10 @@ MavlinkProtocol.prototype.reboot = function(vehicleId) {
 	0,
 	0,
 	0));
+
+    if(this.loggingOut) {
+	this.loggerOut.info(vehicleId + ':' + deviceId + ':' + ' reboot');
+    }
 }
 
 /**
@@ -568,6 +619,10 @@ MavlinkProtocol.prototype.shutdownAutopilot = function(vehicleId) {
 	0,
 	0,
 	0));
+
+    if(this.loggingOut) {
+	this.loggerOut.info(vehicleId + ':' + deviceId + ':' + ' shutdown autopilot');
+    }
 }
 
 /**
@@ -591,6 +646,10 @@ MavlinkProtocol.prototype.shutdown = function(vehicleId) {
 	0,
 	0,
 	0));
+
+    if(this.loggingOut) {
+	this.loggerOut.info(vehicleId + ':' + deviceId + ':' + ' shutdown');
+    }
 }
 
 /**
@@ -743,6 +802,10 @@ MavlinkProtocol.prototype.requestSetTargetWaypoint = function(vehicleId, waypoin
 	// request set target waypoint
 	this._writeMessage(new mavlink.messages.mission_set_current(deviceId, MavlinkProtocol.COMMAND_COMPONENT, waypoint));
 
+	if(this.loggingOut) {
+	    this.loggerOut.info(vehicleId + ':' + deviceId + ':' + ' request set target waypoint ' + waypoint);
+	}
+
 	/*
 	this._writeWithTimeout({
 	    deviceId: deviceId,
@@ -865,8 +928,8 @@ this.mavlinkParser.on('message', function(message) {
 	console.log(message.name + ' <- received message for ' + self.id + ":" + message.header.srcSystem + ", protocol " + self.name);
     }
 
-    if(self.logging) {
-	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name);
+    if(self.loggingIn) {
+	self.loggerIn.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name);
     }
 });
 
@@ -890,8 +953,8 @@ this.mavlinkParser.on('PING', function(message) {
 	    ' target_component: ' + message.target_component);
     }
 
-    if(self.logging) {
-	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+    if(self.loggingIn) {
+	self.loggerIn.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
 	    ' time_usec: ' + message.time_usec + 
 	    ' seq: ' + message.seq +
 	    ' target_system: ' + message.target_system +
@@ -1162,8 +1225,8 @@ this.mavlinkParser.on('HEARTBEAT', function(message) {
 	console.log('           mavlink version:  ' + message.mavlink_version);
     }
 
-    if(self.logging) {
-	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+    if(self.loggingIn) {
+	self.loggerIn.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
 	    ' autopilot: ' + self.devices[deviceId].autopilot +
 	    ' base_mode: ' + message.base_mode +
 	    ' autonomous mode: ' + self.devices[deviceId].autonomousMode +
@@ -1578,8 +1641,8 @@ this.mavlinkParser.on('MISSION_CURRENT', function(message) {
 
     self.emit('waypointTargeted', self.id, deviceId, message.seq);
 
-    if(self.logging) {
-	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+    if(self.loggingIn) {
+	self.loggerIn.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
 	    ' seq: ' + message.seq);
     }
 });
@@ -1589,8 +1652,8 @@ this.mavlinkParser.on('MISSION_ITEM_REACHED', function(message) {
 
     self.emit('waypointAchieved', self.id, deviceId, message.seq);
 
-    if(self.logging) {
-	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+    if(self.loggingIn) {
+	self.loggerIn.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
 	    ' seq: ' + message.seq);
     }
 });
@@ -1628,8 +1691,8 @@ this.mavlinkParser.on('LOCAL_POSITION_NED', function(message) {
     self.emit('speed', self.id, message.header.srcSystem, message.vx);
     self.emit('vsi', self.id, message.header.srcSystem, message.vz);
 
-    if(self.logging) {
-	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+    if(self.loggingIn) {
+	self.loggerIn.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
 	    ' x: ' + message.x +
 	    ' y: ' + message.y +
 	    ' z: ' + message.z +
@@ -1688,8 +1751,8 @@ this.mavlinkParser.on('GLOBAL_POSITION_INT', function(message) {
     self.emit('vsi', self.id, message.header.srcSystem, message.vz / 100);
     self.emit('altitude', self.id, message.header.srcSystem, message.alt / 1000);
 
-    if(self.logging) {
-	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+    if(self.loggingIn) {
+	self.loggerIn.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
 	    ' lat: ' + message.lat / 10000000 + 
 	    ' lng: ' + message.lon / 10000000 + 
 	    ' alt: ' + message.alt / 1000 +
@@ -1726,8 +1789,8 @@ this.mavlinkParser.on('STATUSTEXT', function(message) {
 
     self.emit('statusText', self.id, message.header.srcSystem, message.severity, text);
 
-    if(self.logging) {
-	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+    if(self.loggingIn) {
+	self.loggerIn.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
 	    ' severity: ' + message.severity +
 	    ' text: ' + message.text);
     }
@@ -1760,8 +1823,8 @@ this.mavlinkParser.on('PARAM_VALUE', function(message) {
 	    ' param_index: ' + message.param_index);
     }
 
-    if(self.logging) {
-	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+    if(self.loggingIn) {
+	self.loggerIn.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
 	    ' param_id: ' + message.id +
 	    ' param_value: ' + message.param_value +
 	    ' param_type: ' + message.param_type +
@@ -1811,8 +1874,8 @@ this.mavlinkParser.on('HIGHRES_IMU', function(message) {
 	);
     }
 
-    if(self.logging) {
-	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+    if(self.loggingIn) {
+	self.loggerIn.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
 	    ' time_usec: ' + message.time_usec +
 	    ' xacc: ' + message.xacc +
 	    ' yacc: ' + message.yacc +
@@ -1883,8 +1946,8 @@ this.mavlinkParser.on('SYS_STATUS', function(message) {
 	    ' comm errors: ' + message.errors_comm);
     }
 
-    if(self.logging) {
-	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+    if(self.loggingIn) {
+	self.loggerIn.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
 	    ' battery voltage (V): ' + (message.voltage_battery / 1000) + 
 	    ' current (mA): ' + (message.current_battery / 100) + 
 	    ' remaining %: ' + message.battery_remaining + 
@@ -1941,8 +2004,8 @@ this.mavlinkParser.on('ATTITUDE', function(message) {
 	    ' yaw speed: ' + message.yawspeed);
     }
 
-    if(self.logging) {
-	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+    if(self.loggingIn) {
+	self.loggerIn.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
 	    ' pitch: ' + message.pitch + 
 	    ' roll: ' + message.roll + 
 	    ' yaw: ' + message.yaw + 
@@ -1986,8 +2049,8 @@ this.mavlinkParser.on('VFR_HUD', function(message) {
 	    ' climb: ' + message.climb);
     }
 
-    if(self.logging) {
-	self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+    if(self.loggingIn) {
+	self.loggerIn.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
 	    ' air speed: ' + message.airspeed + 
 	    ' ground speed: ' + message.groundspeed + 
 	    ' heading: ' + message.heading + 
@@ -2049,8 +2112,8 @@ this.mavlinkParser.on('GPS_RAW_INT', function(message) {
 		' cog: ' + message.cog);
 	}
 
-	if(self.logging) {
-	    self.logger.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
+	if(self.loggingIn) {
+	    self.loggerIn.info(self.id + ':' + message.header.srcSystem + ':' + message.header.srcComponent + ': ' + message.name +
 		' fix type: ' + message.fix_type +
 		' lat: ' + message.lat / 10000000 + 
 		' lng: ' + message.lon / 10000000 + 

@@ -54,8 +54,11 @@ function ClientComms(options) {
     this.debug = ((options.debug != null) ? options.debug : false);
     this.debugLevel = options.debugLevel || 0;
 
-    this.logging = ((options.analysisLog != null) ? true : false);
-    this.logger = options.analysisLog;
+    this.loggingIn = ((options.analysisLogIn != null) ? true : false);
+    this.loggerIn = options.analysisLogIn;
+
+    this.loggingOut = ((options.analysisLogOut != null) ? true : false);
+    this.loggerOut = options.analysisLogOut;
 
     if(this.communicationType !== Message.COMMS_TYPE_UNSECURE_ONLY) {
 	if(!fs.existsSync(this.sslKey)) {
@@ -185,26 +188,50 @@ ClientComms.prototype.sendNavPathUpdated = function(connection, id) {
 	console.log((new Date()) + ' Sending id: ' + Message.NAV_PATH_UPDATED + ' body: ' + JSON.stringify(id));
     }
     connection.send(Message.constructMessage(Message.NAV_PATH_UPDATED, id));
+
+    if(this.loggingOut) {
+	this.loggerOut.info('send: ' + connection.remoteAddress + ':' + id + ' nav path updated');
+    }
 }
 
 ClientComms.prototype.sendTelemetry = function(id, telemetry) {
     this._constructAndBroadcastMsg(Message.VEHICLE_TELEMETRY, {id: id, telemetry: telemetry}, 4);
+
+    if(this.loggingOut) {
+	this.loggerOut.info('broadcast: ' + id + ' vehicle telemetry: ', telemetry);
+    }
 }
 
 ClientComms.prototype.sendPosition = function(id, position) {
     this._constructAndBroadcastMsg(Message.CURRENT_POSITION, {id: id, position: position}, 4);
+
+    if(this.loggingOut) {
+	this.loggerOut.info('broadcast: ' + id + ' current position: ', position);
+    }
 }
 
 ClientComms.prototype.sendPositionToConnection = function(connection, id, position) {
     connection.send(Message.constructMessage(Message.CURRENT_POSITION, {id: id, position: position}, 4));
+
+    if(this.loggingOut) {
+	this.loggerOut.info('send: ' + connection.remoteAddress + ':' + id + ' current position: ', position);
+    }
 }
 
 ClientComms.prototype.sendPayload = function(id, payload) {
     this._constructAndBroadcastMsg(Message.VEHICLE_PAYLOAD, {id: id, payload: payload}, 4);
+
+    if(this.loggingOut) {
+	this.loggerOut.info('broadcast: ' + id + ' vehicle payload: ', payload);
+    }
 }
 
 ClientComms.prototype.sendState = function(id, state) {
     this._constructAndBroadcastMsg(Message.VEHICLE_STATE, {id: id, state: state}, 4);
+
+    if(this.loggingOut) {
+	this.loggerOut.info('broadcast: ' + id + ' vehicle state: ', state);
+    }
 }
 
 ClientComms.prototype.sendWaypointSetError = function(id, text) {
@@ -213,14 +240,26 @@ ClientComms.prototype.sendWaypointSetError = function(id, text) {
 
 ClientComms.prototype.sendWaypointAchieved = function(id, sequence) {
     this._constructAndBroadcastMsg(Message.NAV_PATH_WAYPOINT_ACHIEVED, {id: id, sequence: sequence}, 4);
+
+    if(this.loggingOut) {
+	this.loggerOut.info('broadcast: ' + id + ' nav path waypoint achieved: ', sequence);
+    }
 }
 
 ClientComms.prototype.sendWaypointTargeted = function(id, sequence) {
     this._constructAndBroadcastMsg(Message.NAV_PATH_SET_TARGETED, {id: id, sequence: sequence}, 4);
+
+    if(this.loggingOut) {
+	this.loggerOut.info('broadcast: ' + id + ' nav path waypoint targeted: ', sequence);
+    }
 }
 
 ClientComms.prototype.sendStatusMsg = function(id, severity, text) {
     this._constructAndBroadcastMsg(Message.VEHICLE_STATUS_MSG, {id: id, severity: severity, text: text}, 4);
+
+    if(this.loggingOut) {
+	this.loggerOut.info('broadcast: ' + id + ' vehicle status msg: severity: ' +  severity + ' : ' + text);
+    }
 }
 
 ClientComms.prototype._broadcastMsg = function(msg) {
@@ -243,61 +282,97 @@ ClientComms.prototype._constructAndBroadcastMsg = function(msgId, body, dbgLvl) 
 
 ClientComms.prototype.sendConnecting = function(vehicle) {
     this._constructAndBroadcastMsg(Message.VEHICLE_CONNECTING, {id: vehicle.id}, 4);
+
+    if(this.loggingOut) {
+	this.loggerOut.info('broadcast: vehicle connecting: ' + vehicle.id);
+    }
 }
 
 ClientComms.prototype.sendConnected = function(vehicle) {
     this._constructAndBroadcastMsg(Message.VEHICLE_CONNECTED, {id: vehicle.id}, 4);
+
+    if(this.loggingOut) {
+	this.loggerOut.info('broadcast: vehicle connected: ' + vehicle.id);
+    }
 }
 
 ClientComms.prototype.sendDisconnecting = function(vehicle) {
     this._constructAndBroadcastMsg(Message.VEHICLE_DISCONNECTING, {id: vehicle.id}, 4);
+
+    if(this.loggingOut) {
+	this.loggerOut.info('broadcast: vehicle disconnecting: ' + vehicle.id);
+    }
 }
 
 ClientComms.prototype.sendDisconnected = function(vehicle) {
     this._constructAndBroadcastMsg(Message.VEHICLE_DISCONNECTED, {id: vehicle.id}, 4);
+
+    if(this.loggingOut) {
+	this.loggerOut.info('broadcast: vehicle disconnected: ' + vehicle.id);
+    }
 }
 
 ClientComms.prototype.sendReconnecting = function(vehicle) {
     this._constructAndBroadcastMsg(Message.VEHICLE_RECONNECTING, {id: vehicle.id}, 4);
+
+    if(this.loggingOut) {
+	this.loggerOut.info('broadcast: vehicle reconnecting: ' + vehicle.id);
+    }
 }
 
 ClientComms.prototype.sendLaunching = function(vehicle) {
     this._constructAndBroadcastMsg(Message.VEHICLE_LAUNCHING, {id: vehicle.id}, 4);
+
+    if(this.loggingOut) {
+	this.loggerOut.info('broadcast: vehicle launching: ' + vehicle.id);
+    }
 }
 
 ClientComms.prototype.sendLaunched = function(vehicle) {
     this._constructAndBroadcastMsg(Message.VEHICLE_LAUNCHED, {id: vehicle.id}, 4);
+
+    if(this.loggingOut) {
+	this.loggerOut.info('broadcast: vehicle launched: ' + vehicle.id);
+    }
 }
 
 ClientComms.prototype.sendLanding = function(vehicle) {
     this._constructAndBroadcastMsg(Message.VEHICLE_LANDING, {id: vehicle.id}, 4);
+
+    if(this.loggingOut) {
+	this.loggerOut.info('broadcast: vehicle landing: ' + vehicle.id);
+    }
 }
 
 ClientComms.prototype.sendLanded = function(vehicle) {
     this._constructAndBroadcastMsg(Message.VEHICLE_LANDED, {id: vehicle.id}, 4);
+
+    if(this.loggingOut) {
+	this.loggerOut.info('broadcast: vehicle landed: ' + vehicle.id);
+    }
 }
 
 fireNewConnection = function(self, connection) {
     self.emit('newConnection', connection);
 
-    if(self.logging) {
-	self.logger.info('new connection: ', connection.remoteAddress + ' protocol: ' + connection.protocol);
+    if(self.loggingIn) {
+	self.loggerIn.info('new connection: ', connection.remoteAddress + ' protocol: ' + connection.protocol);
     }
 }
 
 fireNewConnectionAuthenticated = function(self, connection) {
     self.emit('newConnectionAuthenticated', connection);
 
-    if(self.logging) {
-	self.logger.info('new connection authenticated: ', connection.remoteAddress + ' protocol: ' + connection.protocol);
+    if(self.loggingIn) {
+	self.loggerIn.info('new connection authenticated: ', connection.remoteAddress + ' protocol: ' + connection.protocol);
     }
 }
 
 fireNewConnectionAccepted = function(self, connection) {
     self.emit('newConnectionAccepted', connection);
 
-    if(self.logging) {
-	self.logger.info('new connection accepted: ', connection.remoteAddress + ' protocol: ' + connection.protocol);
+    if(self.loggingIn) {
+	self.loggerIn.info('new connection accepted: ', connection.remoteAddress + ' protocol: ' + connection.protocol);
     }
 }
 
@@ -312,32 +387,32 @@ rcvdDeleteVehicle = function(self, data) {
 rcvdUpdateVehicle = function(self, data) {
     self.emit('updateVehicle', data);
 
-    if(self.logging) {
-	self.logger.info('update vehicle', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('update vehicle', data);
     }
 }
 
 rcvdUpdateNavPath = function(self, data) {
     self.emit('updateNavPath', data);
 
-    if(self.logging) {
-	self.logger.info('nav path update', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('nav path update', data);
     }
 }
 
 rcvdNavPathSetTargeted = function(self, data) {
     self.emit('navPathSetTargeted', data);
 
-    if(self.logging) {
-	self.logger.info('nav path set targeted', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('nav path set targeted', data);
     }
 }
 
 rcvdSendVehicles = function(self, connection) {
     self.emit('sendVehicles', connection);
 
-    if(self.logging) {
-	self.logger.info('send vehicles', connection);
+    if(self.loggingIn) {
+	self.loggerIn.info('send vehicles', connection);
     }
 }
 
@@ -348,136 +423,136 @@ rcvdPerformTest = function(self, data) {
 rcvdArm = function(self, data) {
     self.emit('vehicleArm', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle arm', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle arm', data);
     }
 }
 
 rcvdDisarm = function(self, data) {
     self.emit('vehicleDisarm', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle disarm', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle disarm', data);
     }
 }
 
 rcvdLand = function(self, data) {
     self.emit('vehicleLand', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle land', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle land', data);
     }
 }
 
 rcvdAbort = function(self, data) {
     self.emit('vehicleAbort', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle abort', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle abort', data);
     }
 }
 
 rcvdLaunch = function(self, data) {
     self.emit('vehicleLaunch', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle launch', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle launch', data);
     }
 }
 
 rcvdHalt = function(self, data) {
     self.emit('vehicleHalt', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle halt', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle halt', data);
     }
 }
 
 rcvdGo = function(self, data) {
     self.emit('vehicleGo', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle go', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle go', data);
     }
 }
 
 rcvdRebootAutopilot = function(self, data) {
     self.emit('vehicleRebootAutopilot', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle reboot autopilot', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle reboot autopilot', data);
     }
 }
 
 rcvdReboot = function(self, data) {
     self.emit('vehicleReboot', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle reboot', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle reboot', data);
     }
 }
 
 rcvdShutdownAutopilot = function(self, data) {
     self.emit('vehicleShutdownAutopilot', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle shutdown autopilot', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle shutdown autopilot', data);
     }
 }
 
 rcvdShutdown = function(self, data) {
     self.emit('vehicleShutdown', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle shutdown', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle shutdown', data);
     }
 }
 
 rcvdSetAutonomousMode = function(self, data) {
     self.emit('vehicleSetAutonomousMode', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle set autonomous mode', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle set autonomous mode', data);
     }
 }
 
 rcvdSetTestMode = function(self, data) {
     self.emit('vehicleSetTestMode', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle set test mode', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle set test mode', data);
     }
 }
 
 rcvdSetStabilizedMode = function(self, data) {
     self.emit('vehicleSetStabilizedMode', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle set stabilized mode', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle set stabilized mode', data);
     }
 }
 
 rcvdSetHardwareInLoopMode = function(self, data) {
     self.emit('vehicleSetHardwareInLoopMode', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle set hardware in loop mode', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle set hardware in loop mode', data);
     }
 }
 
 rcvdSetRemoteControlMode = function(self, data) {
     self.emit('vehicleSetRemoteControlMode', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle set remote control mode', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle set remote control mode', data);
     }
 }
 
 rcvdSetGuidedMode = function(self, data) {
     self.emit('vehicleSetGuidedMode', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle set guided mode', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle set guided mode', data);
     }
 }
 
@@ -527,24 +602,24 @@ rcvdReset = function(self, data) {
 rcvdDisconnect = function(self, data) {
     self.emit('vehicleDisconnect', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle disconnect', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle disconnect', data);
     }
 }
 
 rcvdReconnect = function(self, data) {
     self.emit('vehicleReconnect', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle reconnect', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle reconnect', data);
     }
 }
 
 rcvdConnect = function(self, data) {
     self.emit('vehicleConnect', data);
 
-    if(self.logging) {
-	self.logger.info('vehicle connect', data);
+    if(self.loggingIn) {
+	self.loggerIn.info('vehicle connect', data);
     }
 }
 /*
