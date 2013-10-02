@@ -16,6 +16,8 @@ SYNOPSIS: Videre server provides connecitvity between videre clients and drones.
 
 OPTIONS:
 
+-a, --analysis                Create logging for comms analysis
+
 -d, --debug                   Generate debugging messages, level is optional. 0 - informational, 1 - detailed (includes telemetry)
 
 -ca, --comms-add              Add a comms definition
@@ -83,6 +85,7 @@ Module Dependancies are:
  - ar-drone - https://npmjs.org/package/ar-drone or https://github.com/felixge/node-ar-drone
  - serialport - https://npmjs.org/package/serialport
  - underscore - https://npmjs.org/package/underscore
+ - log4js - https://github.com/nomiddlename/log4js-node
 
 To install the modules use the following command:
 
@@ -100,6 +103,7 @@ npm install opt
 npm install ar-drone
 npm install serialport
 npm install underscore
+npm install log4js
 ```
 
 Submodules
